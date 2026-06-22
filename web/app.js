@@ -4,6 +4,7 @@ const state = {
   manifest: null,
   layers: new Map(),
   features: new Map(),
+  subcategoryFilters: new Map(),
   activeSlot: "A",
   selections: { A: null, B: null },
   selectionMarkers: { A: null, B: null },
@@ -172,11 +173,15 @@ function detailRows(properties) {
     ["Type", [properties.asset_class, properties.asset_type].filter(Boolean).join(" / ")],
     ["Source", properties.source_dataset],
     ["Layer", properties.source_layer],
+    ["Category", properties.derived_subcategory_label],
+    ["Translated", properties.name_translated],
     ["Description", properties.description],
+    ["Description EN", properties.description_translated],
     ["Operator", properties.operator],
     ["Product", properties.product],
     ["INN", properties.inn],
     ["Region", properties.region],
+    ["Region EN", properties.region_translated],
     ["Sanctioned", properties.is_sanctioned],
     ["Location", properties.location_quality],
     ["Length", properties.length_km ? `${numberFmt(properties.length_km, 2)} km` : ""],
@@ -283,6 +288,45 @@ function hideLoading() {
   els.loadingToast.hidden = true;
 }
 
+function featureSubcategory(feature) {
+  const p = feature?.properties || {};
+  return p.derived_subcategory || p.asset_type || "uncategorized";
+}
+
+function isSubcategoryEnabled(layerId, subcategory) {
+  const enabled = state.subcategoryFilters.get(layerId);
+  return !enabled || enabled.has(subcategory);
+}
+
+function featurePassesActiveFilters(feature) {
+  const p = feature?.properties || {};
+  return isSubcategoryEnabled(p.map_layer, featureSubcategory(feature));
+}
+
+function createFilteredLayer(record) {
+  return createLeafletLayer({
+    type: "FeatureCollection",
+    features: record.features.filter(featurePassesActiveFilters),
+  });
+}
+
+function refreshLayerFilters(layerInfo) {
+  const record = state.layers.get(layerInfo.id);
+  if (record?.loaded) {
+    const wasVisible = record.visible;
+    if (record.layer && map.hasLayer(record.layer)) {
+      map.removeLayer(record.layer);
+    }
+    record.layer = createFilteredLayer(record);
+    if (wasVisible) {
+      record.layer.addTo(map);
+    }
+  }
+  renderLoadedCount();
+  renderSearch();
+  syncOverlaysWithVisibleLayers();
+}
+
 async function loadLayer(layerInfo, checkbox, row) {
   let record = state.layers.get(layerInfo.id);
   if (record?.loaded) {
@@ -296,18 +340,19 @@ async function loadLayer(layerInfo, checkbox, row) {
 
   row.classList.add("loading");
   const files = Array.isArray(layerInfo.files) && layerInfo.files.length ? layerInfo.files : [layerInfo.file];
-  const sublayers = [];
+  const features = [];
   for (let index = 0; index < files.length; index += 1) {
     const file = files[index];
     showLoading(files.length > 1 ? `Loading ${layerInfo.label} (${index + 1}/${files.length})...` : `Loading ${layerInfo.label}...`);
     const response = await fetch(DATA_DIR + file);
     if (!response.ok) throw new Error(`Failed to load ${file}`);
     const data = await response.json();
-    sublayers.push(createLeafletLayer(data));
+    features.push(...(data.features || []));
   }
-  const layer = L.featureGroup(sublayers);
+  record = { ...layerInfo, features, loaded: true, visible: true };
+  const layer = createFilteredLayer(record);
   layer.addTo(map);
-  record = { ...layerInfo, layer, loaded: true, visible: true };
+  record.layer = layer;
   state.layers.set(layerInfo.id, record);
   row.classList.remove("loading");
   hideLoading();
@@ -329,6 +374,11 @@ function unloadLayer(layerInfo) {
 function renderLayers() {
   els.layersList.innerHTML = "";
   for (const layerInfo of state.manifest.layers) {
+    const subcategories = Array.isArray(layerInfo.subcategories) ? layerInfo.subcategories : [];
+    if (subcategories.length) {
+      state.subcategoryFilters.set(layerInfo.id, new Set(subcategories.map((item) => item.id)));
+    }
+
     const row = document.createElement("label");
     row.className = "layer-row";
     const checkbox = document.createElement("input");
@@ -342,6 +392,33 @@ function renderLayers() {
     name.innerHTML = `<strong>${escapeHtml(layerInfo.label)}</strong><span>${layerInfo.count.toLocaleString()} records</span>`;
     row.append(checkbox, name, swatch);
     els.layersList.appendChild(row);
+
+    if (subcategories.length > 1) {
+      const subcategoryList = document.createElement("div");
+      subcategoryList.className = "subcategory-list";
+      for (const subcategory of subcategories) {
+        const subRow = document.createElement("label");
+        subRow.className = "subcategory-row";
+        const subCheckbox = document.createElement("input");
+        subCheckbox.type = "checkbox";
+        subCheckbox.checked = true;
+        const subName = document.createElement("span");
+        subName.textContent = `${subcategory.label} (${subcategory.count.toLocaleString()})`;
+        subRow.append(subCheckbox, subName);
+        subcategoryList.appendChild(subRow);
+        subCheckbox.addEventListener("change", () => {
+          const enabled = state.subcategoryFilters.get(layerInfo.id) || new Set();
+          if (subCheckbox.checked) {
+            enabled.add(subcategory.id);
+          } else {
+            enabled.delete(subcategory.id);
+          }
+          state.subcategoryFilters.set(layerInfo.id, enabled);
+          refreshLayerFilters(layerInfo);
+        });
+      }
+      els.layersList.appendChild(subcategoryList);
+    }
 
     checkbox.addEventListener("change", async () => {
       try {
@@ -392,7 +469,7 @@ function loadedVisibleFeatures() {
   );
   return [...state.features.values()].filter((stored) => {
     const p = stored.feature.properties || {};
-    return visibleLayerIds.has(p.map_layer) && stored.point;
+    return visibleLayerIds.has(p.map_layer) && featurePassesActiveFilters(stored.feature) && stored.point;
   });
 }
 
@@ -400,7 +477,7 @@ function isFeatureVisible(feature) {
   const p = feature?.properties || {};
   if (!p.map_layer) return p.source_dataset === "Manual selection";
   const record = state.layers.get(p.map_layer);
-  return !!record?.visible;
+  return !!record?.visible && featurePassesActiveFilters(feature);
 }
 
 function syncOverlaysWithVisibleLayers() {

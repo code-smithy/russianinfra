@@ -27,13 +27,25 @@
       "file_details": [
         {
           "file": "energy_facilities.geojson",
-          "size_bytes": 461218,
+          "size_bytes": 562327,
           "feature_count": 319
         }
       ],
       "count": 319,
       "point_count": 319,
       "line_count": 0,
+      "subcategories": [
+        {
+          "id": "energy_oil_facility",
+          "label": "Oil facility",
+          "count": 170
+        },
+        {
+          "id": "energy_gas_facility",
+          "label": "Gas facility",
+          "count": 149
+        }
+      ],
       "default_visible": true
     },
     {
@@ -46,13 +58,20 @@
       "file_details": [
         {
           "file": "energy_gas.geojson",
-          "size_bytes": 14082463,
+          "size_bytes": 16693333,
           "feature_count": 7659
         }
       ],
       "count": 7659,
       "point_count": 0,
       "line_count": 7659,
+      "subcategories": [
+        {
+          "id": "energy_gas_pipeline",
+          "label": "Gas pipeline",
+          "count": 7659
+        }
+      ],
       "default_visible": false
     },
     {
@@ -65,13 +84,20 @@
       "file_details": [
         {
           "file": "energy_oil.geojson",
-          "size_bytes": 2367600,
+          "size_bytes": 2756776,
           "feature_count": 1192
         }
       ],
       "count": 1192,
       "point_count": 0,
       "line_count": 1192,
+      "subcategories": [
+        {
+          "id": "energy_oil_pipeline",
+          "label": "Oil pipeline",
+          "count": 1192
+        }
+      ],
       "default_visible": false
     },
     {
@@ -84,13 +110,30 @@
       "file_details": [
         {
           "file": "military_boundaries.geojson",
-          "size_bytes": 1292597,
+          "size_bytes": 1334675,
           "feature_count": 130
         }
       ],
       "count": 130,
       "point_count": 0,
       "line_count": 130,
+      "subcategories": [
+        {
+          "id": "facility_boundary",
+          "label": "Facility boundary",
+          "count": 120
+        },
+        {
+          "id": "district_boundary",
+          "label": "District boundary",
+          "count": 7
+        },
+        {
+          "id": "military_other",
+          "label": "Military other",
+          "count": 3
+        }
+      ],
       "default_visible": false
     },
     {
@@ -103,13 +146,80 @@
       "file_details": [
         {
           "file": "military_industrial.geojson",
-          "size_bytes": 16942292,
+          "size_bytes": 19626459,
           "feature_count": 6419
         }
       ],
       "count": 6419,
       "point_count": 6079,
       "line_count": 0,
+      "subcategories": [
+        {
+          "id": "defense_company",
+          "label": "Defense company",
+          "count": 5702
+        },
+        {
+          "id": "research_design",
+          "label": "Research & design",
+          "count": 390
+        },
+        {
+          "id": "nbc_chemical",
+          "label": "NBC & chemical",
+          "count": 78
+        },
+        {
+          "id": "aviation_aerospace",
+          "label": "Aviation & aerospace",
+          "count": 75
+        },
+        {
+          "id": "communications_ew_radar",
+          "label": "Communications, EW & radar",
+          "count": 73
+        },
+        {
+          "id": "logistics_storage",
+          "label": "Logistics & storage",
+          "count": 25
+        },
+        {
+          "id": "training_education",
+          "label": "Training & education",
+          "count": 25
+        },
+        {
+          "id": "vehicle_armor",
+          "label": "Vehicles & armor",
+          "count": 20
+        },
+        {
+          "id": "naval_fleet_coast_guard",
+          "label": "Naval, fleet & coast guard",
+          "count": 10
+        },
+        {
+          "id": "repair_maintenance",
+          "label": "Repair & maintenance",
+          "count": 9
+        },
+        {
+          "id": "weapons_ammunition",
+          "label": "Weapons & ammunition",
+          "count": 6
+        },
+        {
+          "id": "command_hq",
+          "label": "Command & HQ",
+          "count": 4
+        },
+        {
+          "id": "missile_artillery_air_defense",
+          "label": "Missile, artillery & air defense",
+          "count": 2
+        }
+      ],
       "default_visible": true
     },
     {
@@ -122,13 +232,80 @@
       "file_details": [
         {
           "file": "military_sites.geojson",
-          "size_bytes": 3843463,
+          "size_bytes": 4705802,
           "feature_count": 2618
         }
       ],
       "count": 2618,
       "point_count": 2618,
       "line_count": 0,
+      "subcategories": [
+        {
+          "id": "military_other",
+          "label": "Military other",
+          "count": 1047
+        },
+        {
+          "id": "communications_ew_radar",
+          "label": "Communications, EW & radar",
+          "count": 355
+        },
+        {
+          "id": "logistics_storage",
+          "label": "Logistics & storage",
+          "count": 275
+        },
+        {
+          "id": "training_education",
+          "label": "Training & education",
+          "count": 199
+        },
+        {
+          "id": "aviation_aerospace",
+          "label": "Aviation & aerospace",
+          "count": 185
+        },
+        {
+          "id": "missile_artillery_air_defense",
+          "label": "Missile, artillery & air defense",
+          "count": 163
+        },
+        {
+          "id": "command_hq",
+          "label": "Command & HQ",
+          "count": 147
+        },
+        {
+          "id": "naval_fleet_coast_guard",
+          "label": "Naval, fleet & coast guard",
+          "count": 95
+        },
+        {
+          "id": "repair_maintenance",
+          "label": "Repair & maintenance",
+          "count": 94
+        },
+        {
+          "id": "nbc_chemical",
+          "label": "NBC & chemical",
+          "count": 21
+        },
+        {
+          "id": "vehicle_armor",
+          "label": "Vehicles & armor",
+          "count": 18
+        },
+        {
+          "id": "research_design",
+          "label": "Research & design",
+          "count": 14
+        },
+        {
+          "id": "weapons_ammunition",
+          "label": "Weapons & ammunition",
+          "count": 5
+        }
+      ],
       "default_visible": true
     },
     {
@@ -141,13 +318,20 @@
       "file_details": [
         {
           "file": "other_infrastructure.geojson",
-          "size_bytes": 2960,
+          "size_bytes": 3548,
           "feature_count": 2
         }
       ],
       "count": 2,
       "point_count": 2,
       "line_count": 0,
+      "subcategories": [
+        {
+          "id": "other",
+          "label": "Other",
+          "count": 2
+        }
+      ],
       "default_visible": false
     },
     {
@@ -160,13 +344,25 @@
       "file_details": [
         {
           "file": "power_facilities.geojson",
-          "size_bytes": 1470124,
+          "size_bytes": 1785424,
           "feature_count": 1042
         }
       ],
       "count": 1042,
       "point_count": 1042,
       "line_count": 0,
+      "subcategories": [
+        {
+          "id": "substation",
+          "label": "Substation",
+          "count": 742
+        },
+        {
+          "id": "power_station",
+          "label": "Power station",
+          "count": 300
+        }
+      ],
       "default_visible": true
     },
     {
@@ -180,18 +376,25 @@
       "file_details": [
         {
           "file": "power_lines_part001.geojson",
-          "size_bytes": 47998804,
-          "feature_count": 29324
+          "size_bytes": 47999986,
+          "feature_count": 24564
         },
         {
           "file": "power_lines_part002.geojson",
-          "size_bytes": 23025444,
-          "feature_count": 14253
+          "size_bytes": 36722379,
+          "feature_count": 19013
         }
       ],
       "count": 43577,
       "point_count": 0,
       "line_count": 43577,
+      "subcategories": [
+        {
+          "id": "power_line",
+          "label": "Power Line",
+          "count": 43577
+        }
+      ],
       "default_visible": false
     },
     {
@@ -204,13 +407,20 @@
       "file_details": [
         {
           "file": "transport_other.geojson",
-          "size_bytes": 86776,
+          "size_bytes": 105550,
           "feature_count": 63
         }
       ],
       "count": 63,
       "point_count": 63,
       "line_count": 0,
+      "subcategories": [
+        {
+          "id": "transport_bridge",
+          "label": "Bridge",
+          "count": 63
+        }
+      ],
       "default_visible": false
     },
     {
@@ -225,23 +435,30 @@
       "file_details": [
         {
           "file": "transport_rail_part001.geojson",
-          "size_bytes": 47999567,
-          "feature_count": 28167
+          "size_bytes": 47999586,
+          "feature_count": 23595
         },
         {
           "file": "transport_rail_part002.geojson",
-          "size_bytes": 47999992,
-          "feature_count": 26546
+          "size_bytes": 47998459,
+          "feature_count": 22825
         },
         {
           "file": "transport_rail_part003.geojson",
-          "size_bytes": 9830990,
-          "feature_count": 5151
+          "size_bytes": 30661550,
+          "feature_count": 13444
         }
       ],
       "count": 59864,
       "point_count": 0,
       "line_count": 59864,
+      "subcategories": [
+        {
+          "id": "railway",
+          "label": "Railway",
+          "count": 59864
+        }
+      ],
       "default_visible": false
     }
   ]

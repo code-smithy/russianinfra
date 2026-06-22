@@ -13,6 +13,7 @@ LOCAL_STEPS = [
     "extract_military_kml_text.py",
     "combine_infrastructure_sources.py",
     "normalize_infrastructure_data.py",
+    "enrich_translations_and_categories.py",
     "prepare_web_data.py",
 ]
 

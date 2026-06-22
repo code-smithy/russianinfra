@@ -182,6 +182,35 @@ input {
   border: 2px solid rgba(255, 255, 255, 0.85);
 }
 
+.subcategory-list {
+  display: grid;
+  gap: 4px;
+  margin: -3px 0 4px 27px;
+  padding: 6px 0 7px 9px;
+  border-left: 1px solid var(--border);
+}
+
+.subcategory-row {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  min-height: 22px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.subcategory-row input {
+  width: 13px;
+  height: 13px;
+}
+
+.subcategory-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .search-input {
   width: 100%;
   height: 36px;

@@ -24,6 +24,8 @@ APP_PROPERTY_KEYS = [
     "source_layer",
     "name",
     "description",
+    "name_translated",
+    "description_translated",
     "display_label",
     "asset_class",
     "asset_type",
@@ -33,6 +35,7 @@ APP_PROPERTY_KEYS = [
     "product",
     "country",
     "region",
+    "region_translated",
     "inn",
     "is_sanctioned",
     "is_mass_director",
@@ -58,6 +61,12 @@ APP_PROPERTY_KEYS = [
     "map_color",
     "map_icon",
     "risk_flags",
+    "detected_language",
+    "translation_source",
+    "derived_subcategory",
+    "derived_subcategory_label",
+    "derived_subcategory_confidence",
+    "derived_subcategory_reason",
     "possible_duplicate_group",
     "search_text",
 ]
@@ -183,6 +192,15 @@ def main() -> int:
         layer_files = write_layer_files(layer, features)
         point_count = sum(1 for f in features if (f.get("geometry") or {}).get("type") == "Point")
         line_count = sum(1 for f in features if (f.get("geometry") or {}).get("type") in {"LineString", "MultiLineString"})
+        subcategory_counts = Counter(
+            (f.get("properties") or {}).get("derived_subcategory") or (f.get("properties") or {}).get("asset_type") or "uncategorized"
+            for f in features
+        )
+        subcategory_labels = {}
+        for f in features:
+            props = f.get("properties") or {}
+            key = props.get("derived_subcategory") or props.get("asset_type") or "uncategorized"
+            subcategory_labels.setdefault(key, props.get("derived_subcategory_label") or key.replace("_", " ").title())
         manifest_layers.append(
             {
                 "id": layer,
@@ -193,6 +211,14 @@ def main() -> int:
                 "count": len(features),
                 "point_count": point_count,
                 "line_count": line_count,
+                "subcategories": [
+                    {
+                        "id": key,
+                        "label": subcategory_labels.get(key, key.replace("_", " ").title()),
+                        "count": count,
+                    }
+                    for key, count in sorted(subcategory_counts.items(), key=lambda item: (-item[1], item[0]))
+                ],
                 "default_visible": layer in DEFAULT_VISIBLE,
             }
         )
