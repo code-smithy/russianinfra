@@ -1,0 +1,101 @@
+{
+  "generated_from": "data\\normalized_infrastructure.geojson",
+  "total_features": 120137,
+  "missing_geometry_count": 340,
+  "geometry_counts": {
+    "LineString": 112147,
+    "MultiLineString": 145,
+    "Point": 7505,
+    "missing": 340
+  },
+  "asset_class_counts": {
+    "energy": 9170,
+    "military_industrial": 6419,
+    "other_infrastructure": 2,
+    "power": 44619,
+    "transport": 59927
+  },
+  "layers": [
+    {
+      "id": "energy_facilities",
+      "label": "Oil/Gas Facilities",
+      "file": "energy_facilities.geojson",
+      "count": 319,
+      "point_count": 319,
+      "line_count": 0,
+      "default_visible": true
+    },
+    {
+      "id": "energy_gas",
+      "label": "Gas Pipelines",
+      "file": "energy_gas.geojson",
+      "count": 7659,
+      "point_count": 0,
+      "line_count": 7659,
+      "default_visible": false
+    },
+    {
+      "id": "energy_oil",
+      "label": "Oil Pipelines",
+      "file": "energy_oil.geojson",
+      "count": 1192,
+      "point_count": 0,
+      "line_count": 1192,
+      "default_visible": false
+    },
+    {
+      "id": "military_industrial",
+      "label": "Military-Industrial Companies",
+      "file": "military_industrial.geojson",
+      "count": 6419,
+      "point_count": 6079,
+      "line_count": 0,
+      "default_visible": true
+    },
+    {
+      "id": "other_infrastructure",
+      "label": "Other Infrastructure",
+      "file": "other_infrastructure.geojson",
+      "count": 2,
+      "point_count": 2,
+      "line_count": 0,
+      "default_visible": false
+    },
+    {
+      "id": "power_facilities",
+      "label": "Power Plants & Substations",
+      "file": "power_facilities.geojson",
+      "count": 1042,
+      "point_count": 1042,
+      "line_count": 0,
+      "default_visible": true
+    },
+    {
+      "id": "power_lines",
+      "label": "HV Transmission Lines",
+      "file": "power_lines.geojson",
+      "count": 43577,
+      "point_count": 0,
+      "line_count": 43577,
+      "default_visible": false
+    },
+    {
+      "id": "transport_other",
+      "label": "Transport Structures",
+      "file": "transport_other.geojson",
+      "count": 63,
+      "point_count": 63,
+      "line_count": 0,
+      "default_visible": false
+    },
+    {
+      "id": "transport_rail",
+      "label": "Railway Lines",
+      "file": "transport_rail.geojson",
+      "count": 59864,
+      "point_count": 0,
+      "line_count": 59864,
+      "default_visible": false
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Infrastructure Explorer</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar" aria-label="Map controls">
+        <header class="app-header">
+          <div>
+            <h1>Infrastructure Explorer</h1>
+            <p id="datasetSummary">Loading manifest...</p>
+          </div>
+          <button id="fitLoadedBtn" class="icon-btn" type="button" title="Fit loaded layers" aria-label="Fit loaded layers">
+            <span aria-hidden="true">⌖</span>
+          </button>
+        </header>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Layers</h2>
+            <button id="clearLayersBtn" class="text-btn" type="button">Clear</button>
+          </div>
+          <div id="layersList" class="layers-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Search Loaded</h2>
+            <span id="loadedCount" class="muted">0 loaded</span>
+          </div>
+          <input id="searchInput" class="search-input" type="search" placeholder="Name, INN, type, region..." />
+          <div id="searchResults" class="search-results"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Compare</h2>
+            <div class="slot-toggle" role="group" aria-label="Active selection slot">
+              <button id="slotABtn" class="slot-btn active" type="button">A</button>
+              <button id="slotBBtn" class="slot-btn" type="button">B</button>
+            </div>
+          </div>
+          <div class="compare-tools">
+            <button id="manualToggleBtn" class="text-btn" type="button">Manual A/B</button>
+            <button id="radiusModeBtn" class="text-btn" type="button">Draw Radius</button>
+          </div>
+          <div id="manualPanel" class="manual-panel" hidden>
+            <div class="manual-row">
+              <strong>A</strong>
+              <input id="manualALat" type="number" step="any" placeholder="lat" />
+              <input id="manualALng" type="number" step="any" placeholder="lon" />
+              <button id="manualASetBtn" class="text-btn" type="button">Set</button>
+            </div>
+            <div class="manual-row">
+              <strong>B</strong>
+              <input id="manualBLat" type="number" step="any" placeholder="lat" />
+              <input id="manualBLng" type="number" step="any" placeholder="lon" />
+              <button id="manualBSetBtn" class="text-btn" type="button">Set</button>
+            </div>
+          </div>
+          <div class="selection-grid">
+            <article id="selectionA" class="selection-card empty"></article>
+            <article id="selectionB" class="selection-card empty"></article>
+          </div>
+          <div id="distancePanel" class="distance-panel muted">Select two features to calculate distance.</div>
+          <div class="actions-row">
+            <button id="clearSelectionBtn" class="text-btn" type="button">Clear selection</button>
+            <button id="nearestBtn" class="text-btn" type="button">Nearest to active</button>
+          </div>
+          <div id="nearestResults" class="nearest-results"></div>
+          <div id="radiusPanel" class="radius-panel" hidden>
+            <div class="panel-title">
+              <h2>Radius Results</h2>
+              <span id="radiusSummary" class="muted">0 objects</span>
+            </div>
+            <div class="actions-row">
+              <button id="exportRadiusBtn" class="text-btn" type="button">Export CSV</button>
+              <button id="resetRadiusBtn" class="text-btn" type="button">Reset radius</button>
+            </div>
+            <div id="radiusResults" class="nearest-results"></div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="map-wrap" aria-label="Interactive infrastructure map">
+        <div id="map"></div>
+        <div id="loadingToast" class="loading-toast" hidden>Loading layer...</div>
+      </section>
+    </main>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
