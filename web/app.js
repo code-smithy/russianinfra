@@ -16,7 +16,6 @@ const state = {
   radiusLabel: null,
   radiusHighlightGroup: null,
   radiusResults: [],
-  radiusIndex: null,
 };
 
 const map = L.map("map", {
@@ -173,6 +172,7 @@ function detailRows(properties) {
     ["Type", [properties.asset_class, properties.asset_type].filter(Boolean).join(" / ")],
     ["Source", properties.source_dataset],
     ["Layer", properties.source_layer],
+    ["Description", properties.description],
     ["Operator", properties.operator],
     ["Product", properties.product],
     ["INN", properties.inn],
@@ -295,11 +295,17 @@ async function loadLayer(layerInfo, checkbox, row) {
   }
 
   row.classList.add("loading");
-  showLoading(`Loading ${layerInfo.label}...`);
-  const response = await fetch(DATA_DIR + layerInfo.file);
-  if (!response.ok) throw new Error(`Failed to load ${layerInfo.file}`);
-  const data = await response.json();
-  const layer = createLeafletLayer(data);
+  const files = Array.isArray(layerInfo.files) && layerInfo.files.length ? layerInfo.files : [layerInfo.file];
+  const sublayers = [];
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    showLoading(files.length > 1 ? `Loading ${layerInfo.label} (${index + 1}/${files.length})...` : `Loading ${layerInfo.label}...`);
+    const response = await fetch(DATA_DIR + file);
+    if (!response.ok) throw new Error(`Failed to load ${file}`);
+    const data = await response.json();
+    sublayers.push(createLeafletLayer(data));
+  }
+  const layer = L.featureGroup(sublayers);
   layer.addTo(map);
   record = { ...layerInfo, layer, loaded: true, visible: true };
   state.layers.set(layerInfo.id, record);
@@ -373,6 +379,8 @@ function colorForLayer(layerId) {
     transport_rail: "#8a8a8a",
     transport_other: "#2a93d5",
     military_industrial: "#4f7cff",
+    military_sites: "#d4472f",
+    military_boundaries: "#ff6b4a",
     other_infrastructure: "#2a93d5",
   };
   return colors[layerId] || "#999999";
@@ -632,39 +640,6 @@ function setRadiusMode(enabled) {
   state.radiusMode = enabled;
   els.radiusModeBtn.classList.toggle("radius-mode-active", enabled);
   map.getContainer().style.cursor = enabled ? "crosshair" : "";
-}
-
-async function loadRadiusIndex() {
-  if (state.radiusIndex) return state.radiusIndex;
-  showLoading("Loading all-feature radius index...");
-  const response = await fetch(DATA_DIR + "radius_index.tsv");
-  if (!response.ok) throw new Error("Failed to load radius index.");
-  const text = await response.text();
-  const lines = text.trimEnd().split(/\r?\n/);
-  const headers = lines.shift().split("\t");
-  state.radiusIndex = lines.map((line) => {
-    const values = line.split("\t");
-    const props = {};
-    headers.forEach((header, index) => {
-      props[header] = values[index] || "";
-    });
-    const lat = Number(props.map_latitude);
-    const lng = Number(props.map_longitude);
-    const feature = {
-      type: "Feature",
-      id: props.id || props.uid,
-      geometry: { type: "Point", coordinates: [lng, lat] },
-      properties: props,
-    };
-    return {
-      id: feature.id,
-      feature,
-      point: { lat, lng },
-      layer: null,
-    };
-  }).filter((stored) => Number.isFinite(stored.point.lat) && Number.isFinite(stored.point.lng));
-  hideLoading();
-  return state.radiusIndex;
 }
 
 function resetRadius() {

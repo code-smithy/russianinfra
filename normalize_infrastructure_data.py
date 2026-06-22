@@ -29,6 +29,7 @@ CSV_FIELDS = [
     "source_feature_index",
     "name",
     "name_original",
+    "description",
     "display_label",
     "asset_class",
     "asset_type",
@@ -79,6 +80,7 @@ CSV_FIELDS = [
 
 SOURCE_RUSSIA = "Russia Oil & Power Infrastructure Map"
 SOURCE_VARTA = "OSINT Varta"
+SOURCE_MILITARY_KML = "Military KML text archive"
 
 
 def value(row: dict[str, str], key: str) -> str:
@@ -187,6 +189,12 @@ def classify(row: dict[str, str]) -> tuple[str, str, str, str]:
 
     if value(row, "source_dataset") == SOURCE_VARTA:
         return "military_industrial", "company", "defense_industrial_company", "military"
+    if value(row, "source_dataset") == SOURCE_MILITARY_KML:
+        if layer == "military_kml_paths":
+            if "boundary" in category:
+                return "military", "military_boundary", category, "military"
+            return "military", "military_path", category, "military"
+        return "military", "military_site", category or "military_site", "military"
 
     if layer == "gas_pipelines":
         return "energy", "gas_pipeline", "pipeline", "gas"
@@ -233,6 +241,9 @@ def marker_style(asset_class: str, asset_type: str) -> tuple[str, str, str]:
         "railway": ("transport_rail", "#8a8a8a", "rail"),
         "bridge": ("transport_other", "#2a93d5", "bridge"),
         "company": ("military_industrial", "#4f7cff", "building"),
+        "military_site": ("military_sites", "#d4472f", "shield"),
+        "military_boundary": ("military_boundaries", "#ff6b4a", "line"),
+        "military_path": ("military_boundaries", "#ff6b4a", "line"),
     }
     if asset_type in styles:
         return styles[asset_type]
@@ -241,6 +252,7 @@ def marker_style(asset_class: str, asset_type: str) -> tuple[str, str, str]:
         "power": ("power_other", "#d4a600", "circle"),
         "transport": ("transport_other", "#777777", "circle"),
         "military_industrial": ("military_industrial", "#4f7cff", "building"),
+        "military": ("military_sites", "#d4472f", "shield"),
         "other_infrastructure": ("other_infrastructure", "#2a93d5", "circle"),
     }
     return fallback.get(asset_class, ("unknown", "#999999", "circle"))
@@ -345,6 +357,7 @@ def normalize_row(row: dict[str, str]) -> tuple[dict[str, str], dict[str, Any]]:
     tags = extract_tags(row)
 
     name_original = value(row, "name")
+    description = value(row, "description")
     operator = value(row, "operator")
     product = value(row, "product")
     inn = value(row, "inn")
@@ -375,6 +388,7 @@ def normalize_row(row: dict[str, str]) -> tuple[dict[str, str], dict[str, Any]]:
         for part in [
             display_label,
             name_original,
+            description,
             asset_class,
             asset_type,
             asset_subtype,
@@ -399,6 +413,7 @@ def normalize_row(row: dict[str, str]) -> tuple[dict[str, str], dict[str, Any]]:
         "source_feature_index": feature_index,
         "name": display_label,
         "name_original": name_original,
+        "description": description,
         "display_label": display_label,
         "asset_class": asset_class,
         "asset_type": asset_type,

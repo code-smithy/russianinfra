@@ -11,12 +11,14 @@ from pathlib import Path
 OUT_DIR = Path("data")
 RUSSIA_OIL_POWER_CSV = OUT_DIR / "russia_oil_power_infrastructure.csv"
 OSINT_VARTA_CSV = OUT_DIR / "osint_varta_map_points_archived.csv"
+MILITARY_KML_CSV = OUT_DIR / "military_kml_text_archive.csv"
 COMBINED_CSV = OUT_DIR / "combined_infrastructure_sources.csv"
 
 
 SOURCES = [
     (RUSSIA_OIL_POWER_CSV, "Russia Oil & Power Infrastructure Map"),
     (OSINT_VARTA_CSV, "OSINT Varta archived map points"),
+    (MILITARY_KML_CSV, "Military KML text archive"),
 ]
 
 
@@ -49,6 +51,7 @@ def main() -> int:
         "feature_index",
         "name",
         "category",
+        "description",
         "operator",
         "product",
         "inn",
@@ -66,6 +69,12 @@ def main() -> int:
         "is_disqualified_persons",
         "source_url",
         "archive_timestamp",
+        "kml_type",
+        "kml_folder",
+        "kml_color",
+        "kml_width",
+        "kml_symbol",
+        "military_unit",
     ]
     raw_fieldnames = preferred + sorted({key for row in all_rows for key in row} - set(preferred))
     fieldnames: list[str] = []

@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import json
-import csv
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -13,6 +12,7 @@ from typing import Any
 
 NORMALIZED_GEOJSON = Path("data/normalized_infrastructure.geojson")
 WEB_DATA_DIR = Path("web/data")
+MAX_WEB_DATA_FILE_BYTES = 48_000_000
 
 
 APP_PROPERTY_KEYS = [
@@ -23,6 +23,7 @@ APP_PROPERTY_KEYS = [
     "source_capture_date",
     "source_layer",
     "name",
+    "description",
     "display_label",
     "asset_class",
     "asset_type",
@@ -61,34 +62,6 @@ APP_PROPERTY_KEYS = [
     "search_text",
 ]
 
-RADIUS_PROPERTY_KEYS = [
-    "uid",
-    "source_dataset",
-    "source_record_id",
-    "source_url",
-    "source_capture_date",
-    "source_layer",
-    "name",
-    "display_label",
-    "asset_class",
-    "asset_type",
-    "asset_subtype",
-    "domain",
-    "operator",
-    "product",
-    "region",
-    "inn",
-    "is_sanctioned",
-    "is_mass_director",
-    "is_mass_founder",
-    "is_disqualified_persons",
-    "map_latitude",
-    "map_longitude",
-    "location_quality",
-    "map_color",
-]
-
-
 LAYER_LABELS = {
     "energy_oil": "Oil Pipelines",
     "energy_gas": "Gas Pipelines",
@@ -98,6 +71,8 @@ LAYER_LABELS = {
     "transport_rail": "Railway Lines",
     "transport_other": "Transport Structures",
     "military_industrial": "Military-Industrial Companies",
+    "military_sites": "Military Sites",
+    "military_boundaries": "Military Boundaries & Paths",
     "other_infrastructure": "Other Infrastructure",
     "unknown": "Unknown",
 }
@@ -107,6 +82,7 @@ DEFAULT_VISIBLE = {
     "energy_facilities",
     "power_facilities",
     "military_industrial",
+    "military_sites",
 }
 
 
@@ -124,24 +100,56 @@ def compact_feature(feature: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def write_geojson(path: Path, features: list[dict[str, Any]]) -> None:
-    payload = {"type": "FeatureCollection", "features": features}
-    path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+def clean_web_data_dir() -> None:
+    for pattern in ("*.geojson", "radius_index.tsv"):
+        for path in WEB_DATA_DIR.glob(pattern):
+            path.unlink()
 
 
-def write_radius_index(path: Path, features: list[dict[str, Any]]) -> None:
-    fields = ["id", *RADIUS_PROPERTY_KEYS]
-    def clean(value: Any) -> str:
-        return str(value or "").replace("\t", " ").replace("\r", " ").replace("\n", " ")
+def feature_json(feature: dict[str, Any]) -> str:
+    return json.dumps(feature, ensure_ascii=False, separators=(",", ":"))
 
-    with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields, delimiter="\t", lineterminator="\n")
-        writer.writeheader()
-        for feature in features:
-            props = feature.get("properties") or {}
-            row = {"id": clean(feature.get("id") or props.get("uid") or "")}
-            row.update({key: clean(props.get(key, "")) for key in RADIUS_PROPERTY_KEYS})
-            writer.writerow(row)
+
+def write_geojson_items(path: Path, feature_items: list[str]) -> int:
+    body = ",".join(feature_items)
+    payload = f'{{"type":"FeatureCollection","features":[{body}]}}'
+    path.write_text(payload, encoding="utf-8")
+    return path.stat().st_size
+
+
+def write_layer_files(layer: str, features: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    prefix_bytes = len(b'{"type":"FeatureCollection","features":[')
+    suffix_bytes = len(b"]}")
+    chunks: list[list[str]] = []
+    current: list[str] = []
+    current_bytes = prefix_bytes + suffix_bytes
+
+    for feature in features:
+        item = feature_json(feature)
+        item_bytes = len(item.encode("utf-8"))
+        separator_bytes = 1 if current else 0
+        if current and current_bytes + separator_bytes + item_bytes > MAX_WEB_DATA_FILE_BYTES:
+            chunks.append(current)
+            current = []
+            current_bytes = prefix_bytes + suffix_bytes
+            separator_bytes = 0
+        current.append(item)
+        current_bytes += separator_bytes + item_bytes
+    if current:
+        chunks.append(current)
+
+    if len(chunks) == 1:
+        filename = f"{layer}.geojson"
+        size = write_geojson_items(WEB_DATA_DIR / filename, chunks[0])
+        return [{"file": filename, "size_bytes": size, "feature_count": len(chunks[0])}]
+
+    files = []
+    width = len(str(len(chunks)))
+    for index, chunk in enumerate(chunks, start=1):
+        filename = f"{layer}_part{index:0{max(3, width)}d}.geojson"
+        size = write_geojson_items(WEB_DATA_DIR / filename, chunk)
+        files.append({"file": filename, "size_bytes": size, "feature_count": len(chunk)})
+    return files
 
 
 def main() -> int:
@@ -149,9 +157,9 @@ def main() -> int:
         raise FileNotFoundError(f"Missing normalized GeoJSON: {NORMALIZED_GEOJSON}")
 
     WEB_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    clean_web_data_dir()
     data = json.loads(NORMALIZED_GEOJSON.read_text(encoding="utf-8"))
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    radius_features: list[dict[str, Any]] = []
     counts = Counter()
     geometry_counts = Counter()
     class_counts = Counter()
@@ -163,21 +171,6 @@ def main() -> int:
         compact = compact_feature(feature)
         grouped[layer].append(compact)
         props = compact.get("properties") or {}
-        try:
-            map_lat = float(props.get("map_latitude") or "")
-            map_lon = float(props.get("map_longitude") or "")
-        except ValueError:
-            map_lat = None
-            map_lon = None
-        if map_lat is not None and map_lon is not None:
-            radius_features.append(
-                {
-                    "type": "Feature",
-                    "id": compact.get("id"),
-                    "geometry": {"type": "Point", "coordinates": [map_lon, map_lat]},
-                    "properties": {key: props.get(key, "") for key in RADIUS_PROPERTY_KEYS},
-                }
-            )
         counts[layer] += 1
         class_counts[props.get("asset_class") or "unknown"] += 1
         geometry = feature.get("geometry")
@@ -187,16 +180,16 @@ def main() -> int:
 
     manifest_layers = []
     for layer, features in sorted(grouped.items()):
-        filename = f"{layer}.geojson"
-        path = WEB_DATA_DIR / filename
-        write_geojson(path, features)
+        layer_files = write_layer_files(layer, features)
         point_count = sum(1 for f in features if (f.get("geometry") or {}).get("type") == "Point")
         line_count = sum(1 for f in features if (f.get("geometry") or {}).get("type") in {"LineString", "MultiLineString"})
         manifest_layers.append(
             {
                 "id": layer,
                 "label": LAYER_LABELS.get(layer, layer.replace("_", " ").title()),
-                "file": filename,
+                "file": layer_files[0]["file"],
+                "files": [item["file"] for item in layer_files],
+                "file_details": layer_files,
                 "count": len(features),
                 "point_count": point_count,
                 "line_count": line_count,
@@ -213,14 +206,16 @@ def main() -> int:
         "layers": manifest_layers,
     }
     (WEB_DATA_DIR / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    write_radius_index(WEB_DATA_DIR / "radius_index.tsv", radius_features)
-    old_radius_geojson = WEB_DATA_DIR / "radius_index.geojson"
-    if old_radius_geojson.exists():
-        old_radius_geojson.unlink()
 
-    print(f"Wrote {len(manifest_layers)} layer files to {WEB_DATA_DIR}")
-    print(f"Wrote {len(radius_features):,} radius index features")
+    output_files = [path for path in WEB_DATA_DIR.iterdir() if path.is_file()]
+    oversized = [path for path in output_files if path.stat().st_size > 50_000_000]
+    if oversized:
+        details = ", ".join(f"{path.name} ({path.stat().st_size:,} bytes)" for path in oversized)
+        raise RuntimeError(f"Web data files exceed 50 MB: {details}")
+
+    print(f"Wrote {sum(len(layer['files']) for layer in manifest_layers)} layer files to {WEB_DATA_DIR}")
     print(f"Total features: {manifest['total_features']:,}")
+    print(f"Largest web data file: {max(path.stat().st_size for path in output_files):,} bytes")
     return 0
 
 

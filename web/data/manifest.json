@@ -1,15 +1,16 @@
 {
   "generated_from": "data\\normalized_infrastructure.geojson",
-  "total_features": 120137,
+  "total_features": 122885,
   "missing_geometry_count": 340,
   "geometry_counts": {
-    "LineString": 112147,
+    "LineString": 112277,
     "MultiLineString": 145,
-    "Point": 7505,
+    "Point": 10123,
     "missing": 340
   },
   "asset_class_counts": {
     "energy": 9170,
+    "military": 2748,
     "military_industrial": 6419,
     "other_infrastructure": 2,
     "power": 44619,
@@ -20,6 +21,16 @@
       "id": "energy_facilities",
       "label": "Oil/Gas Facilities",
       "file": "energy_facilities.geojson",
+      "files": [
+        "energy_facilities.geojson"
+      ],
+      "file_details": [
+        {
+          "file": "energy_facilities.geojson",
+          "size_bytes": 461218,
+          "feature_count": 319
+        }
+      ],
       "count": 319,
       "point_count": 319,
       "line_count": 0,
@@ -29,6 +40,16 @@
       "id": "energy_gas",
       "label": "Gas Pipelines",
       "file": "energy_gas.geojson",
+      "files": [
+        "energy_gas.geojson"
+      ],
+      "file_details": [
+        {
+          "file": "energy_gas.geojson",
+          "size_bytes": 14082463,
+          "feature_count": 7659
+        }
+      ],
       "count": 7659,
       "point_count": 0,
       "line_count": 7659,
@@ -38,17 +59,75 @@
       "id": "energy_oil",
       "label": "Oil Pipelines",
       "file": "energy_oil.geojson",
+      "files": [
+        "energy_oil.geojson"
+      ],
+      "file_details": [
+        {
+          "file": "energy_oil.geojson",
+          "size_bytes": 2367600,
+          "feature_count": 1192
+        }
+      ],
       "count": 1192,
       "point_count": 0,
       "line_count": 1192,
       "default_visible": false
     },
     {
+      "id": "military_boundaries",
+      "label": "Military Boundaries & Paths",
+      "file": "military_boundaries.geojson",
+      "files": [
+        "military_boundaries.geojson"
+      ],
+      "file_details": [
+        {
+          "file": "military_boundaries.geojson",
+          "size_bytes": 1292597,
+          "feature_count": 130
+        }
+      ],
+      "count": 130,
+      "point_count": 0,
+      "line_count": 130,
+      "default_visible": false
+    },
+    {
       "id": "military_industrial",
       "label": "Military-Industrial Companies",
       "file": "military_industrial.geojson",
+      "files": [
+        "military_industrial.geojson"
+      ],
+      "file_details": [
+        {
+          "file": "military_industrial.geojson",
+          "size_bytes": 16942292,
+          "feature_count": 6419
+        }
+      ],
       "count": 6419,
       "point_count": 6079,
+      "line_count": 0,
+      "default_visible": true
+    },
+    {
+      "id": "military_sites",
+      "label": "Military Sites",
+      "file": "military_sites.geojson",
+      "files": [
+        "military_sites.geojson"
+      ],
+      "file_details": [
+        {
+          "file": "military_sites.geojson",
+          "size_bytes": 3843463,
+          "feature_count": 2618
+        }
+      ],
+      "count": 2618,
+      "point_count": 2618,
       "line_count": 0,
       "default_visible": true
     },
@@ -56,6 +135,16 @@
       "id": "other_infrastructure",
       "label": "Other Infrastructure",
       "file": "other_infrastructure.geojson",
+      "files": [
+        "other_infrastructure.geojson"
+      ],
+      "file_details": [
+        {
+          "file": "other_infrastructure.geojson",
+          "size_bytes": 2960,
+          "feature_count": 2
+        }
+      ],
       "count": 2,
       "point_count": 2,
       "line_count": 0,
@@ -65,6 +154,16 @@
       "id": "power_facilities",
       "label": "Power Plants & Substations",
       "file": "power_facilities.geojson",
+      "files": [
+        "power_facilities.geojson"
+      ],
+      "file_details": [
+        {
+          "file": "power_facilities.geojson",
+          "size_bytes": 1470124,
+          "feature_count": 1042
+        }
+      ],
       "count": 1042,
       "point_count": 1042,
       "line_count": 0,
@@ -73,7 +172,23 @@
     {
       "id": "power_lines",
       "label": "HV Transmission Lines",
-      "file": "power_lines.geojson",
+      "file": "power_lines_part001.geojson",
+      "files": [
+        "power_lines_part001.geojson",
+        "power_lines_part002.geojson"
+      ],
+      "file_details": [
+        {
+          "file": "power_lines_part001.geojson",
+          "size_bytes": 47998804,
+          "feature_count": 29324
+        },
+        {
+          "file": "power_lines_part002.geojson",
+          "size_bytes": 23025444,
+          "feature_count": 14253
+        }
+      ],
       "count": 43577,
       "point_count": 0,
       "line_count": 43577,
@@ -83,6 +198,16 @@
       "id": "transport_other",
       "label": "Transport Structures",
       "file": "transport_other.geojson",
+      "files": [
+        "transport_other.geojson"
+      ],
+      "file_details": [
+        {
+          "file": "transport_other.geojson",
+          "size_bytes": 86776,
+          "feature_count": 63
+        }
+      ],
       "count": 63,
       "point_count": 63,
       "line_count": 0,
@@ -91,7 +216,29 @@
     {
       "id": "transport_rail",
       "label": "Railway Lines",
-      "file": "transport_rail.geojson",
+      "file": "transport_rail_part001.geojson",
+      "files": [
+        "transport_rail_part001.geojson",
+        "transport_rail_part002.geojson",
+        "transport_rail_part003.geojson"
+      ],
+      "file_details": [
+        {
+          "file": "transport_rail_part001.geojson",
+          "size_bytes": 47999567,
+          "feature_count": 28167
+        },
+        {
+          "file": "transport_rail_part002.geojson",
+          "size_bytes": 47999992,
+          "feature_count": 26546
+        },
+        {
+          "file": "transport_rail_part003.geojson",
+          "size_bytes": 9830990,
+          "feature_count": 5151
+        }
+      ],
       "count": 59864,
       "point_count": 0,
       "line_count": 59864,
