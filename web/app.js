@@ -36,10 +36,6 @@ const state = {
   savedPreferences: loadSavedPreferences(),
   persistenceReady: false,
   saveTimer: null,
-  activeSlot: "A",
-  selections: { A: null, B: null },
-  selectionMarkers: { A: null, B: null },
-  selectionLine: null,
   radiusMode: false,
   radiusStart: null,
   radiusOrigin: null,
@@ -80,9 +76,6 @@ const els = {
   loadedCount: document.getElementById("loadedCount"),
   searchInput: document.getElementById("searchInput"),
   searchResults: document.getElementById("searchResults"),
-  selectionA: document.getElementById("selectionA"),
-  selectionB: document.getElementById("selectionB"),
-  distancePanel: document.getElementById("distancePanel"),
   loadingToast: document.getElementById("loadingToast"),
   countriesCount: document.getElementById("countriesCount"),
   countriesList: document.getElementById("countriesList"),
@@ -92,22 +85,9 @@ const els = {
   layersPanel: document.getElementById("layersPanel"),
   layersPanelBody: document.getElementById("layersPanelBody"),
   layersPanelToggle: document.getElementById("layersPanelToggle"),
-  slotABtn: document.getElementById("slotABtn"),
-  slotBBtn: document.getElementById("slotBBtn"),
-  clearSelectionBtn: document.getElementById("clearSelectionBtn"),
   clearCountriesBtn: document.getElementById("clearCountriesBtn"),
   clearLayersBtn: document.getElementById("clearLayersBtn"),
   fitLoadedBtn: document.getElementById("fitLoadedBtn"),
-  nearestBtn: document.getElementById("nearestBtn"),
-  nearestResults: document.getElementById("nearestResults"),
-  manualToggleBtn: document.getElementById("manualToggleBtn"),
-  manualPanel: document.getElementById("manualPanel"),
-  manualALat: document.getElementById("manualALat"),
-  manualALng: document.getElementById("manualALng"),
-  manualBLat: document.getElementById("manualBLat"),
-  manualBLng: document.getElementById("manualBLng"),
-  manualASetBtn: document.getElementById("manualASetBtn"),
-  manualBSetBtn: document.getElementById("manualBSetBtn"),
   radiusModeBtn: document.getElementById("radiusModeBtn"),
   radiusPanel: document.getElementById("radiusPanel"),
   radiusSummary: document.getElementById("radiusSummary"),
@@ -194,22 +174,6 @@ function savedCountrySet() {
   return new Set(countries.map((country) => country.id));
 }
 
-function serializeSelection(slot) {
-  const selection = state.selections[slot];
-  if (!selection?.point) return null;
-  const point = { lat: selection.point.lat, lng: selection.point.lng };
-  const p = selection.feature.properties || {};
-  if (p.source_dataset === "Manual selection") {
-    return { type: "manual", point };
-  }
-  return {
-    type: "feature",
-    id: selection.feature.id,
-    layerId: p.map_layer || null,
-    point,
-  };
-}
-
 function serializeRadius() {
   if (!state.radiusOrigin || !Number.isFinite(state.radiusKm)) return null;
   return {
@@ -234,7 +198,6 @@ function currentPreferences() {
 
   return {
     version: 1,
-    activeSlot: state.activeSlot,
     baseLayer: activeBaseLayer,
     mapView: { lat: center.lat, lng: center.lng, zoom: map.getZoom() },
     layers,
@@ -244,17 +207,6 @@ function currentPreferences() {
     countries: [...state.countryFilters],
     subcategories,
     search: els.searchInput.value,
-    manualPanelOpen: !els.manualPanel.hidden,
-    manualInputs: {
-      aLat: els.manualALat.value,
-      aLng: els.manualALng.value,
-      bLat: els.manualBLat.value,
-      bLng: els.manualBLng.value,
-    },
-    selections: {
-      A: serializeSelection("A"),
-      B: serializeSelection("B"),
-    },
     radius: serializeRadius(),
     estimator: serializeEstimatorAssumptions(),
   };
@@ -451,17 +403,6 @@ function metersKm(a, b) {
   return 2 * radius * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-function bearing(a, b) {
-  const toRad = (deg) => deg * Math.PI / 180;
-  const toDeg = (rad) => rad * 180 / Math.PI;
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const y = Math.sin(dLng) * Math.cos(lat2);
-  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
-  return (toDeg(Math.atan2(y, x)) + 360) % 360;
-}
-
 function iterGeometryPositions(geometry) {
   const positions = [];
   function walk(node) {
@@ -544,7 +485,6 @@ function detailRows(properties) {
 
 function popupHtml(feature) {
   const p = feature.properties || {};
-  const id = escapeHtml(feature.id);
   const source = p.source_url
     ? `<a href="${escapeHtml(p.source_url)}" target="_blank" rel="noopener">source</a>`
     : "";
@@ -552,10 +492,6 @@ function popupHtml(feature) {
     <h3 class="popup-title">${escapeHtml(p.display_label || p.name || "Unnamed feature")}</h3>
     <dl class="popup-table">${detailRows(p)}</dl>
     ${source ? `<div style="margin-top:8px;font-size:12px">${source}</div>` : ""}
-    <div class="popup-actions">
-      <button type="button" data-select-slot="A" data-feature-id="${id}">Set A</button>
-      <button type="button" data-select-slot="B" data-feature-id="${id}">Set B</button>
-    </div>
   `;
 }
 
@@ -572,27 +508,6 @@ function rememberFeature(feature, latlng) {
   return stored;
 }
 
-function wirePopupSelection(layer, feature) {
-  layer.on("popupopen", (event) => {
-    const node = event.popup.getElement();
-    if (!node) return;
-    node.querySelectorAll("[data-select-slot]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const slot = button.getAttribute("data-select-slot");
-        selectFeature(slot, feature, event.popup.getLatLng());
-        map.closePopup();
-      });
-    });
-  });
-}
-
-function onFeatureClick(feature, layer, event) {
-  const latlng = event?.latlng || featurePoint(feature);
-  selectFeature(state.activeSlot, feature, latlng);
-  state.activeSlot = state.activeSlot === "A" ? "B" : "A";
-  updateSlotButtons();
-}
-
 function createLeafletLayer(featureCollection) {
   const cluster = L.markerClusterGroup({
     disableClusteringAtZoom: 9,
@@ -605,8 +520,6 @@ function createLeafletLayer(featureCollection) {
       const stored = rememberFeature(feature);
       stored.layer = layer;
       layer.bindPopup(() => popupHtml(feature));
-      wirePopupSelection(layer, feature);
-      layer.on("click", (event) => onFeatureClick(feature, layer, event));
     },
   });
   const group = L.featureGroup([lines, cluster]);
@@ -620,8 +533,6 @@ function createLeafletLayer(featureCollection) {
       const stored = rememberFeature(feature, latlng);
       stored.layer = marker;
       marker.bindPopup(() => popupHtml(feature));
-      wirePopupSelection(marker, feature);
-      marker.on("click", (event) => onFeatureClick(feature, marker, event));
       cluster.addLayer(marker);
     } else if (feature.geometry) {
       lines.addData(feature);
@@ -665,8 +576,6 @@ function isSubcategoryEnabled(layerId, subcategory) {
 }
 
 function featurePassesCountryFilter(feature) {
-  const p = feature?.properties || {};
-  if (p.source_dataset === "Manual selection") return true;
   if (!Array.isArray(state.manifest?.countries) || !state.manifest.countries.length) return true;
   return featureCountries(feature).some((country) => state.countryFilters.has(country));
 }
@@ -1087,33 +996,10 @@ function loadedVisibleFeatures() {
   });
 }
 
-function isFeatureVisible(feature) {
-  const p = feature?.properties || {};
-  if (!p.map_layer) return p.source_dataset === "Manual selection";
-  const record = state.layers.get(p.map_layer);
-  return !!record?.visible && featurePassesActiveFilters(feature);
-}
-
 function syncOverlaysWithVisibleLayers() {
-  let changedSelections = false;
-  for (const slot of ["A", "B"]) {
-    const selection = state.selections[slot];
-    if (!selection || isFeatureVisible(selection.feature)) continue;
-    state.selections[slot] = null;
-    changedSelections = true;
-    if (state.selectionMarkers[slot]) {
-      map.removeLayer(state.selectionMarkers[slot]);
-      state.selectionMarkers[slot] = null;
-    }
-  }
-  renderSelections();
-  renderSelectionLine();
-  renderDistance();
-
   if (state.radiusOrigin && Number.isFinite(state.radiusKm)) {
     renderRadiusResults(state.radiusOrigin, state.radiusKm);
   }
-  if (changedSelections) queueSavePreferences();
 }
 
 function renderLoadedCount() {
@@ -1160,112 +1046,8 @@ function resultButton(stored, includeDistance, distanceKm = null) {
       map.setView(stored.point, Math.max(map.getZoom(), 9));
     }
     if (stored.layer?.openPopup) stored.layer.openPopup();
-    selectFeature(state.activeSlot, stored.feature, stored.point);
   });
   return button;
-}
-
-function selectFeature(slot, feature, latlng) {
-  const point = featurePoint(feature, latlng);
-  state.selections[slot] = { feature, point };
-  if (point) {
-    if (slot === "A") {
-      els.manualALat.value = point.lat.toFixed(6);
-      els.manualALng.value = point.lng.toFixed(6);
-    } else {
-      els.manualBLat.value = point.lat.toFixed(6);
-      els.manualBLng.value = point.lng.toFixed(6);
-    }
-  }
-  drawSelectionMarker(slot);
-  renderSelections();
-  renderSelectionLine();
-  renderDistance();
-  queueSavePreferences();
-}
-
-function drawSelectionMarker(slot) {
-  const selection = state.selections[slot];
-  if (state.selectionMarkers[slot]) {
-    map.removeLayer(state.selectionMarkers[slot]);
-    state.selectionMarkers[slot] = null;
-  }
-  if (!selection?.point) return;
-  const className = `selection-halo ${slot === "A" ? "selection-halo-a" : "selection-halo-b"}`;
-  const icon = L.divIcon({
-    className,
-    html: `<span>${slot}</span>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-  });
-  state.selectionMarkers[slot] = L.marker(selection.point, {
-    icon,
-    interactive: false,
-    zIndexOffset: 2000,
-  }).addTo(map);
-}
-
-function renderSelectionLine() {
-  if (state.selectionLine) {
-    map.removeLayer(state.selectionLine);
-    state.selectionLine = null;
-  }
-  const a = state.selections.A?.point;
-  const b = state.selections.B?.point;
-  if (!a || !b) return;
-  state.selectionLine = L.polyline([a, b], {
-    color: "#f2c94c",
-    weight: 3,
-    opacity: 0.9,
-    dashArray: "8,7",
-    interactive: false,
-    className: "selection-link-line",
-  }).addTo(map);
-}
-
-function renderSelections() {
-  renderSelectionCard("A", els.selectionA);
-  renderSelectionCard("B", els.selectionB);
-}
-
-function renderSelectionCard(slot, element) {
-  const selection = state.selections[slot];
-  if (!selection) {
-    element.className = "selection-card empty";
-    element.textContent = `Selection ${slot}`;
-    return;
-  }
-  const p = selection.feature.properties || {};
-  element.className = "selection-card";
-  element.innerHTML = `
-    <h3>${slot}: ${escapeHtml(p.display_label || p.name || "Unnamed")}</h3>
-    <dl>
-      ${detailRows(p)}
-    </dl>
-  `;
-}
-
-function renderDistance() {
-  const a = state.selections.A?.point;
-  const b = state.selections.B?.point;
-  if (!a || !b) {
-    els.distancePanel.className = "distance-panel muted";
-    els.distancePanel.textContent = "Select two features to calculate distance.";
-    return;
-  }
-  const km = metersKm(a, b);
-  const miles = km * 0.621371;
-  const brg = bearing(a, b);
-  els.distancePanel.className = "distance-panel";
-  els.distancePanel.innerHTML = `
-    <div><strong>${numberFmt(km, 1)} km</strong> <span class="muted">(${numberFmt(miles, 1)} mi)</span></div>
-    <div class="muted">Straight-line distance • bearing ${numberFmt(brg, 0)}° from A to B</div>
-  `;
-}
-
-function updateSlotButtons() {
-  els.slotABtn.classList.toggle("active", state.activeSlot === "A");
-  els.slotBBtn.classList.toggle("active", state.activeSlot === "B");
 }
 
 function fitLoadedLayers() {
@@ -1281,107 +1063,17 @@ function fitLoadedLayers() {
   if (bounds.isValid()) map.fitBounds(bounds.pad(0.08));
 }
 
-function clearSelection() {
-  state.selections.A = null;
-  state.selections.B = null;
-  for (const slot of ["A", "B"]) {
-    if (state.selectionMarkers[slot]) {
-      map.removeLayer(state.selectionMarkers[slot]);
-      state.selectionMarkers[slot] = null;
-    }
-  }
-  if (state.selectionLine) {
-    map.removeLayer(state.selectionLine);
-    state.selectionLine = null;
-  }
-  els.nearestResults.innerHTML = "";
-  renderSelections();
-  renderDistance();
-  queueSavePreferences();
-}
-
-function renderNearest() {
-  const originSlot = state.selections[state.activeSlot] ? state.activeSlot : (state.selections.A ? "A" : (state.selections.B ? "B" : state.activeSlot));
-  const origin = state.selections[originSlot]?.point;
-  els.nearestResults.innerHTML = "";
-  if (!origin) {
-    els.nearestResults.innerHTML = `<div class="muted">Select a feature first.</div>`;
-    return;
-  }
-  const candidates = loadedVisibleFeatures()
-    .filter((stored) => stored.point && stored.id !== state.selections[originSlot]?.feature.id)
-    .map((stored) => ({ stored, distance: metersKm(origin, stored.point) }))
-    .sort((a, b) => a.distance - b.distance)
-    .slice(0, 12);
-  if (!candidates.length) {
-    els.nearestResults.innerHTML = `<div class="muted">No visible loaded candidates.</div>`;
-    return;
-  }
-  for (const item of candidates) {
-    els.nearestResults.appendChild(resultButton(item.stored, true, item.distance));
-  }
-}
-
-function manualFeature(slot, lat, lng) {
-  return {
-    type: "Feature",
-    id: `manual_${slot}_${Date.now()}`,
-    geometry: { type: "Point", coordinates: [lng, lat] },
-    properties: {
-      uid: `manual_${slot}`,
-      display_label: `Manual ${slot}`,
-      name: `Manual ${slot}`,
-      asset_class: "manual",
-      asset_type: "coordinate",
-      source_dataset: "Manual selection",
-      source_layer: "manual",
-      map_latitude: String(lat),
-      map_longitude: String(lng),
-      latitude: String(lat),
-      longitude: String(lng),
-      location_quality: "manual",
-      has_point_location: "true",
-      search_text: `Manual ${slot} ${lat} ${lng}`,
-      map_color: slot === "A" ? "#e0a72f" : "#5a8bff",
-    },
-  };
-}
-
-function setManualSelection(slot) {
-  const latInput = slot === "A" ? els.manualALat : els.manualBLat;
-  const lngInput = slot === "A" ? els.manualALng : els.manualBLng;
-  const lat = Number(latInput.value);
-  const lng = Number(lngInput.value);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    alert("Enter a valid latitude and longitude.");
-    return;
-  }
-  const point = { lat, lng };
-  selectFeature(slot, manualFeature(slot, lat, lng), point);
-  map.setView(point, Math.max(map.getZoom(), 7));
-}
-
 function applySavedInterfaceState() {
   const prefs = state.savedPreferences;
   if (!prefs) {
-    updateSlotButtons();
     setLayersPanelCollapsed(false, false);
     setCountriesPanelCollapsed(false, false);
     return;
   }
 
-  state.activeSlot = prefs.activeSlot === "B" ? "B" : "A";
-  updateSlotButtons();
   setLayersPanelCollapsed(prefs.layersPanelCollapsed === true, false);
   setCountriesPanelCollapsed(savedCountriesPanelCollapsed(), false);
   if (typeof prefs.search === "string") els.searchInput.value = prefs.search;
-  els.manualPanel.hidden = prefs.manualPanelOpen !== true;
-
-  const manual = prefs.manualInputs || {};
-  els.manualALat.value = manual.aLat || "";
-  els.manualALng.value = manual.aLng || "";
-  els.manualBLat.value = manual.bLat || "";
-  els.manualBLng.value = manual.bLng || "";
 
   const center = storedPoint(prefs.mapView);
   const zoom = Number(prefs.mapView?.zoom);
@@ -1404,22 +1096,6 @@ function setCountriesPanelCollapsed(collapsed, persist = true) {
   els.countriesPanelToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
   els.countriesPanelToggle.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} Countries`);
   if (persist) queueSavePreferences();
-}
-
-function restoreSavedSelections() {
-  const selections = state.savedPreferences?.selections;
-  if (!selections) return;
-  for (const slot of ["A", "B"]) {
-    const saved = selections[slot];
-    if (!saved) continue;
-    const point = storedPoint(saved.point);
-    if (saved.type === "manual" && point) {
-      selectFeature(slot, manualFeature(slot, point.lat, point.lng), point);
-    } else if (saved.type === "feature" && typeof saved.id === "string") {
-      const stored = state.features.get(saved.id);
-      if (stored) selectFeature(slot, stored.feature, stored.point || point);
-    }
-  }
 }
 
 function drawStoredRadius(origin, radiusKm) {
@@ -1912,12 +1588,9 @@ async function init() {
   applySavedInterfaceState();
   renderCountries();
   await renderLayers();
-  restoreSavedSelections();
   restoreSavedRadius();
   renderEstimator();
   renderSearch();
-  renderSelections();
-  renderDistance();
   state.persistenceReady = true;
   savePreferencesNow();
 }
@@ -1926,18 +1599,6 @@ els.searchInput.addEventListener("input", () => {
   renderSearch();
   queueSavePreferences();
 });
-els.slotABtn.addEventListener("click", () => {
-  state.activeSlot = "A";
-  updateSlotButtons();
-  queueSavePreferences();
-});
-els.slotBBtn.addEventListener("click", () => {
-  state.activeSlot = "B";
-  updateSlotButtons();
-  queueSavePreferences();
-});
-els.clearSelectionBtn.addEventListener("click", clearSelection);
-els.nearestBtn.addEventListener("click", renderNearest);
 els.fitLoadedBtn.addEventListener("click", fitLoadedLayers);
 els.layersPanelToggle.addEventListener("click", () => {
   setLayersPanelCollapsed(!els.layersPanelBody.hidden);
@@ -1945,15 +1606,6 @@ els.layersPanelToggle.addEventListener("click", () => {
 els.countriesPanelToggle.addEventListener("click", () => {
   setCountriesPanelCollapsed(!els.countriesPanelBody.hidden);
 });
-els.manualToggleBtn.addEventListener("click", () => {
-  els.manualPanel.hidden = !els.manualPanel.hidden;
-  queueSavePreferences();
-});
-for (const input of [els.manualALat, els.manualALng, els.manualBLat, els.manualBLng]) {
-  input.addEventListener("input", queueSavePreferences);
-}
-els.manualASetBtn.addEventListener("click", () => setManualSelection("A"));
-els.manualBSetBtn.addEventListener("click", () => setManualSelection("B"));
 els.radiusModeBtn.addEventListener("click", () => setRadiusMode(!state.radiusMode));
 els.resetRadiusBtn.addEventListener("click", () => {
   resetRadius();

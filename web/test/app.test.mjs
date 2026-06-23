@@ -27,7 +27,6 @@ globalThis.__api = {
   groupedLayerInfos,
   handleSubcategoryChange,
   importEstimatorAssumptionsFromText,
-  manualFeature,
   metersKm,
   renderEstimatorResults,
   renderRadiusResults,
@@ -36,7 +35,6 @@ globalThis.__api = {
   setCountriesPanelCollapsed,
   setLayersPanelCollapsed,
   summarizeEstimatorResults,
-  selectFeature
 };`
 );
 
@@ -104,101 +102,31 @@ const fixtures = {
   },
 };
 
-test("persists UI choices and restores them on the next app load", async () => {
+test("persists UI choices without removed measurement state and restores them on the next app load", async () => {
   const first = createAppContext();
   await first.__initPromise;
 
   const api = first.__api;
   api.state.layerControls.get("military_sites").checked = true;
-  api.state.activeSlot = "B";
   api.els.searchInput.value = "Alpha";
-  api.els.manualPanel.hidden = false;
-  api.selectFeature("A", api.manualFeature("A", 55.1, 59.2), { lat: 55.1, lng: 59.2 });
   api.savePreferencesNow();
 
   const savedRaw = first.localStorage.getItem(STORAGE_KEY);
   const saved = JSON.parse(savedRaw);
 
-  assert.equal(saved.activeSlot, "B");
   assert.equal(saved.layers.military_sites, true);
   assert.equal(saved.search, "Alpha");
-  assert.equal(saved.manualPanelOpen, true);
-  assert.equal(saved.selections.A.type, "manual");
+  assert.equal(Object.hasOwn(saved, "activeSlot"), false);
+  assert.equal(Object.hasOwn(saved, "manualPanelOpen"), false);
+  assert.equal(Object.hasOwn(saved, "manualInputs"), false);
+  assert.equal(Object.hasOwn(saved, "selections"), false);
 
   const second = createAppContext({ [STORAGE_KEY]: savedRaw });
   await second.__initPromise;
 
   const restored = second.__api;
-  assert.equal(restored.state.activeSlot, "B");
   assert.equal(restored.els.searchInput.value, "Alpha");
-  assert.equal(restored.els.manualPanel.hidden, false);
   assert.equal(restored.state.layerControls.get("military_sites").checked, true);
-  assert.equal(restored.state.selections.A.feature.properties.source_dataset, "Manual selection");
-  assert.equal(restored.state.selections.A.point.lat, 55.1);
-  assert.equal(restored.state.selections.A.point.lng, 59.2);
-});
-
-test("restores saved feature selections after their layers load", async () => {
-  const savedPreferences = {
-    version: 1,
-    activeSlot: "A",
-    baseLayer: "dark",
-    mapView: { lat: 54, lng: 58, zoom: 6 },
-    layers: {
-      energy_facilities: true,
-      military_sites: true,
-    },
-    subcategories: {
-      energy_facilities: ["energy_oil_facility", "unknown_subcategory"],
-      military_sites: ["military_other"],
-    },
-    search: "Bravo",
-    manualPanelOpen: false,
-    manualInputs: {},
-    selections: {
-      A: {
-        type: "feature",
-        id: "fixture_energy_1",
-        layerId: "energy_facilities",
-        point: { lat: 55.2, lng: 59.1 },
-      },
-      B: null,
-    },
-    radius: null,
-  };
-
-  const app = createAppContext({ [STORAGE_KEY]: JSON.stringify(savedPreferences) });
-  await app.__initPromise;
-
-  const api = app.__api;
-  const energySubcategories = [...api.state.subcategoryFilters.get("energy_facilities")];
-
-  assert.equal(api.currentPreferences().baseLayer, "dark");
-  assert.equal(api.state.selections.A.feature.id, "fixture_energy_1");
-  assert.equal(api.state.selections.A.point.lat, 55.2);
-  assert.deepEqual(energySubcategories, ["energy_oil_facility"]);
-  assert.equal(api.els.searchInput.value, "Bravo");
-});
-
-test("draws labelled A/B selection markers and a connecting line", async () => {
-  const app = createAppContext();
-  await app.__initPromise;
-
-  const api = app.__api;
-  api.selectFeature("A", fixtures["data/energy_facilities.geojson"].features[0], { lat: 55.2, lng: 59.1 });
-  assert.equal(api.state.selectionMarkers.A.options.icon.html, "<span>A</span>");
-  assert.equal(api.state.selectionLine, null);
-
-  api.selectFeature("B", fixtures["data/military_sites.geojson"].features[0], { lat: 56.2, lng: 60.1 });
-  assert.equal(api.state.selectionMarkers.B.options.icon.html, "<span>B</span>");
-  assert.deepEqual(JSON.parse(JSON.stringify(api.state.selectionLine.latlngs)), [
-    { lat: 55.2, lng: 59.1 },
-    { lat: 56.2, lng: 60.1 },
-  ]);
-  assert.equal(api.state.selectionLine.options.className, "selection-link-line");
-
-  api.els.clearSelectionBtn.listeners.click[0]();
-  assert.equal(api.state.selectionLine, null);
 });
 
 test("syncs category checkboxes with subcategories and saves collapsed state", async () => {

@@ -73,40 +73,9 @@
 
         <section class="panel">
           <div class="panel-title">
-            <h2>Compare</h2>
-            <div class="slot-toggle" role="group" aria-label="Active selection slot">
-              <button id="slotABtn" class="slot-btn active" type="button">A</button>
-              <button id="slotBBtn" class="slot-btn" type="button">B</button>
-            </div>
-          </div>
-          <div class="compare-tools">
-            <button id="manualToggleBtn" class="text-btn" type="button">Manual A/B</button>
+            <h2>Radius</h2>
             <button id="radiusModeBtn" class="text-btn" type="button">Draw Radius</button>
           </div>
-          <div id="manualPanel" class="manual-panel" hidden>
-            <div class="manual-row">
-              <strong>A</strong>
-              <input id="manualALat" type="number" step="any" placeholder="lat" />
-              <input id="manualALng" type="number" step="any" placeholder="lon" />
-              <button id="manualASetBtn" class="text-btn" type="button">Set</button>
-            </div>
-            <div class="manual-row">
-              <strong>B</strong>
-              <input id="manualBLat" type="number" step="any" placeholder="lat" />
-              <input id="manualBLng" type="number" step="any" placeholder="lon" />
-              <button id="manualBSetBtn" class="text-btn" type="button">Set</button>
-            </div>
-          </div>
-          <div class="selection-grid">
-            <article id="selectionA" class="selection-card empty"></article>
-            <article id="selectionB" class="selection-card empty"></article>
-          </div>
-          <div id="distancePanel" class="distance-panel muted">Select two features to calculate distance.</div>
-          <div class="actions-row">
-            <button id="clearSelectionBtn" class="text-btn" type="button">Clear selection</button>
-            <button id="nearestBtn" class="text-btn" type="button">Nearest to active</button>
-          </div>
-          <div id="nearestResults" class="nearest-results"></div>
           <div id="radiusPanel" class="radius-panel" hidden>
             <div class="panel-title">
               <h2>Radius Results</h2>
@@ -116,7 +85,7 @@
               <button id="exportRadiusBtn" class="text-btn" type="button">Export CSV</button>
               <button id="resetRadiusBtn" class="text-btn" type="button">Reset radius</button>
             </div>
-            <div id="radiusResults" class="nearest-results"></div>
+            <div id="radiusResults" class="result-list"></div>
           </div>
         </section>
       </aside>
