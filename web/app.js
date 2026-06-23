@@ -131,6 +131,7 @@ const state = {
   radiusMode: false,
   radiusStart: null,
   radiusOrigin: null,
+  radiusEdge: null,
   radiusKm: null,
   radiusCircle: null,
   radiusBandCircles: [],
@@ -544,6 +545,7 @@ function serializeRadius() {
   if (!state.radiusOrigin || !Number.isFinite(state.radiusKm)) return null;
   return {
     origin: { lat: state.radiusOrigin.lat, lng: state.radiusOrigin.lng },
+    edge: state.radiusEdge ? { lat: state.radiusEdge.lat, lng: state.radiusEdge.lng } : null,
     radiusKm: state.radiusKm,
   };
 }
@@ -1079,6 +1081,43 @@ function metersKm(a, b) {
   const lat2 = toRad(b.lat);
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
   return 2 * radius * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+function radiusBearingDegrees(origin, edge) {
+  if (!origin || !edge || metersKm(origin, edge) < 0.001) return 90;
+  const toRad = (deg) => deg * Math.PI / 180;
+  const toDeg = (rad) => rad * 180 / Math.PI;
+  const lat1 = toRad(origin.lat);
+  const lat2 = toRad(edge.lat);
+  const dLng = toRad(edge.lng - origin.lng);
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+function radiusDestinationPoint(origin, bearingDegrees, distanceKm) {
+  const earthRadiusKm = 6371.0088;
+  const toRad = (deg) => deg * Math.PI / 180;
+  const toDeg = (rad) => rad * 180 / Math.PI;
+  const angularDistance = distanceKm / earthRadiusKm;
+  const bearing = toRad(bearingDegrees);
+  const lat1 = toRad(origin.lat);
+  const lng1 = toRad(origin.lng);
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(angularDistance) +
+      Math.cos(lat1) * Math.sin(angularDistance) * Math.cos(bearing)
+  );
+  const lng2 = lng1 + Math.atan2(
+    Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(lat1),
+    Math.cos(angularDistance) - Math.sin(lat1) * Math.sin(lat2)
+  );
+  const lng = ((toDeg(lng2) + 540) % 360) - 180;
+  return { lat: toDeg(lat2), lng };
+}
+
+function radiusEdgeFor(origin, radiusKm, preferredEdge = state.radiusEdge) {
+  const bearing = radiusBearingDegrees(origin, preferredEdge);
+  return radiusDestinationPoint(origin, bearing, radiusKm);
 }
 
 function iterGeometryPositions(geometry) {
@@ -1840,11 +1879,48 @@ function drawRadiusBandCircles(origin, radiusKm) {
   }
 }
 
-function drawStoredRadius(origin, radiusKm) {
+function setRadiusMeasurementOverlay(origin, edge, radiusKm) {
+  if (!origin || !edge || !Number.isFinite(radiusKm) || radiusKm <= 0) return;
+  if (state.radiusLine) {
+    state.radiusLine.setLatLngs([origin, edge]);
+  } else {
+    state.radiusLine = L.polyline([origin, edge], {
+      color: "#e0a72f",
+      weight: 2,
+      opacity: 0.95,
+      dashArray: "6,6",
+      interactive: false,
+    }).addTo(map);
+  }
+  if (state.radiusLabel) {
+    state.radiusLabel.setLatLng(edge);
+    state.radiusLabel.setIcon(L.divIcon({
+      className: "radius-distance-label",
+      html: `${numberFmt(radiusKm, 1)} km`,
+      iconSize: [82, 28],
+      iconAnchor: [-8, 14],
+    }));
+  } else {
+    state.radiusLabel = L.marker(edge, {
+      interactive: false,
+      icon: L.divIcon({
+        className: "radius-distance-label",
+        html: `${numberFmt(radiusKm, 1)} km`,
+        iconSize: [82, 28],
+        iconAnchor: [-8, 14],
+      }),
+    }).addTo(map);
+  }
+}
+
+function drawStoredRadius(origin, radiusKm, edge = null) {
   if (state.radiusCircle) map.removeLayer(state.radiusCircle);
   if (state.radiusLine) map.removeLayer(state.radiusLine);
   if (state.radiusLabel) map.removeLayer(state.radiusLabel);
   clearRadiusBandCircles();
+  state.radiusLine = null;
+  state.radiusLabel = null;
+  state.radiusEdge = edge || radiusEdgeFor(origin, radiusKm, null);
   drawRadiusBandCircles(origin, radiusKm);
   state.radiusCircle = L.circle(origin, {
     radius: radiusKm * 1000,
@@ -1854,32 +1930,17 @@ function drawStoredRadius(origin, radiusKm) {
     fillOpacity: 0,
     interactive: false,
   }).addTo(map);
-  state.radiusLine = null;
-  state.radiusLabel = L.marker(origin, {
-    interactive: false,
-    icon: L.divIcon({
-      className: "radius-distance-label",
-      html: `${numberFmt(radiusKm, 1)} km`,
-      iconSize: [82, 28],
-      iconAnchor: [-8, 14],
-    }),
-  }).addTo(map);
+  setRadiusMeasurementOverlay(origin, state.radiusEdge, radiusKm);
 }
 
-function updateRadiusOverlay(radiusKm, origin = state.radiusOrigin || state.radiusStart) {
-  if (!Number.isFinite(radiusKm) || radiusKm <= 0) return;
+function updateRadiusOverlay(radiusKm, origin = state.radiusOrigin || state.radiusStart, edge = null) {
+  if (!origin || !Number.isFinite(radiusKm) || radiusKm <= 0) return;
+  state.radiusEdge = edge || radiusEdgeFor(origin, radiusKm);
   drawRadiusBandCircles(origin, radiusKm);
   if (state.radiusCircle) {
     state.radiusCircle.setRadius(radiusKm * 1000);
   }
-  if (state.radiusLabel) {
-    state.radiusLabel.setIcon(L.divIcon({
-      className: "radius-distance-label",
-      html: `${numberFmt(radiusKm, 1)} km`,
-      iconSize: [82, 28],
-      iconAnchor: [-8, 14],
-    }));
-  }
+  setRadiusMeasurementOverlay(origin, state.radiusEdge, radiusKm);
 }
 
 function updateRadiusPanelDetails(origin, radiusKm) {
@@ -1898,7 +1959,6 @@ function applyRadiusInputValue() {
   if (!state.radiusOrigin || !Number.isFinite(state.radiusKm)) return;
   const radiusKm = positiveFiniteNumber(els.radiusKmInput.value, state.radiusKm, 0.1);
   els.radiusKmInput.value = String(Number(radiusKm.toFixed(1)));
-  updateRadiusOverlay(radiusKm);
   renderRadiusResults(state.radiusOrigin, radiusKm);
 }
 
@@ -1910,9 +1970,10 @@ function refreshRadiusRangeOverlay() {
 function restoreSavedRadius() {
   const saved = state.savedPreferences?.radius;
   const origin = storedPoint(saved?.origin);
+  const edge = storedPoint(saved?.edge);
   const radiusKm = Number(saved?.radiusKm);
   if (!origin || !Number.isFinite(radiusKm) || radiusKm <= 0) return;
-  drawStoredRadius(origin, radiusKm);
+  drawStoredRadius(origin, radiusKm, edge ? radiusEdgeFor(origin, radiusKm, edge) : null);
   renderRadiusResults(origin, radiusKm);
 }
 
@@ -2356,6 +2417,7 @@ function resetRadius() {
   clearRadiusBandCircles();
   state.radiusStart = null;
   state.radiusOrigin = null;
+  state.radiusEdge = null;
   state.radiusKm = null;
   state.radiusResults = [];
   state.radiusHighlightGroup.clearLayers();
@@ -2419,6 +2481,7 @@ function onRadiusMouseDown(event) {
   event.originalEvent?.preventDefault();
   resetRadius();
   state.radiusStart = event.latlng;
+  state.radiusEdge = event.latlng;
   map.dragging.disable();
   state.radiusCircle = L.circle(state.radiusStart, {
     radius: 1,
@@ -2429,28 +2492,13 @@ function onRadiusMouseDown(event) {
     interactive: false,
   }).addTo(map);
   updateRadiusOverlay(0.1, state.radiusStart);
-  state.radiusLine = L.polyline([state.radiusStart, state.radiusStart], {
-    color: "#e0a72f",
-    weight: 2,
-    opacity: 0.95,
-    dashArray: "6,6",
-    interactive: false,
-  }).addTo(map);
-  state.radiusLabel = L.marker(state.radiusStart, {
-    interactive: false,
-    icon: L.divIcon({
-      className: "radius-distance-label",
-      html: "0.0 km",
-      iconSize: [82, 28],
-      iconAnchor: [-8, 14],
-    }),
-  }).addTo(map);
 }
 
 function onRadiusMouseMove(event) {
   if (!state.radiusMode || !state.radiusStart || !state.radiusCircle) return;
   const radiusKm = metersKm(state.radiusStart, event.latlng);
-  updateRadiusOverlay(radiusKm, state.radiusStart);
+  state.radiusEdge = event.latlng;
+  updateRadiusOverlay(radiusKm, state.radiusStart, event.latlng);
   if (state.radiusLine) {
     state.radiusLine.setLatLngs([state.radiusStart, event.latlng]);
   }
@@ -2468,7 +2516,8 @@ function onRadiusMouseMove(event) {
 async function onRadiusMouseUp(event) {
   if (!state.radiusMode || !state.radiusStart || !state.radiusCircle) return;
   const radiusKm = metersKm(state.radiusStart, event.latlng);
-  updateRadiusOverlay(radiusKm, state.radiusStart);
+  state.radiusEdge = event.latlng;
+  updateRadiusOverlay(radiusKm, state.radiusStart, event.latlng);
   if (state.radiusLine) {
     state.radiusLine.setLatLngs([state.radiusStart, event.latlng]);
   }

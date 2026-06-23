@@ -30,6 +30,8 @@ globalThis.__api = {
   handleSubcategoryChange,
   importEstimatorAssumptionsFromText,
   metersKm,
+  map,
+  onRadiusMouseDown,
   renderEstimatorResults,
   renderRadiusResults,
   resetRadius,
@@ -375,6 +377,10 @@ test("radius panel shows center and applies manual radius edits", async () => {
 
   assert.equal(api.els.radiusCenterLabel.textContent, "55.20000, 59.10000");
   assert.equal(api.els.radiusKmInput.value, "746.3");
+  assert.ok(api.state.radiusLine);
+  assert.ok(api.state.radiusLabel);
+  assert.ok(api.metersKm(api.state.radiusOrigin, api.state.radiusEdge) > 746);
+  assert.ok(api.metersKm(api.state.radiusOrigin, api.state.radiusEdge) < 747);
 
   api.els.radiusKmInput.value = "750";
   api.els.radiusKmInput.listeners.change[0]();
@@ -382,7 +388,54 @@ test("radius panel shows center and applies manual radius edits", async () => {
   assert.equal(api.state.radiusKm, 750);
   assert.equal(api.els.radiusKmInput.value, "750");
   assert.equal(api.currentPreferences().radius.radiusKm, 750);
+  assert.ok(api.currentPreferences().radius.edge);
+  assert.ok(api.metersKm(api.state.radiusOrigin, api.state.radiusEdge) > 749.9);
+  assert.ok(api.metersKm(api.state.radiusOrigin, api.state.radiusEdge) < 750.1);
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.radiusLine.latlngs[1])), JSON.parse(JSON.stringify(api.state.radiusEdge)));
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.radiusLabel.latlng)), JSON.parse(JSON.stringify(api.state.radiusEdge)));
   assert.match(api.els.radiusSummary.textContent, /750 km/);
+});
+
+test("restores radius measurement line and distance tag away from the center", async () => {
+  const first = createAppContext();
+  await first.__initPromise;
+
+  const api = first.__api;
+  api.renderRadiusResults({ lat: 55.2, lng: 59.1 }, 300);
+  api.savePreferencesNow();
+
+  const savedRaw = first.localStorage.getItem(STORAGE_KEY);
+  const second = createAppContext({ [STORAGE_KEY]: savedRaw });
+  await second.__initPromise;
+
+  const restored = second.__api;
+  assert.ok(restored.state.radiusLine);
+  assert.ok(restored.state.radiusLabel);
+  assert.ok(restored.state.radiusEdge);
+  assert.ok(restored.metersKm(restored.state.radiusOrigin, restored.state.radiusEdge) > 299.9);
+  assert.ok(restored.metersKm(restored.state.radiusOrigin, restored.state.radiusEdge) < 300.1);
+  assert.notDeepEqual(JSON.parse(JSON.stringify(restored.state.radiusLabel.latlng)), JSON.parse(JSON.stringify(restored.state.radiusOrigin)));
+  assert.deepEqual(JSON.parse(JSON.stringify(restored.state.radiusLine.latlngs)), [
+    JSON.parse(JSON.stringify(restored.state.radiusOrigin)),
+    JSON.parse(JSON.stringify(restored.state.radiusEdge)),
+  ]);
+});
+
+test("starting a radius draw does not leave orphan measurement labels after reset", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  const before = api.map.layerCount();
+  api.state.radiusMode = true;
+  api.onRadiusMouseDown({
+    latlng: { lat: 55.2, lng: 59.1 },
+    originalEvent: { preventDefault() {} },
+  });
+
+  assert.equal(api.map.layerCount(), before + 4);
+  api.resetRadius();
+  assert.equal(api.map.layerCount(), before);
 });
 
 test("radius overlay draws colored range-band circles", async () => {
@@ -977,6 +1030,9 @@ function createLeafletStub(document) {
       },
       hasLayer(item) {
         return layers.has(item);
+      },
+      layerCount() {
+        return layers.size;
       },
       on(name, callback) {
         if (!handlers[name]) handlers[name] = [];
