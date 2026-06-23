@@ -180,6 +180,10 @@ input {
   border: 1px solid transparent;
 }
 
+.layer-row.leaf-layer-row {
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+}
+
 .layer-row:hover {
   border-color: #3f3f3f;
 }

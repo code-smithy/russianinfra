@@ -582,6 +582,7 @@ async function renderLayers() {
     checkbox.type = "checkbox";
     state.layerControls.set(layerInfo.id, checkbox);
     const hasSubcategories = subcategories.length > 1;
+    row.classList.toggle("leaf-layer-row", !hasSubcategories);
     const subcategoryControls = [];
     state.layerSubcategoryControls.set(layerInfo.id, subcategoryControls);
 
