@@ -16,6 +16,8 @@ const state = {
   layerControls: new Map(),
   layerSubcategoryControls: new Map(),
   layerCollapseControls: new Map(),
+  countryFilters: new Set(),
+  countryControls: new Map(),
   savedPreferences: loadSavedPreferences(),
   persistenceReady: false,
   saveTimer: null,
@@ -65,6 +67,8 @@ const els = {
   selectionB: document.getElementById("selectionB"),
   distancePanel: document.getElementById("distancePanel"),
   loadingToast: document.getElementById("loadingToast"),
+  countriesCount: document.getElementById("countriesCount"),
+  countriesList: document.getElementById("countriesList"),
   layersPanel: document.getElementById("layersPanel"),
   layersPanelBody: document.getElementById("layersPanelBody"),
   layersPanelToggle: document.getElementById("layersPanelToggle"),
@@ -144,6 +148,16 @@ function savedLayerCollapsed(layerId) {
   return Array.isArray(collapsedLayers) && collapsedLayers.includes(layerId);
 }
 
+function savedCountrySet() {
+  const countries = Array.isArray(state.manifest?.countries) ? state.manifest.countries : [];
+  const validIds = new Set(countries.map((country) => country.id));
+  const saved = state.savedPreferences?.countries;
+  if (Array.isArray(saved)) {
+    return new Set(saved.filter((country) => validIds.has(country)));
+  }
+  return new Set(countries.map((country) => country.id));
+}
+
 function serializeSelection(slot) {
   const selection = state.selections[slot];
   if (!selection?.point) return null;
@@ -190,6 +204,7 @@ function currentPreferences() {
     layers,
     layersPanelCollapsed: els.layersPanelBody.hidden,
     collapsedLayers,
+    countries: [...state.countryFilters],
     subcategories,
     search: els.searchInput.value,
     manualPanelOpen: !els.manualPanel.hidden,
@@ -437,14 +452,34 @@ function featureSubcategory(feature) {
   return p.derived_subcategory || p.asset_type || "uncategorized";
 }
 
+function featureCountry(feature) {
+  const p = feature?.properties || {};
+  return (p.country || "Unknown").trim() || "Unknown";
+}
+
+function featureCountries(feature) {
+  const p = feature?.properties || {};
+  if (Array.isArray(p.countries) && p.countries.length) {
+    return p.countries.map((country) => String(country).trim()).filter(Boolean);
+  }
+  return [featureCountry(feature)];
+}
+
 function isSubcategoryEnabled(layerId, subcategory) {
   const enabled = state.subcategoryFilters.get(layerId);
   return !enabled || enabled.has(subcategory);
 }
 
+function featurePassesCountryFilter(feature) {
+  const p = feature?.properties || {};
+  if (p.source_dataset === "Manual selection") return true;
+  if (!Array.isArray(state.manifest?.countries) || !state.manifest.countries.length) return true;
+  return featureCountries(feature).some((country) => state.countryFilters.has(country));
+}
+
 function featurePassesActiveFilters(feature) {
   const p = feature?.properties || {};
-  return isSubcategoryEnabled(p.map_layer, featureSubcategory(feature));
+  return featurePassesCountryFilter(feature) && isSubcategoryEnabled(p.map_layer, featureSubcategory(feature));
 }
 
 function createFilteredLayer(record) {
@@ -457,6 +492,23 @@ function createFilteredLayer(record) {
 function refreshLayerFilters(layerInfo) {
   const record = state.layers.get(layerInfo.id);
   if (record?.loaded) {
+    const wasVisible = record.visible;
+    if (record.layer && map.hasLayer(record.layer)) {
+      map.removeLayer(record.layer);
+    }
+    record.layer = createFilteredLayer(record);
+    if (wasVisible) {
+      record.layer.addTo(map);
+    }
+  }
+  renderLoadedCount();
+  renderSearch();
+  syncOverlaysWithVisibleLayers();
+}
+
+function refreshAllLayerFilters() {
+  for (const record of state.layers.values()) {
+    if (!record?.loaded) continue;
     const wasVisible = record.visible;
     if (record.layer && map.hasLayer(record.layer)) {
       map.removeLayer(record.layer);
@@ -720,6 +772,43 @@ async function renderLayers() {
   await Promise.allSettled(initialLoads);
   renderLoadedCount();
   renderSearch();
+}
+
+function renderCountries() {
+  const countries = Array.isArray(state.manifest.countries) ? state.manifest.countries : [];
+  state.countryControls.clear();
+  state.countryFilters = savedCountrySet();
+  els.countriesList.innerHTML = "";
+  els.countriesCount.textContent = `${countries.length.toLocaleString()} ${countries.length === 1 ? "country" : "countries"}`;
+
+  if (!countries.length) {
+    els.countriesList.innerHTML = `<div class="muted">No country metadata.</div>`;
+    return;
+  }
+
+  for (const country of countries) {
+    const row = document.createElement("label");
+    row.className = "country-row";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = state.countryFilters.has(country.id);
+    const name = document.createElement("span");
+    name.className = "country-name";
+    name.innerHTML = `<strong>${escapeHtml(country.label)}</strong><span>${country.count.toLocaleString()} records &bull; ${Number(country.point_count || 0).toLocaleString()} points</span>`;
+    row.append(checkbox, name);
+    els.countriesList.appendChild(row);
+    state.countryControls.set(country.id, checkbox);
+
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        state.countryFilters.add(country.id);
+      } else {
+        state.countryFilters.delete(country.id);
+      }
+      refreshAllLayerFilters();
+      savePreferencesNow();
+    });
+  }
 }
 
 function colorForLayer(layerId) {
@@ -1290,6 +1379,7 @@ async function init() {
   state.manifest = await manifestResponse.json();
   els.datasetSummary.textContent = `${state.manifest.total_features.toLocaleString()} normalized records across ${state.manifest.layers.length} layers`;
   applySavedInterfaceState();
+  renderCountries();
   await renderLayers();
   restoreSavedSelections();
   restoreSavedRadius();

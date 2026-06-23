@@ -18,6 +18,7 @@ globalThis.__api = {
   els,
   currentPreferences,
   featureDistanceToPointKm,
+  featurePassesActiveFilters,
   groupedLayerInfos,
   handleSubcategoryChange,
   manualFeature,
@@ -30,6 +31,10 @@ globalThis.__api = {
 
 const manifest = {
   total_features: 2,
+  countries: [
+    { id: "Russia", label: "Russia", count: 1, point_count: 1 },
+    { id: "Ukraine", label: "Ukraine", count: 1, point_count: 1 },
+  ],
   layers: [
     {
       id: "energy_facilities",
@@ -66,14 +71,15 @@ const fixtures = {
         "energy_facilities",
         "energy_oil_facility",
         55.2,
-        59.1
+        59.1,
+        "Russia"
       ),
     ],
   },
   "data/military_sites.geojson": {
     type: "FeatureCollection",
     features: [
-      feature("fixture_military_1", "Bravo Site", "military_sites", "military_other", 56.2, 60.1),
+      feature("fixture_military_1", "Bravo Site", "military_sites", "military_other", 56.2, 60.1, "Ukraine"),
     ],
   },
 };
@@ -204,6 +210,28 @@ test("saves and restores the collapsed Layers panel", async () => {
   assert.equal(second.__api.els.layersPanelToggle.getAttribute("aria-expanded"), "false");
 });
 
+test("saves country selections and applies them to active filters", async () => {
+  const first = createAppContext();
+  await first.__initPromise;
+
+  const api = first.__api;
+  const russiaControl = api.state.countryControls.get("Russia");
+  russiaControl.checked = false;
+  russiaControl.listeners.change[0]();
+
+  const saved = api.currentPreferences();
+  assert.equal(saved.countries.length, 1);
+  assert.equal(saved.countries[0], "Ukraine");
+  assert.equal(api.featurePassesActiveFilters(fixtures["data/energy_facilities.geojson"].features[0]), false);
+  assert.equal(api.featurePassesActiveFilters(fixtures["data/military_sites.geojson"].features[0]), true);
+
+  const second = createAppContext({ [STORAGE_KEY]: JSON.stringify(saved) });
+  await second.__initPromise;
+
+  assert.equal(second.__api.state.countryControls.get("Russia").checked, false);
+  assert.equal(second.__api.state.countryControls.get("Ukraine").checked, true);
+});
+
 test("groups layers by domain and puts line layers last inside each group", async () => {
   const app = createAppContext();
   await app.__initPromise;
@@ -254,7 +282,7 @@ test("distance helpers handle points and geometry vertices", async () => {
   assert.equal(api.featureDistanceToPointKm(lineFeature, { lat: 50, lng: 30 }), 0);
 });
 
-function feature(id, label, layerId, subcategory, lat, lng) {
+function feature(id, label, layerId, subcategory, lat, lng, country = "Russia") {
   return {
     type: "Feature",
     id,
@@ -264,6 +292,7 @@ function feature(id, label, layerId, subcategory, lat, lng) {
       name: label,
       asset_class: "test",
       asset_type: subcategory,
+      country,
       source_dataset: "Fixture",
       source_layer: layerId,
       map_layer: layerId,

@@ -34,6 +34,9 @@ APP_PROPERTY_KEYS = [
     "operator",
     "product",
     "country",
+    "countries",
+    "source_country",
+    "country_match_method",
     "region",
     "region_translated",
     "inn",
@@ -172,6 +175,8 @@ def main() -> int:
     counts = Counter()
     geometry_counts = Counter()
     class_counts = Counter()
+    country_counts = Counter()
+    country_point_counts = Counter()
     missing = 0
 
     for feature in data.get("features", []):
@@ -182,8 +187,17 @@ def main() -> int:
         props = compact.get("properties") or {}
         counts[layer] += 1
         class_counts[props.get("asset_class") or "unknown"] += 1
+        countries = props.get("countries")
+        if not isinstance(countries, list) or not countries:
+            countries = [(props.get("country") or "Unknown").strip() or "Unknown"]
+        for country in countries:
+            country_counts[country] += 1
         geometry = feature.get("geometry")
-        geometry_counts[(geometry or {}).get("type") or "missing"] += 1
+        geometry_type = (geometry or {}).get("type") or "missing"
+        geometry_counts[geometry_type] += 1
+        if geometry_type == "Point":
+            for country in countries:
+                country_point_counts[country] += 1
         if geometry is None:
             missing += 1
 
@@ -229,6 +243,15 @@ def main() -> int:
         "missing_geometry_count": missing,
         "geometry_counts": dict(sorted(geometry_counts.items())),
         "asset_class_counts": dict(sorted(class_counts.items())),
+        "countries": [
+            {
+                "id": country,
+                "label": country,
+                "count": count,
+                "point_count": country_point_counts.get(country, 0),
+            }
+            for country, count in sorted(country_counts.items(), key=lambda item: (-item[1], item[0]))
+        ],
         "layers": manifest_layers,
     }
     (WEB_DATA_DIR / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
