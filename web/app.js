@@ -200,6 +200,7 @@ const els = {
   categoryAssumptionsToggle: document.getElementById("categoryAssumptionsToggle"),
   categoryAssumptionsList: document.getElementById("categoryAssumptionsList"),
   summaryDisplayControls: document.getElementById("summaryDisplayControls"),
+  estimatorSummaryResults: document.getElementById("estimatorSummaryResults"),
   estimatorResults: document.getElementById("estimatorResults"),
   exportAssumptionsBtn: document.getElementById("exportAssumptionsBtn"),
   importAssumptionsBtn: document.getElementById("importAssumptionsBtn"),
@@ -1847,7 +1848,7 @@ function resourceValueCells(resources, values) {
     .join("");
 }
 
-function renderCompactResourceTotals(aggregate) {
+function renderCompactResourceTotals(aggregate, target = els.estimatorResults) {
   const card = document.createElement("article");
   card.className = "estimate-summary-card";
   const totalLines = aggregate.resources.map((resource) => `
@@ -1863,10 +1864,10 @@ function renderCompactResourceTotals(aggregate) {
     </div>
     <div class="estimate-lines">${totalLines}</div>
   `;
-  els.estimatorResults.appendChild(card);
+  target.appendChild(card);
 }
 
-function renderRangeBandMatrix(aggregate) {
+function renderRangeBandMatrix(aggregate, target = els.estimatorResults) {
   const wrapper = document.createElement("div");
   wrapper.className = "estimate-matrix-wrap";
   const resourceHeaders = aggregate.resources
@@ -1911,7 +1912,7 @@ function renderRangeBandMatrix(aggregate) {
       <tbody>${rows.join("")}</tbody>
     </table>
   `;
-  els.estimatorResults.appendChild(wrapper);
+  target.appendChild(wrapper);
 }
 
 function renderDetailedEstimatorCards(detailRows) {
@@ -1970,10 +1971,13 @@ function renderEstimatorResults() {
   els.estimatorRadiusLabel.textContent = state.radiusOrigin && Number.isFinite(state.radiusKm)
     ? `${numberFmt(state.radiusKm, 1)} km radius`
     : "Active layers only";
+  els.estimatorSummaryResults.innerHTML = "";
   els.estimatorResults.innerHTML = "";
   renderSummaryDisplayControls();
 
   if (!total) {
+    els.estimatorSummaryResults.hidden = true;
+    els.estimatorResults.hidden = false;
     els.estimatorResults.innerHTML = `<div class="muted">No active-layer items inside the current radius.</div>`;
     return;
   }
@@ -1981,9 +1985,13 @@ function renderEstimatorResults() {
   const detailRows = estimatorDetailRows();
   const aggregate = buildEstimatorAggregates(detailRows);
   validateEstimatorAggregates(detailRows, aggregate);
-  if (state.estimator.summaryDisplay.compactTotals) renderCompactResourceTotals(aggregate);
-  if (state.estimator.summaryDisplay.rangeBandMatrix) renderRangeBandMatrix(aggregate);
+  if (state.estimator.summaryDisplay.compactTotals) renderCompactResourceTotals(aggregate, els.estimatorSummaryResults);
+  if (state.estimator.summaryDisplay.rangeBandMatrix) renderRangeBandMatrix(aggregate, els.estimatorSummaryResults);
+  els.estimatorSummaryResults.hidden = !els.estimatorSummaryResults.children.length;
   if (state.estimator.summaryDisplay.detailedBreakdown) renderDetailedEstimatorCards(detailRows);
+  els.estimatorResults.hidden = !state.estimator.summaryDisplay.detailedBreakdown;
+  els.estimatorSummaryResults.scrollTop = 0;
+  els.estimatorResults.scrollTop = 0;
 }
 
 function renderEstimator() {

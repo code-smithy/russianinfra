@@ -795,9 +795,17 @@ input {
   white-space: nowrap;
 }
 
+.estimator-summary-results,
 .estimator-results {
   display: grid;
   gap: 8px;
+}
+
+.estimator-summary-results .estimate-matrix-wrap {
+  max-height: min(280px, 36vh);
+}
+
+.estimator-results {
   max-height: 420px;
   overflow: auto;
 }

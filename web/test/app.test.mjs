@@ -479,6 +479,34 @@ test("scenario estimator totals respect active layer filters", async () => {
   assert.match(api.els.estimatorResults.innerHTML, /No active-layer items/);
 });
 
+test("scenario estimator keeps range matrix visible when detailed breakdown is enabled", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  const militaryControl = api.state.layerControls.get("military_sites");
+  militaryControl.checked = true;
+  await militaryControl.listeners.change[0]();
+  api.renderRadiusResults({ lat: 55.2, lng: 59.1 }, 2500);
+
+  api.state.estimator.summaryDisplay.compactTotals = false;
+  api.state.estimator.summaryDisplay.rangeBandMatrix = true;
+  api.state.estimator.summaryDisplay.detailedBreakdown = false;
+  api.renderEstimatorResults();
+  assert.equal(api.els.estimatorSummaryResults.children[0].className, "estimate-matrix-wrap");
+  assert.equal(api.els.estimatorResults.hidden, true);
+
+  api.els.estimatorResults.scrollTop = 500;
+  api.state.estimator.summaryDisplay.detailedBreakdown = true;
+  api.renderEstimatorResults();
+
+  assert.equal(api.els.estimatorSummaryResults.children[0].className, "estimate-matrix-wrap");
+  assert.ok(api.els.estimatorResults.children.some((child) => child.className === "estimate-card"));
+  assert.equal(api.els.estimatorSummaryResults.hidden, false);
+  assert.equal(api.els.estimatorResults.hidden, false);
+  assert.equal(api.els.estimatorResults.scrollTop, 0);
+});
+
 test("scenario estimator persists summary display preferences", async () => {
   const first = createAppContext();
   await first.__initPromise;
