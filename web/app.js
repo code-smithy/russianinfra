@@ -21,7 +21,16 @@ const DEFAULT_ESTIMATOR_ASSUMPTIONS = {
     { id: "resource_c", label: "Resource C", completionRate: 50 },
   ],
   categoryRequirements: {},
+  summaryDisplay: {
+    compactTotals: false,
+    rangeBandMatrix: true,
+    detailedBreakdown: true,
+  },
 };
+const SUMMARY_DISPLAY_OPTIONS = [
+  { key: "compactTotals", label: "Totals" },
+  { key: "rangeBandMatrix", label: "Range matrix" },
+];
 const ESTIMATOR_BLOCKS = [
   { key: "rangeBands", label: "Range bands" },
   { key: "resourceTypes", label: "Resource types" },
@@ -114,6 +123,7 @@ const els = {
   categoryAssumptionsBody: document.getElementById("categoryAssumptionsBody"),
   categoryAssumptionsToggle: document.getElementById("categoryAssumptionsToggle"),
   categoryAssumptionsList: document.getElementById("categoryAssumptionsList"),
+  summaryDisplayControls: document.getElementById("summaryDisplayControls"),
   estimatorResults: document.getElementById("estimatorResults"),
   exportAssumptionsBtn: document.getElementById("exportAssumptionsBtn"),
   importAssumptionsBtn: document.getElementById("importAssumptionsBtn"),
@@ -310,10 +320,30 @@ function normalizeEstimatorAssumptions(saved) {
     categoryRequirements[layerId] = boundedNumber(value, 1, 0, 1000000);
   }
 
-  return { rangeBands, resources, categoryRequirements };
+  const savedSummaryDisplay = saved?.summaryDisplay && typeof saved.summaryDisplay === "object"
+    ? saved.summaryDisplay
+    : {};
+  const summaryDisplay = {};
+  for (const option of SUMMARY_DISPLAY_OPTIONS) {
+    const defaultValue = defaults.summaryDisplay[option.key] !== false;
+    summaryDisplay[option.key] = typeof savedSummaryDisplay[option.key] === "boolean"
+      ? savedSummaryDisplay[option.key]
+      : defaultValue;
+  }
+  summaryDisplay.detailedBreakdown = typeof savedSummaryDisplay.detailedBreakdown === "boolean"
+    ? savedSummaryDisplay.detailedBreakdown
+    : defaults.summaryDisplay.detailedBreakdown;
+  if (summaryDisplay.rangeBandMatrix) {
+    summaryDisplay.compactTotals = false;
+  } else if (!summaryDisplay.compactTotals) {
+    summaryDisplay.compactTotals = true;
+  }
+
+  return { rangeBands, resources, categoryRequirements, summaryDisplay };
 }
 
 function serializeEstimatorAssumptions() {
+  enforceSummaryDisplaySelection();
   return {
     rangeBands: state.estimator.rangeBands.map((band) => ({ id: band.id, maxKm: band.maxKm })),
     resources: state.estimator.resources.map((resource) => ({
@@ -322,7 +352,22 @@ function serializeEstimatorAssumptions() {
       completionRate: resource.completionRate,
     })),
     categoryRequirements: { ...state.estimator.categoryRequirements },
+    summaryDisplay: { ...state.estimator.summaryDisplay },
   };
+}
+
+function enforceSummaryDisplaySelection() {
+  if (!state.estimator.summaryDisplay || typeof state.estimator.summaryDisplay !== "object") {
+    state.estimator.summaryDisplay = { ...DEFAULT_ESTIMATOR_ASSUMPTIONS.summaryDisplay };
+  }
+  if (state.estimator.summaryDisplay.rangeBandMatrix) {
+    state.estimator.summaryDisplay.compactTotals = false;
+  } else if (!state.estimator.summaryDisplay.compactTotals) {
+    state.estimator.summaryDisplay.compactTotals = true;
+  }
+  if (typeof state.estimator.summaryDisplay.detailedBreakdown !== "boolean") {
+    state.estimator.summaryDisplay.detailedBreakdown = true;
+  }
 }
 
 function finiteRangeBands() {
@@ -402,21 +447,40 @@ function estimateUnits(count, unitsPerItem, completionRate) {
   return Math.ceil((count * unitsPerItem) / (completionRate / 100));
 }
 
-function estimatorExportRows() {
+function formatEstimatedUnits(value) {
+  return Number.isFinite(value) ? value.toLocaleString() : "n/a";
+}
+
+function addEstimatedUnits(current, value) {
+  if (!Number.isFinite(current) || !Number.isFinite(value)) return Infinity;
+  return current + value;
+}
+
+function estimatedUnitsEqual(a, b) {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return !Number.isFinite(a) && !Number.isFinite(b);
+  return a === b;
+}
+
+function estimatorDetailRows() {
   const rows = [];
   const groups = summarizeEstimatorResults();
+  const bands = sortedRangeBands();
   for (const group of groups) {
     const unitsPerItem = categoryRequirement(group.layerId);
-    for (const bandSummary of group.bands.values()) {
-      const bandIndex = sortedRangeBands().findIndex((band) => band.id === bandSummary.band.id);
+    for (let bandIndex = 0; bandIndex < bands.length; bandIndex += 1) {
+      const band = bands[bandIndex];
+      const bandSummary = group.bands.get(band.id);
+      if (!bandSummary) continue;
       const bandLabel = rangeBandLabel(bandSummary.band, bandIndex);
       for (const resource of state.estimator.resources) {
         rows.push({
+          row_type: "detail",
           layer_id: group.layerId,
           layer_label: group.label,
           range_band: bandLabel,
           item_count: bandSummary.count,
           units_per_item: unitsPerItem,
+          resource_id: resource.id,
           resource_label: resource.label,
           completion_rate_percent: resource.completionRate,
           estimated_units: estimateUnits(bandSummary.count, unitsPerItem, resource.completionRate),
@@ -424,6 +488,137 @@ function estimatorExportRows() {
       }
     }
   }
+  return rows;
+}
+
+function buildEstimatorAggregates(detailRows = estimatorDetailRows()) {
+  const resources = state.estimator.resources.map((resource) => ({
+    id: resource.id,
+    label: resource.label,
+  }));
+  const resourceKeys = resources.map((resource) => resource.id);
+  const totalByResource = new Map(resourceKeys.map((key) => [key, 0]));
+  const rangeBands = new Map();
+  const rangeBandOrder = [];
+  const grandTotal = { value: 0 };
+
+  function emptyResourceMap() {
+    return new Map(resourceKeys.map((key) => [key, 0]));
+  }
+
+  for (const row of detailRows) {
+    const resourceKey = row.resource_id || row.resource_label;
+    if (!totalByResource.has(resourceKey)) totalByResource.set(resourceKey, 0);
+    if (!rangeBands.has(row.range_band)) {
+      rangeBands.set(row.range_band, {
+        label: row.range_band,
+        resources: emptyResourceMap(),
+        layers: new Map(),
+        rowTotal: 0,
+      });
+      rangeBandOrder.push(row.range_band);
+    }
+
+    const band = rangeBands.get(row.range_band);
+    if (!band.layers.has(row.layer_id)) {
+      band.layers.set(row.layer_id, {
+        id: row.layer_id,
+        label: row.layer_label,
+        resources: emptyResourceMap(),
+        rowTotal: 0,
+      });
+    }
+
+    const layer = band.layers.get(row.layer_id);
+    totalByResource.set(resourceKey, addEstimatedUnits(totalByResource.get(resourceKey) || 0, row.estimated_units));
+    band.resources.set(resourceKey, addEstimatedUnits(band.resources.get(resourceKey) || 0, row.estimated_units));
+    band.rowTotal = addEstimatedUnits(band.rowTotal, row.estimated_units);
+    layer.resources.set(resourceKey, addEstimatedUnits(layer.resources.get(resourceKey) || 0, row.estimated_units));
+    layer.rowTotal = addEstimatedUnits(layer.rowTotal, row.estimated_units);
+    grandTotal.value = addEstimatedUnits(grandTotal.value, row.estimated_units);
+  }
+
+  return {
+    resources,
+    totalByResource,
+    rangeBands,
+    rangeBandOrder,
+    grandTotal: grandTotal.value,
+  };
+}
+
+function validateEstimatorAggregates(detailRows, aggregate) {
+  const detailGrandTotal = detailRows.reduce((sum, row) => addEstimatedUnits(sum, row.estimated_units), 0);
+  const resourceGrandTotal = [...aggregate.totalByResource.values()]
+    .reduce((sum, value) => addEstimatedUnits(sum, value), 0);
+  const rangeBandGrandTotal = [...aggregate.rangeBands.values()]
+    .reduce((sum, band) => addEstimatedUnits(sum, band.rowTotal), 0);
+  const valid = estimatedUnitsEqual(detailGrandTotal, aggregate.grandTotal)
+    && estimatedUnitsEqual(resourceGrandTotal, aggregate.grandTotal)
+    && estimatedUnitsEqual(rangeBandGrandTotal, aggregate.grandTotal);
+  if (!valid) {
+    console.warn("Estimator aggregate mismatch.", {
+      detailGrandTotal,
+      resourceGrandTotal,
+      rangeBandGrandTotal,
+      aggregateGrandTotal: aggregate.grandTotal,
+    });
+  }
+  return valid;
+}
+
+function estimatorExportRows() {
+  const detailRows = estimatorDetailRows();
+  const aggregate = buildEstimatorAggregates(detailRows);
+  validateEstimatorAggregates(detailRows, aggregate);
+  const rows = [...detailRows];
+
+  for (const bandLabel of aggregate.rangeBandOrder) {
+    const band = aggregate.rangeBands.get(bandLabel);
+    for (const resource of aggregate.resources) {
+      rows.push({
+        row_type: "range_band_total",
+        layer_id: "",
+        layer_label: "",
+        range_band: band.label,
+        item_count: "",
+        units_per_item: "",
+        resource_id: resource.id,
+        resource_label: resource.label,
+        completion_rate_percent: "",
+        estimated_units: band.resources.get(resource.id) || 0,
+      });
+    }
+  }
+
+  for (const resource of aggregate.resources) {
+    rows.push({
+      row_type: "resource_total",
+      layer_id: "",
+      layer_label: "",
+      range_band: "",
+      item_count: "",
+      units_per_item: "",
+      resource_id: resource.id,
+      resource_label: resource.label,
+      completion_rate_percent: "",
+      estimated_units: aggregate.totalByResource.get(resource.id) || 0,
+    });
+  }
+
+  rows.push({
+    row_type: "grand_total",
+    layer_id: "",
+    layer_label: "",
+    range_band: "",
+    item_count: "",
+    units_per_item: "",
+    resource_id: "",
+    resource_label: "",
+    completion_rate_percent: "",
+    estimated_units: aggregate.grandTotal,
+  });
+
   return rows;
 }
 
@@ -1313,24 +1508,139 @@ function renderCategoryAssumptions() {
   }
 }
 
-function renderEstimatorResults() {
-  const total = state.radiusResults.length;
-  els.estimatorSummary.textContent = total
-    ? `${total.toLocaleString()} items`
-    : "Draw a radius";
-  els.estimatorRadiusLabel.textContent = state.radiusOrigin && Number.isFinite(state.radiusKm)
-    ? `${numberFmt(state.radiusKm, 1)} km radius`
-    : "Active layers only";
-  els.estimatorResults.innerHTML = "";
+function renderSummaryDisplayControls() {
+  enforceSummaryDisplaySelection();
+  els.summaryDisplayControls.innerHTML = "";
+  const fieldset = document.createElement("fieldset");
+  fieldset.className = "summary-view-group";
+  const legend = document.createElement("legend");
+  legend.textContent = "Summary view";
+  fieldset.appendChild(legend);
+  for (const option of SUMMARY_DISPLAY_OPTIONS) {
+    const label = document.createElement("label");
+    label.className = "summary-toggle";
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "summaryView";
+    input.value = option.key;
+    input.checked = state.estimator.summaryDisplay[option.key] !== false;
+    const text = document.createElement("span");
+    text.textContent = option.label;
+    label.append(input, text);
+    fieldset.appendChild(label);
 
-  if (!total) {
-    els.estimatorResults.innerHTML = `<div class="muted">No active-layer items inside the current radius.</div>`;
-    return;
+    input.addEventListener("change", () => {
+      if (!input.checked) return;
+      state.estimator.summaryDisplay.compactTotals = option.key === "compactTotals";
+      state.estimator.summaryDisplay.rangeBandMatrix = option.key === "rangeBandMatrix";
+      renderEstimatorResults();
+      queueSavePreferences();
+    });
   }
+  els.summaryDisplayControls.appendChild(fieldset);
 
+  const detailsLabel = document.createElement("label");
+  detailsLabel.className = "summary-toggle summary-detail-toggle";
+  const detailsInput = document.createElement("input");
+  detailsInput.type = "checkbox";
+  detailsInput.checked = state.estimator.summaryDisplay.detailedBreakdown !== false;
+  const detailsText = document.createElement("span");
+  detailsText.textContent = "Show detailed breakdown";
+  detailsLabel.append(detailsInput, detailsText);
+  els.summaryDisplayControls.appendChild(detailsLabel);
+
+  detailsInput.addEventListener("change", () => {
+    state.estimator.summaryDisplay.detailedBreakdown = detailsInput.checked;
+    renderEstimatorResults();
+    queueSavePreferences();
+  });
+}
+
+function resourceValueCells(resources, values) {
+  return resources
+    .map((resource) => `<td>${formatEstimatedUnits(values.get(resource.id) || 0)}</td>`)
+    .join("");
+}
+
+function renderCompactResourceTotals(aggregate) {
+  const card = document.createElement("article");
+  card.className = "estimate-summary-card";
+  const totalLines = aggregate.resources.map((resource) => `
+    <div class="estimate-line">
+      <span>${escapeHtml(resource.label)}</span>
+      <b>${formatEstimatedUnits(aggregate.totalByResource.get(resource.id) || 0)}</b>
+    </div>
+  `).join("");
+  card.innerHTML = `
+    <div class="estimate-card-header">
+      <strong>Total by resource type</strong>
+      <span class="estimate-count">${formatEstimatedUnits(aggregate.grandTotal)}</span>
+    </div>
+    <div class="estimate-lines">${totalLines}</div>
+  `;
+  els.estimatorResults.appendChild(card);
+}
+
+function renderRangeBandMatrix(aggregate) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "estimate-matrix-wrap";
+  const resourceHeaders = aggregate.resources
+    .map((resource) => `<th scope="col">${escapeHtml(resource.label)}</th>`)
+    .join("");
+  const rows = [];
+  for (const bandLabel of aggregate.rangeBandOrder) {
+    const band = aggregate.rangeBands.get(bandLabel);
+    rows.push(`
+      <tr class="matrix-total-row">
+        <th scope="row">${escapeHtml(band.label)}</th>
+        ${resourceValueCells(aggregate.resources, band.resources)}
+        <td>${formatEstimatedUnits(band.rowTotal)}</td>
+      </tr>
+    `);
+    for (const layer of [...band.layers.values()].sort((a, b) => a.label.localeCompare(b.label))) {
+      rows.push(`
+        <tr>
+          <th scope="row"><span>${escapeHtml(layer.label)}</span></th>
+          ${resourceValueCells(aggregate.resources, layer.resources)}
+          <td>${formatEstimatedUnits(layer.rowTotal)}</td>
+        </tr>
+      `);
+    }
+  }
+  rows.push(`
+    <tr class="matrix-grand-row">
+      <th scope="row">Grand total</th>
+      ${resourceValueCells(aggregate.resources, aggregate.totalByResource)}
+      <td>${formatEstimatedUnits(aggregate.grandTotal)}</td>
+    </tr>
+  `);
+  wrapper.innerHTML = `
+    <table class="estimate-matrix">
+      <thead>
+        <tr>
+          <th scope="col">Range band / layer</th>
+          ${resourceHeaders}
+          <th scope="col">Total</th>
+        </tr>
+      </thead>
+      <tbody>${rows.join("")}</tbody>
+    </table>
+  `;
+  els.estimatorResults.appendChild(wrapper);
+}
+
+function renderDetailedEstimatorCards(detailRows) {
   const bands = sortedRangeBands();
   for (const group of summarizeEstimatorResults()) {
     const unitsPerItem = categoryRequirement(group.layerId);
+    const layerRows = detailRows.filter((row) => row.layer_id === group.layerId);
+    const layerResourceTotals = new Map(state.estimator.resources.map((resource) => [resource.id, 0]));
+    for (const row of layerRows) {
+      layerResourceTotals.set(
+        row.resource_id,
+        addEstimatedUnits(layerResourceTotals.get(row.resource_id) || 0, row.estimated_units)
+      );
+    }
     const card = document.createElement("article");
     card.className = "estimate-card";
     const subcategories = [...group.subcategories.entries()]
@@ -1338,15 +1648,12 @@ function renderEstimatorResults() {
       .slice(0, 5)
       .map(([label, count]) => `${label}: ${count.toLocaleString()}`)
       .join(" / ");
-    const resourceLines = state.estimator.resources.map((resource) => {
-      const units = estimateUnits(group.count, unitsPerItem, resource.completionRate);
-      return `
-        <div class="estimate-line">
-          <span>${escapeHtml(resource.label)} at ${numberFmt(resource.completionRate, 0)}%</span>
-          <b>${Number.isFinite(units) ? units.toLocaleString() : "n/a"}</b>
-        </div>
-      `;
-    }).join("");
+    const resourceLines = state.estimator.resources.map((resource) => `
+      <div class="estimate-line">
+        <span>${escapeHtml(resource.label)} at ${numberFmt(resource.completionRate, 0)}%</span>
+        <b>${formatEstimatedUnits(layerResourceTotals.get(resource.id) || 0)}</b>
+      </div>
+    `).join("");
     const bandLines = bands
       .map((band, index) => {
         const summary = group.bands.get(band.id);
@@ -1367,6 +1674,31 @@ function renderEstimatorResults() {
     `;
     els.estimatorResults.appendChild(card);
   }
+}
+
+function renderEstimatorResults() {
+  enforceSummaryDisplaySelection();
+  const total = state.radiusResults.length;
+  els.estimatorSummary.textContent = total
+    ? `${total.toLocaleString()} items`
+    : "Draw a radius";
+  els.estimatorRadiusLabel.textContent = state.radiusOrigin && Number.isFinite(state.radiusKm)
+    ? `${numberFmt(state.radiusKm, 1)} km radius`
+    : "Active layers only";
+  els.estimatorResults.innerHTML = "";
+  renderSummaryDisplayControls();
+
+  if (!total) {
+    els.estimatorResults.innerHTML = `<div class="muted">No active-layer items inside the current radius.</div>`;
+    return;
+  }
+
+  const detailRows = estimatorDetailRows();
+  const aggregate = buildEstimatorAggregates(detailRows);
+  validateEstimatorAggregates(detailRows, aggregate);
+  if (state.estimator.summaryDisplay.compactTotals) renderCompactResourceTotals(aggregate);
+  if (state.estimator.summaryDisplay.rangeBandMatrix) renderRangeBandMatrix(aggregate);
+  if (state.estimator.summaryDisplay.detailedBreakdown) renderDetailedEstimatorCards(detailRows);
 }
 
 function renderEstimator() {
@@ -1624,11 +1956,13 @@ function resetEstimatorAssumptions() {
 
 function buildEstimatorCsv() {
   const fields = [
+    "row_type",
     "layer_id",
     "layer_label",
     "range_band",
     "item_count",
     "units_per_item",
+    "resource_id",
     "resource_label",
     "completion_rate_percent",
     "estimated_units",

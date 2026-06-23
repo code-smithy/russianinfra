@@ -19,7 +19,9 @@ globalThis.__api = {
   els,
   clearAllCountries,
   buildEstimatorCsv,
+  buildEstimatorAggregates,
   currentPreferences,
+  estimatorDetailRows,
   estimatorExportRows,
   estimateUnits,
   featureDistanceToPointKm,
@@ -37,6 +39,7 @@ globalThis.__api = {
   setEstimatorBlockCollapsed,
   setLayersPanelCollapsed,
   summarizeEstimatorResults,
+  validateEstimatorAggregates,
 };`
 );
 
@@ -354,10 +357,128 @@ test("scenario estimator groups active radius results and calculates resource to
   assert.equal(api.estimateUnits(1, 2, 50), 4);
 
   const rows = api.estimatorExportRows();
+  assert.equal(rows[0].row_type, "detail");
   assert.equal(rows[0].layer_id, "energy_facilities");
   assert.equal(rows[0].resource_label, "Resource A");
   assert.equal(rows[0].estimated_units, 4);
+  assert.ok(rows.some((row) => row.row_type === "resource_total"));
+  assert.ok(rows.some((row) => row.row_type === "grand_total"));
+  assert.match(api.buildEstimatorCsv().split("\r\n")[0], /^row_type,layer_id/);
   assert.match(api.buildEstimatorCsv(), /energy_facilities/);
+});
+
+test("scenario estimator builds range-band resource totals from detail rows", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  api.state.estimator.rangeBands = [
+    { id: "near", maxKm: 20 },
+    { id: "mid", maxKm: 150 },
+    { id: "band_open", maxKm: null },
+  ];
+  api.state.estimator.categoryRequirements.energy_facilities = 2;
+  api.state.estimator.categoryRequirements.military_sites = 1;
+  api.state.estimator.resources[0].completionRate = 50;
+  api.state.estimator.resources[1].completionRate = 100;
+  api.state.estimator.resources[2].completionRate = 100;
+
+  const militaryControl = api.state.layerControls.get("military_sites");
+  militaryControl.checked = true;
+  await militaryControl.listeners.change[0]();
+  api.renderRadiusResults({ lat: 55.2, lng: 59.1 }, 2500);
+
+  const detailRows = api.estimatorDetailRows();
+  const aggregate = api.buildEstimatorAggregates(detailRows);
+  assert.equal(api.validateEstimatorAggregates(detailRows, aggregate), true);
+  assert.equal(detailRows.length, 9);
+  assert.equal(aggregate.totalByResource.get("resource_a"), 10);
+  assert.equal(aggregate.totalByResource.get("resource_b"), 5);
+  assert.equal(aggregate.totalByResource.get("resource_c"), 5);
+  assert.equal(aggregate.grandTotal, 20);
+  assert.equal(aggregate.rangeBands.has("Over 150 km"), true);
+
+  const rows = api.estimatorExportRows();
+  assert.equal(rows.filter((row) => row.row_type === "range_band_total").length, 9);
+  assert.equal(rows.filter((row) => row.row_type === "resource_total").length, 3);
+  assert.equal(rows.at(-1).row_type, "grand_total");
+  assert.equal(rows.at(-1).estimated_units, 20);
+});
+
+test("scenario estimator aggregate totals handle zero completion rates", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  api.state.estimator.resources[0].completionRate = 0;
+  api.renderRadiusResults({ lat: 55.2, lng: 59.1 }, 20);
+
+  const detailRows = api.estimatorDetailRows();
+  const aggregate = api.buildEstimatorAggregates(detailRows);
+  assert.equal(api.validateEstimatorAggregates(detailRows, aggregate), true);
+  assert.equal(aggregate.totalByResource.get("resource_a"), Infinity);
+  assert.equal(aggregate.grandTotal, Infinity);
+});
+
+test("scenario estimator totals respect active layer filters", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  api.renderRadiusResults({ lat: 55.2, lng: 59.1 }, 2500);
+  assert.ok(api.estimatorDetailRows().some((row) => row.layer_id === "energy_facilities"));
+
+  const energyControl = api.state.layerControls.get("energy_facilities");
+  energyControl.checked = false;
+  await energyControl.listeners.change[0]();
+
+  assert.equal(api.state.radiusResults.length, 0);
+  assert.equal(api.estimatorDetailRows().length, 0);
+  assert.match(api.els.estimatorResults.innerHTML, /No active-layer items/);
+});
+
+test("scenario estimator persists summary display preferences", async () => {
+  const first = createAppContext();
+  await first.__initPromise;
+
+  first.__api.state.estimator.summaryDisplay.compactTotals = false;
+  first.__api.state.estimator.summaryDisplay.rangeBandMatrix = true;
+  first.__api.state.estimator.summaryDisplay.detailedBreakdown = false;
+  first.__api.savePreferencesNow();
+
+  const savedRaw = first.localStorage.getItem(STORAGE_KEY);
+  const saved = JSON.parse(savedRaw);
+  assert.deepEqual(saved.estimator.summaryDisplay, {
+    compactTotals: false,
+    rangeBandMatrix: true,
+    detailedBreakdown: false,
+  });
+
+  const second = createAppContext({ [STORAGE_KEY]: savedRaw });
+  await second.__initPromise;
+
+  assert.equal(second.__api.state.estimator.summaryDisplay.compactTotals, false);
+  assert.equal(second.__api.state.estimator.summaryDisplay.rangeBandMatrix, true);
+  assert.equal(second.__api.state.estimator.summaryDisplay.detailedBreakdown, false);
+});
+
+test("scenario estimator normalizes legacy summary preferences to one summary view", async () => {
+  const app = createAppContext({
+    [STORAGE_KEY]: JSON.stringify({
+      estimator: {
+        summaryDisplay: {
+          compactTotals: true,
+          rangeBandMatrix: true,
+          detailedBreakdown: true,
+        },
+      },
+    }),
+  });
+  await app.__initPromise;
+
+  assert.equal(app.__api.state.estimator.summaryDisplay.compactTotals, false);
+  assert.equal(app.__api.state.estimator.summaryDisplay.rangeBandMatrix, true);
+  assert.equal(app.__api.state.estimator.summaryDisplay.detailedBreakdown, true);
 });
 
 test("scenario estimator imports and persists editable assumptions", async () => {

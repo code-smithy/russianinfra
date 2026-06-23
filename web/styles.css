@@ -613,11 +613,84 @@ input {
   font-size: 16px;
 }
 
+.summary-toggle-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+
+.summary-view-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.summary-view-group legend {
+  grid-column: 1 / -1;
+  margin: 0 0 1px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.summary-toggle {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 30px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: #ded9ce;
+  background: #151515;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.summary-toggle:has(input:checked) {
+  border-color: #6f5a25;
+  background: #211b10;
+  color: var(--text);
+}
+
+.summary-detail-toggle {
+  grid-template-columns: 14px minmax(0, 1fr);
+}
+
+.summary-toggle input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--accent-2);
+}
+
+.summary-toggle span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .estimator-results {
   display: grid;
   gap: 8px;
   max-height: 420px;
   overflow: auto;
+}
+
+.estimate-summary-card {
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid #4a422e;
+  border-radius: 7px;
+  background: #191714;
 }
 
 .estimate-card {
@@ -661,6 +734,74 @@ input {
 .estimate-subcategories {
   color: var(--muted);
   font-size: 11px;
+}
+
+.estimate-matrix-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #151515;
+}
+
+.estimate-matrix {
+  width: 100%;
+  min-width: 420px;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.estimate-matrix th,
+.estimate-matrix td {
+  padding: 6px 7px;
+  border-bottom: 1px solid #2b2b2b;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.estimate-matrix th:first-child,
+.estimate-matrix td:first-child {
+  position: sticky;
+  left: 0;
+  max-width: 170px;
+  text-align: left;
+  background: #151515;
+}
+
+.estimate-matrix thead th {
+  color: #d9d5ce;
+  background: #202020;
+  font-weight: 700;
+}
+
+.estimate-matrix thead th:first-child {
+  background: #202020;
+}
+
+.estimate-matrix tbody th {
+  font-weight: 500;
+}
+
+.estimate-matrix tbody th span {
+  display: block;
+  padding-left: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.estimate-matrix .matrix-total-row th,
+.estimate-matrix .matrix-total-row td,
+.estimate-matrix .matrix-grand-row th,
+.estimate-matrix .matrix-grand-row td {
+  color: var(--text);
+  font-weight: 700;
+  background: #191714;
+}
+
+.estimate-matrix .matrix-grand-row th,
+.estimate-matrix .matrix-grand-row td {
+  border-top: 1px solid #4a422e;
+  border-bottom: 0;
 }
 
 #map {
