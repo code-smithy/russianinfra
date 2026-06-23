@@ -7,6 +7,19 @@ const LAYER_GROUPS = [
   { id: "power", label: "Power" },
   { id: "other", label: "Other" },
 ];
+const DEFAULT_ESTIMATOR_ASSUMPTIONS = {
+  rangeBands: [
+    { id: "band_500", maxKm: 500 },
+    { id: "band_2500", maxKm: 2500 },
+    { id: "band_open", maxKm: null },
+  ],
+  resources: [
+    { id: "resource_a", label: "Resource A", completionRate: 80 },
+    { id: "resource_b", label: "Resource B", completionRate: 65 },
+    { id: "resource_c", label: "Resource C", completionRate: 50 },
+  ],
+  categoryRequirements: {},
+};
 
 const state = {
   manifest: null,
@@ -33,6 +46,7 @@ const state = {
   radiusLabel: null,
   radiusHighlightGroup: null,
   radiusResults: [],
+  estimator: normalizeEstimatorAssumptions(loadSavedPreferences()?.estimator),
 };
 
 const map = L.map("map", {
@@ -97,6 +111,17 @@ const els = {
   radiusResults: document.getElementById("radiusResults"),
   exportRadiusBtn: document.getElementById("exportRadiusBtn"),
   resetRadiusBtn: document.getElementById("resetRadiusBtn"),
+  estimatorSummary: document.getElementById("estimatorSummary"),
+  estimatorRadiusLabel: document.getElementById("estimatorRadiusLabel"),
+  rangeBandsList: document.getElementById("rangeBandsList"),
+  addRangeBandBtn: document.getElementById("addRangeBandBtn"),
+  resourceTypesList: document.getElementById("resourceTypesList"),
+  categoryAssumptionsList: document.getElementById("categoryAssumptionsList"),
+  estimatorResults: document.getElementById("estimatorResults"),
+  exportAssumptionsBtn: document.getElementById("exportAssumptionsBtn"),
+  importAssumptionsBtn: document.getElementById("importAssumptionsBtn"),
+  importAssumptionsInput: document.getElementById("importAssumptionsInput"),
+  exportEstimateBtn: document.getElementById("exportEstimateBtn"),
 };
 
 function escapeHtml(value) {
@@ -228,6 +253,7 @@ function currentPreferences() {
       B: serializeSelection("B"),
     },
     radius: serializeRadius(),
+    estimator: serializeEstimatorAssumptions(),
   };
 }
 
@@ -254,6 +280,161 @@ function numberFmt(value, digits = 1) {
   const n = Number(value);
   if (!Number.isFinite(n)) return "";
   return n.toLocaleString(undefined, { maximumFractionDigits: digits });
+}
+
+function boundedNumber(value, fallback, min = 0, max = Infinity) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function normalizeEstimatorAssumptions(saved) {
+  const defaults = DEFAULT_ESTIMATOR_ASSUMPTIONS;
+  const savedBands = Array.isArray(saved?.rangeBands) ? saved.rangeBands : [];
+  const finiteBands = savedBands
+    .map((band, index) => ({
+      id: typeof band?.id === "string" && band.id ? band.id : `band_${Date.now()}_${index}`,
+      maxKm: boundedNumber(band?.maxKm, NaN, 0.1),
+    }))
+    .filter((band) => Number.isFinite(band.maxKm))
+    .sort((a, b) => a.maxKm - b.maxKm);
+  const rangeBands = finiteBands.length ? finiteBands : defaults.rangeBands.filter((band) => Number.isFinite(band.maxKm));
+  rangeBands.push({ id: "band_open", maxKm: null });
+
+  const savedResources = Array.isArray(saved?.resources) ? saved.resources : [];
+  const savedById = new Map(savedResources.map((resource) => [resource?.id, resource]));
+  const resources = defaults.resources.map((resource) => {
+    const savedResource = savedById.get(resource.id) || {};
+    return {
+      id: resource.id,
+      label: String(savedResource.label || resource.label).trim().slice(0, 60) || resource.label,
+      completionRate: boundedNumber(savedResource.completionRate, resource.completionRate, 0, 100),
+    };
+  });
+
+  const categoryRequirements = {};
+  const savedRequirements = saved?.categoryRequirements && typeof saved.categoryRequirements === "object"
+    ? saved.categoryRequirements
+    : {};
+  for (const [layerId, value] of Object.entries(savedRequirements)) {
+    categoryRequirements[layerId] = boundedNumber(value, 1, 0, 1000000);
+  }
+
+  return { rangeBands, resources, categoryRequirements };
+}
+
+function serializeEstimatorAssumptions() {
+  return {
+    rangeBands: state.estimator.rangeBands.map((band) => ({ id: band.id, maxKm: band.maxKm })),
+    resources: state.estimator.resources.map((resource) => ({
+      id: resource.id,
+      label: resource.label,
+      completionRate: resource.completionRate,
+    })),
+    categoryRequirements: { ...state.estimator.categoryRequirements },
+  };
+}
+
+function finiteRangeBands() {
+  return state.estimator.rangeBands.filter((band) => Number.isFinite(Number(band.maxKm)));
+}
+
+function sortedRangeBands() {
+  const bands = finiteRangeBands()
+    .map((band) => ({ ...band, maxKm: Number(band.maxKm) }))
+    .sort((a, b) => a.maxKm - b.maxKm);
+  return [...bands, { id: "band_open", maxKm: null }];
+}
+
+function rangeBandLabel(band, index, bands = sortedRangeBands()) {
+  if (!Number.isFinite(Number(band.maxKm))) {
+    const previous = bands[index - 1];
+    return previous ? `Over ${numberFmt(previous.maxKm, 0)} km` : "All distances";
+  }
+  const previous = bands[index - 1];
+  if (!previous || !Number.isFinite(Number(previous.maxKm))) return `0-${numberFmt(band.maxKm, 0)} km`;
+  return `${numberFmt(previous.maxKm, 0)}-${numberFmt(band.maxKm, 0)} km`;
+}
+
+function bandForDistance(distanceKm) {
+  const bands = sortedRangeBands();
+  return bands.find((band) => !Number.isFinite(Number(band.maxKm)) || distanceKm <= Number(band.maxKm)) || bands[bands.length - 1];
+}
+
+function layerInfoById(layerId) {
+  return state.manifest?.layers?.find((layer) => layer.id === layerId) || null;
+}
+
+function layerLabel(layerId) {
+  return layerInfoById(layerId)?.label || layerId || "Unknown layer";
+}
+
+function categoryRequirement(layerId) {
+  return boundedNumber(state.estimator.categoryRequirements[layerId], 1, 0, 1000000);
+}
+
+function setCategoryRequirement(layerId, value) {
+  state.estimator.categoryRequirements[layerId] = boundedNumber(value, 1, 0, 1000000);
+}
+
+function summarizeEstimatorResults() {
+  const groups = new Map();
+  for (const item of state.radiusResults) {
+    const feature = item.stored.feature;
+    const p = feature.properties || {};
+    const layerId = p.map_layer || p.source_layer || "unknown";
+    if (!groups.has(layerId)) {
+      groups.set(layerId, {
+        layerId,
+        label: layerLabel(layerId),
+        count: 0,
+        subcategories: new Map(),
+        bands: new Map(),
+      });
+    }
+    const group = groups.get(layerId);
+    const subcategoryLabel = p.derived_subcategory_label || p.asset_type || featureSubcategory(feature);
+    const band = bandForDistance(item.distance);
+    const bandKey = band.id;
+    group.count += 1;
+    group.subcategories.set(subcategoryLabel, (group.subcategories.get(subcategoryLabel) || 0) + 1);
+    group.bands.set(bandKey, {
+      band,
+      count: (group.bands.get(bandKey)?.count || 0) + 1,
+    });
+  }
+  return [...groups.values()].sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function estimateUnits(count, unitsPerItem, completionRate) {
+  if (count <= 0 || unitsPerItem <= 0) return 0;
+  if (completionRate <= 0) return Infinity;
+  return Math.ceil((count * unitsPerItem) / (completionRate / 100));
+}
+
+function estimatorExportRows() {
+  const rows = [];
+  const groups = summarizeEstimatorResults();
+  for (const group of groups) {
+    const unitsPerItem = categoryRequirement(group.layerId);
+    for (const bandSummary of group.bands.values()) {
+      const bandIndex = sortedRangeBands().findIndex((band) => band.id === bandSummary.band.id);
+      const bandLabel = rangeBandLabel(bandSummary.band, bandIndex);
+      for (const resource of state.estimator.resources) {
+        rows.push({
+          layer_id: group.layerId,
+          layer_label: group.label,
+          range_band: bandLabel,
+          item_count: bandSummary.count,
+          units_per_item: unitsPerItem,
+          resource_label: resource.label,
+          completion_rate_percent: resource.completionRate,
+          estimated_units: estimateUnits(bandSummary.count, unitsPerItem, resource.completionRate),
+        });
+      }
+    }
+  }
+  return rows;
 }
 
 function metersKm(a, b) {
@@ -1215,6 +1396,182 @@ function setRadiusMode(enabled) {
   map.getContainer().style.cursor = enabled ? "crosshair" : "";
 }
 
+function renderRangeBands() {
+  els.rangeBandsList.innerHTML = "";
+  const bands = sortedRangeBands();
+  for (let index = 0; index < bands.length; index += 1) {
+    const band = bands[index];
+    const row = document.createElement("div");
+    row.className = "estimator-row three-col";
+    const label = document.createElement("span");
+    label.className = "estimator-label";
+    label.innerHTML = `<strong>${escapeHtml(rangeBandLabel(band, index, bands))}</strong><span>Upper bound in km</span>`;
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "1";
+    input.step = "1";
+    input.value = Number.isFinite(Number(band.maxKm)) ? String(band.maxKm) : "";
+    input.placeholder = "Open";
+    input.disabled = !Number.isFinite(Number(band.maxKm));
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "icon-btn";
+    removeButton.innerHTML = `<span aria-hidden="true">&times;</span>`;
+    removeButton.setAttribute("aria-label", `Remove ${rangeBandLabel(band, index, bands)}`);
+    removeButton.hidden = input.disabled || finiteRangeBands().length <= 1;
+    row.append(label, input, removeButton);
+    els.rangeBandsList.appendChild(row);
+
+    input.addEventListener("change", () => {
+      const updated = state.estimator.rangeBands.map((item) => (
+        item.id === band.id ? { ...item, maxKm: boundedNumber(input.value, band.maxKm, 1) } : item
+      ));
+      state.estimator.rangeBands = normalizeEstimatorAssumptions({
+        ...state.estimator,
+        rangeBands: updated,
+      }).rangeBands;
+      renderRangeBands();
+      renderEstimatorResults();
+      savePreferencesNow();
+    });
+
+    removeButton.addEventListener("click", () => {
+      state.estimator.rangeBands = normalizeEstimatorAssumptions({
+        ...state.estimator,
+        rangeBands: state.estimator.rangeBands.filter((item) => item.id !== band.id),
+      }).rangeBands;
+      renderRangeBands();
+      renderEstimatorResults();
+      savePreferencesNow();
+    });
+  }
+}
+
+function renderResourceTypes() {
+  els.resourceTypesList.innerHTML = "";
+  for (const resource of state.estimator.resources) {
+    const row = document.createElement("div");
+    row.className = "estimator-row";
+    const labelInput = document.createElement("input");
+    labelInput.type = "text";
+    labelInput.value = resource.label;
+    labelInput.setAttribute("aria-label", `${resource.label} label`);
+    const rateInput = document.createElement("input");
+    rateInput.type = "number";
+    rateInput.min = "0";
+    rateInput.max = "100";
+    rateInput.step = "1";
+    rateInput.value = String(resource.completionRate);
+    rateInput.setAttribute("aria-label", `${resource.label} completion rate percent`);
+    row.append(labelInput, rateInput);
+    els.resourceTypesList.appendChild(row);
+
+    labelInput.addEventListener("input", () => {
+      resource.label = labelInput.value.trim().slice(0, 60) || resource.label;
+      renderEstimatorResults();
+      queueSavePreferences();
+    });
+    rateInput.addEventListener("input", () => {
+      resource.completionRate = boundedNumber(rateInput.value, resource.completionRate, 0, 100);
+      renderEstimatorResults();
+      queueSavePreferences();
+    });
+  }
+}
+
+function renderCategoryAssumptions() {
+  els.categoryAssumptionsList.innerHTML = "";
+  const layers = groupedLayerInfos().flatMap((group) => group.layers);
+  for (const layerInfo of layers) {
+    if (!Object.prototype.hasOwnProperty.call(state.estimator.categoryRequirements, layerInfo.id)) {
+      state.estimator.categoryRequirements[layerInfo.id] = 1;
+    }
+    const row = document.createElement("div");
+    row.className = "estimator-row";
+    const label = document.createElement("span");
+    label.className = "estimator-label";
+    label.innerHTML = `<strong>${escapeHtml(layerInfo.label)}</strong><span>Units per item</span>`;
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "0";
+    input.step = "0.1";
+    input.value = String(categoryRequirement(layerInfo.id));
+    input.setAttribute("aria-label", `${layerInfo.label} units per item`);
+    row.append(label, input);
+    els.categoryAssumptionsList.appendChild(row);
+
+    input.addEventListener("input", () => {
+      setCategoryRequirement(layerInfo.id, input.value);
+      renderEstimatorResults();
+      queueSavePreferences();
+    });
+  }
+}
+
+function renderEstimatorResults() {
+  const total = state.radiusResults.length;
+  els.estimatorSummary.textContent = total
+    ? `${total.toLocaleString()} items`
+    : "Draw a radius";
+  els.estimatorRadiusLabel.textContent = state.radiusOrigin && Number.isFinite(state.radiusKm)
+    ? `${numberFmt(state.radiusKm, 1)} km radius`
+    : "Active layers only";
+  els.estimatorResults.innerHTML = "";
+
+  if (!total) {
+    els.estimatorResults.innerHTML = `<div class="muted">No active-layer items inside the current radius.</div>`;
+    return;
+  }
+
+  const bands = sortedRangeBands();
+  for (const group of summarizeEstimatorResults()) {
+    const unitsPerItem = categoryRequirement(group.layerId);
+    const card = document.createElement("article");
+    card.className = "estimate-card";
+    const subcategories = [...group.subcategories.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([label, count]) => `${label}: ${count.toLocaleString()}`)
+      .join(" / ");
+    const resourceLines = state.estimator.resources.map((resource) => {
+      const units = estimateUnits(group.count, unitsPerItem, resource.completionRate);
+      return `
+        <div class="estimate-line">
+          <span>${escapeHtml(resource.label)} at ${numberFmt(resource.completionRate, 0)}%</span>
+          <b>${Number.isFinite(units) ? units.toLocaleString() : "n/a"}</b>
+        </div>
+      `;
+    }).join("");
+    const bandLines = bands
+      .map((band, index) => {
+        const summary = group.bands.get(band.id);
+        if (!summary) return "";
+        return `${escapeHtml(rangeBandLabel(band, index, bands))}: ${summary.count.toLocaleString()}`;
+      })
+      .filter(Boolean)
+      .join(" / ");
+    card.innerHTML = `
+      <div class="estimate-card-header">
+        <strong>${escapeHtml(group.label)}</strong>
+        <span class="estimate-count">${group.count.toLocaleString()}</span>
+      </div>
+      <span>Category factor: ${numberFmt(unitsPerItem, 2)} per item</span>
+      <div class="estimate-lines">${resourceLines}</div>
+      <div class="estimate-subcategories">${escapeHtml(bandLines || "No range-band split")}</div>
+      ${subcategories ? `<div class="estimate-subcategories">${escapeHtml(subcategories)}</div>` : ""}
+    `;
+    els.estimatorResults.appendChild(card);
+  }
+}
+
+function renderEstimator() {
+  if (!state.manifest) return;
+  renderRangeBands();
+  renderResourceTypes();
+  renderCategoryAssumptions();
+  renderEstimatorResults();
+}
+
 function resetRadius() {
   if (state.radiusCircle) {
     map.removeLayer(state.radiusCircle);
@@ -1236,6 +1593,7 @@ function resetRadius() {
   els.radiusPanel.hidden = true;
   els.radiusResults.innerHTML = "";
   els.radiusSummary.textContent = "0 objects";
+  renderEstimatorResults();
   queueSavePreferences();
 }
 
@@ -1276,6 +1634,7 @@ function renderRadiusResults(origin, radiusKm) {
     note.textContent = `Showing first ${renderLimit.toLocaleString()} here. CSV export includes all ${results.length.toLocaleString()}.`;
     els.radiusResults.appendChild(note);
   }
+  renderEstimatorResults();
   queueSavePreferences();
 }
 
@@ -1417,6 +1776,69 @@ function exportRadiusCsv() {
   URL.revokeObjectURL(url);
 }
 
+function downloadTextFile(filename, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportEstimatorAssumptions() {
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    estimator: serializeEstimatorAssumptions(),
+  };
+  downloadTextFile(
+    `scenario_estimator_settings_${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
+    JSON.stringify(payload, null, 2),
+    "application/json;charset=utf-8"
+  );
+}
+
+function importEstimatorAssumptionsFromText(text) {
+  const parsed = JSON.parse(text);
+  const assumptions = parsed?.estimator || parsed;
+  state.estimator = normalizeEstimatorAssumptions(assumptions);
+  renderEstimator();
+  savePreferencesNow();
+}
+
+function buildEstimatorCsv() {
+  const fields = [
+    "layer_id",
+    "layer_label",
+    "range_band",
+    "item_count",
+    "units_per_item",
+    "resource_label",
+    "completion_rate_percent",
+    "estimated_units",
+  ];
+  const lines = [fields.join(",")];
+  for (const row of estimatorExportRows()) {
+    lines.push(fields.map((field) => csvEscape(row[field])).join(","));
+  }
+  return lines.join("\r\n");
+}
+
+function exportEstimatorCsv() {
+  if (!state.radiusResults.length) {
+    alert("No estimate to export. Draw a radius first.");
+    return;
+  }
+  downloadTextFile(
+    `scenario_estimate_${new Date().toISOString().replace(/[:.]/g, "-")}.csv`,
+    buildEstimatorCsv(),
+    "text/csv;charset=utf-8"
+  );
+}
+
 async function init() {
   const manifestResponse = await fetch(DATA_DIR + "manifest.json");
   state.manifest = await manifestResponse.json();
@@ -1426,6 +1848,7 @@ async function init() {
   await renderLayers();
   restoreSavedSelections();
   restoreSavedRadius();
+  renderEstimator();
   renderSearch();
   renderSelections();
   renderDistance();
@@ -1472,6 +1895,37 @@ els.resetRadiusBtn.addEventListener("click", () => {
   map.dragging.enable();
 });
 els.exportRadiusBtn.addEventListener("click", exportRadiusCsv);
+els.addRangeBandBtn.addEventListener("click", () => {
+  const bands = finiteRangeBands();
+  const last = bands[bands.length - 1]?.maxKm || 500;
+  const nextMax = Math.round(Number(last) + 500);
+  state.estimator.rangeBands = normalizeEstimatorAssumptions({
+    ...state.estimator,
+    rangeBands: [
+      ...bands,
+      { id: `band_${Date.now()}`, maxKm: nextMax },
+      { id: "band_open", maxKm: null },
+    ],
+  }).rangeBands;
+  renderRangeBands();
+  renderEstimatorResults();
+  savePreferencesNow();
+});
+els.exportAssumptionsBtn.addEventListener("click", exportEstimatorAssumptions);
+els.importAssumptionsBtn.addEventListener("click", () => {
+  els.importAssumptionsInput.value = "";
+  els.importAssumptionsInput.click();
+});
+els.importAssumptionsInput.addEventListener("change", async () => {
+  const file = els.importAssumptionsInput.files?.[0];
+  if (!file) return;
+  try {
+    importEstimatorAssumptionsFromText(await file.text());
+  } catch (error) {
+    alert(`Could not import settings: ${error.message}`);
+  }
+});
+els.exportEstimateBtn.addEventListener("click", exportEstimatorCsv);
 els.clearCountriesBtn.addEventListener("click", clearAllCountries);
 els.clearLayersBtn.addEventListener("click", clearAllLayers);
 

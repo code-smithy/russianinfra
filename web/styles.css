@@ -36,7 +36,7 @@ input {
 
 .app-shell {
   display: grid;
-  grid-template-columns: minmax(330px, 390px) minmax(0, 1fr);
+  grid-template-columns: minmax(330px, 390px) minmax(0, 1fr) minmax(340px, 420px);
   height: 100vh;
   overflow: hidden;
 }
@@ -584,6 +584,174 @@ input {
   min-width: 0;
 }
 
+.estimator-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 14px;
+  overflow: auto;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+}
+
+.estimator-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.estimator-panel .panel-title {
+  margin-bottom: 0;
+}
+
+.estimator-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.estimator-actions .text-btn {
+  min-width: 0;
+}
+
+.estimator-block {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.estimator-block-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.estimator-block h3 {
+  margin: 0;
+  color: #d9d5ce;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.estimator-list {
+  display: grid;
+  gap: 7px;
+}
+
+.estimator-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 86px;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: #171717;
+}
+
+.estimator-row.three-col {
+  grid-template-columns: minmax(0, 1fr) 76px 34px;
+}
+
+.estimator-row:hover {
+  border-color: #3f3f3f;
+}
+
+.estimator-label {
+  min-width: 0;
+}
+
+.estimator-label strong,
+.estimate-card strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.estimator-label span,
+.estimate-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.estimator-row input {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: #101010;
+}
+
+.estimator-row input:focus {
+  border-color: var(--accent-2);
+  outline: none;
+}
+
+.estimator-row .icon-btn {
+  width: 34px;
+  height: 30px;
+  font-size: 16px;
+}
+
+.estimator-results {
+  display: grid;
+  gap: 8px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.estimate-card {
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #151515;
+}
+
+.estimate-card-header,
+.estimate-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.estimate-card-header .estimate-count {
+  color: var(--accent-2);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.estimate-lines {
+  display: grid;
+  gap: 5px;
+}
+
+.estimate-line {
+  color: #ded9ce;
+  font-size: 12px;
+}
+
+.estimate-line b {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.estimate-subcategories {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 #map {
   position: absolute;
   inset: 0;
@@ -664,7 +832,7 @@ input {
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(330px, 45vh) 1fr;
+    grid-template-rows: minmax(330px, 42vh) auto auto;
   }
 
   .sidebar {
@@ -675,5 +843,30 @@ input {
 
   .map-wrap {
     order: 1;
+  }
+
+  .estimator-sidebar {
+    order: 3;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 1240px) and (min-width: 901px) {
+  .app-shell {
+    grid-template-columns: minmax(320px, 370px) minmax(0, 1fr);
+  }
+
+  .estimator-sidebar {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    bottom: 14px;
+    z-index: 700;
+    width: min(390px, calc(100vw - 760px));
+    min-width: 340px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
   }
 }

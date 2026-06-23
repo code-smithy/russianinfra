@@ -18,16 +18,23 @@ globalThis.__api = {
   state,
   els,
   clearAllCountries,
+  buildEstimatorCsv,
   currentPreferences,
+  estimatorExportRows,
+  estimateUnits,
   featureDistanceToPointKm,
   featurePassesActiveFilters,
   groupedLayerInfos,
   handleSubcategoryChange,
+  importEstimatorAssumptionsFromText,
   manualFeature,
   metersKm,
+  renderEstimatorResults,
+  renderRadiusResults,
   savePreferencesNow,
   setCountriesPanelCollapsed,
   setLayersPanelCollapsed,
+  summarizeEstimatorResults,
   selectFeature
 };`
 );
@@ -326,6 +333,56 @@ test("distance helpers handle points and geometry vertices", async () => {
 
   assert.ok(oneDegreeAtEquator > 111 && oneDegreeAtEquator < 112);
   assert.equal(api.featureDistanceToPointKm(lineFeature, { lat: 50, lng: 30 }), 0);
+});
+
+test("scenario estimator groups active radius results and calculates resource totals", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  api.state.estimator.categoryRequirements.energy_facilities = 2;
+  api.state.estimator.resources[0].completionRate = 50;
+  api.renderRadiusResults({ lat: 55.2, lng: 59.1 }, 20);
+
+  const groups = api.summarizeEstimatorResults();
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].layerId, "energy_facilities");
+  assert.equal(groups[0].count, 1);
+  assert.equal(groups[0].subcategories.get("energy_oil_facility"), 1);
+  assert.equal(api.estimateUnits(1, 2, 50), 4);
+
+  const rows = api.estimatorExportRows();
+  assert.equal(rows[0].layer_id, "energy_facilities");
+  assert.equal(rows[0].resource_label, "Resource A");
+  assert.equal(rows[0].estimated_units, 4);
+  assert.match(api.buildEstimatorCsv(), /energy_facilities/);
+});
+
+test("scenario estimator imports and persists editable assumptions", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  api.importEstimatorAssumptionsFromText(JSON.stringify({
+    estimator: {
+      rangeBands: [
+        { id: "short", maxKm: 100 },
+        { id: "medium", maxKm: 900 },
+      ],
+      resources: [
+        { id: "resource_a", label: "Planning Resource", completionRate: 75 },
+      ],
+      categoryRequirements: {
+        energy_facilities: 3,
+      },
+    },
+  }));
+
+  const saved = api.currentPreferences().estimator;
+  assert.deepEqual(JSON.parse(JSON.stringify(saved.rangeBands.map((band) => band.maxKm))), [100, 900, null]);
+  assert.equal(saved.resources[0].label, "Planning Resource");
+  assert.equal(saved.resources[0].completionRate, 75);
+  assert.equal(saved.categoryRequirements.energy_facilities, 3);
 });
 
 function feature(id, label, layerId, subcategory, lat, lng, country = "Russia") {

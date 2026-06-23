@@ -125,6 +125,51 @@
         <div id="map"></div>
         <div id="loadingToast" class="loading-toast" hidden>Loading layer...</div>
       </section>
+
+      <aside class="estimator-sidebar" aria-label="Scenario estimator">
+        <section id="estimatorPanel" class="panel estimator-panel">
+          <div class="panel-title">
+            <h2>Scenario Estimator</h2>
+            <span id="estimatorSummary" class="muted">Draw a radius</span>
+          </div>
+          <div class="estimator-actions">
+            <button id="exportAssumptionsBtn" class="text-btn" type="button">Export settings</button>
+            <button id="importAssumptionsBtn" class="text-btn" type="button">Import settings</button>
+            <button id="exportEstimateBtn" class="text-btn" type="button">Export estimate</button>
+            <input id="importAssumptionsInput" type="file" accept="application/json,.json" hidden />
+          </div>
+
+          <section class="estimator-block">
+            <div class="estimator-block-title">
+              <h3>Range bands</h3>
+              <button id="addRangeBandBtn" class="text-btn" type="button">Add</button>
+            </div>
+            <div id="rangeBandsList" class="estimator-list"></div>
+          </section>
+
+          <section class="estimator-block">
+            <div class="estimator-block-title">
+              <h3>Resource types</h3>
+            </div>
+            <div id="resourceTypesList" class="estimator-list"></div>
+          </section>
+
+          <section class="estimator-block">
+            <div class="estimator-block-title">
+              <h3>Category assumptions</h3>
+            </div>
+            <div id="categoryAssumptionsList" class="estimator-list"></div>
+          </section>
+
+          <section class="estimator-block">
+            <div class="estimator-block-title">
+              <h3>Estimate</h3>
+              <span id="estimatorRadiusLabel" class="muted">Active layers only</span>
+            </div>
+            <div id="estimatorResults" class="estimator-results"></div>
+          </section>
+        </section>
+      </aside>
     </main>
 
     <script
