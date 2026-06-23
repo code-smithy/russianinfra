@@ -105,29 +105,45 @@
             <button id="exportAssumptionsBtn" class="text-btn" type="button">Export settings</button>
             <button id="importAssumptionsBtn" class="text-btn" type="button">Import settings</button>
             <button id="exportEstimateBtn" class="text-btn" type="button">Export estimate</button>
+            <button id="resetEstimatorBtn" class="text-btn" type="button">Clear all</button>
             <input id="importAssumptionsInput" type="file" accept="application/json,.json" hidden />
           </div>
 
-          <section class="estimator-block">
+          <section id="rangeBandsBlock" class="estimator-block">
             <div class="estimator-block-title">
-              <h3>Range bands</h3>
+              <button id="rangeBandsToggle" class="panel-collapse-btn estimator-collapse-btn" type="button" aria-expanded="true" aria-controls="rangeBandsBody" aria-label="Collapse Range bands">
+                <span aria-hidden="true"></span>
+                <h3>Range bands</h3>
+              </button>
               <button id="addRangeBandBtn" class="text-btn" type="button">Add</button>
             </div>
-            <div id="rangeBandsList" class="estimator-list"></div>
+            <div id="rangeBandsBody">
+              <div id="rangeBandsList" class="estimator-list"></div>
+            </div>
           </section>
 
-          <section class="estimator-block">
+          <section id="resourceTypesBlock" class="estimator-block">
             <div class="estimator-block-title">
-              <h3>Resource types</h3>
+              <button id="resourceTypesToggle" class="panel-collapse-btn estimator-collapse-btn" type="button" aria-expanded="true" aria-controls="resourceTypesBody" aria-label="Collapse Resource types">
+                <span aria-hidden="true"></span>
+                <h3>Resource types</h3>
+              </button>
             </div>
-            <div id="resourceTypesList" class="estimator-list"></div>
+            <div id="resourceTypesBody">
+              <div id="resourceTypesList" class="estimator-list"></div>
+            </div>
           </section>
 
-          <section class="estimator-block">
+          <section id="categoryAssumptionsBlock" class="estimator-block">
             <div class="estimator-block-title">
-              <h3>Category assumptions</h3>
+              <button id="categoryAssumptionsToggle" class="panel-collapse-btn estimator-collapse-btn" type="button" aria-expanded="true" aria-controls="categoryAssumptionsBody" aria-label="Collapse Category assumptions">
+                <span aria-hidden="true"></span>
+                <h3>Category assumptions</h3>
+              </button>
             </div>
-            <div id="categoryAssumptionsList" class="estimator-list"></div>
+            <div id="categoryAssumptionsBody">
+              <div id="categoryAssumptionsList" class="estimator-list"></div>
+            </div>
           </section>
 
           <section class="estimator-block">

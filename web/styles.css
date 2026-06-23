@@ -500,7 +500,7 @@ input {
 
 .estimator-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -520,6 +520,18 @@ input {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.estimator-block.collapsed {
+  gap: 0;
+}
+
+.estimator-block.collapsed .estimator-block-title {
+  margin-bottom: 0;
+}
+
+.estimator-collapse-btn {
+  flex: 1;
 }
 
 .estimator-block h3 {

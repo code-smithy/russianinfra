@@ -31,8 +31,10 @@ globalThis.__api = {
   renderEstimatorResults,
   renderRadiusResults,
   resetRadius,
+  resetEstimatorAssumptions,
   savePreferencesNow,
   setCountriesPanelCollapsed,
+  setEstimatorBlockCollapsed,
   setLayersPanelCollapsed,
   summarizeEstimatorResults,
 };`
@@ -199,6 +201,28 @@ test("saves and restores the collapsed Countries panel", async () => {
   assert.equal(second.__api.els.countriesPanelToggle.getAttribute("aria-expanded"), "false");
 });
 
+test("saves and restores collapsed estimator assumption sections", async () => {
+  const first = createAppContext();
+  await first.__initPromise;
+
+  first.__api.setEstimatorBlockCollapsed("rangeBands", true);
+  first.__api.setEstimatorBlockCollapsed("categoryAssumptions", true);
+  first.__api.savePreferencesNow();
+
+  const savedRaw = first.localStorage.getItem(STORAGE_KEY);
+  const saved = JSON.parse(savedRaw);
+  assert.deepEqual(saved.collapsedEstimatorBlocks, ["rangeBands", "categoryAssumptions"]);
+
+  const second = createAppContext({ [STORAGE_KEY]: savedRaw });
+  await second.__initPromise;
+
+  assert.equal(second.__api.els.rangeBandsBody.hidden, true);
+  assert.equal(second.__api.els.rangeBandsBlock.classList.contains("collapsed"), true);
+  assert.equal(second.__api.els.rangeBandsToggle.getAttribute("aria-expanded"), "false");
+  assert.equal(second.__api.els.resourceTypesBody.hidden, false);
+  assert.equal(second.__api.els.categoryAssumptionsBody.hidden, true);
+});
+
 test("saves country selections and applies them to active filters", async () => {
   const first = createAppContext();
   await first.__initPromise;
@@ -361,6 +385,25 @@ test("scenario estimator imports and persists editable assumptions", async () =>
   assert.equal(saved.resources[0].label, "Planning Resource");
   assert.equal(saved.resources[0].completionRate, 75);
   assert.equal(saved.categoryRequirements.energy_facilities, 3);
+});
+
+test("scenario estimator clear all restores default assumptions", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  api.state.estimator.rangeBands = [{ id: "custom", maxKm: 100 }, { id: "band_open", maxKm: null }];
+  api.state.estimator.resources[0].label = "Changed";
+  api.state.estimator.resources[0].completionRate = 10;
+  api.state.estimator.categoryRequirements.energy_facilities = 9;
+
+  api.els.resetEstimatorBtn.listeners.click[0]();
+
+  const saved = api.currentPreferences().estimator;
+  assert.deepEqual(JSON.parse(JSON.stringify(saved.rangeBands.map((band) => band.maxKm))), [500, 2500, null]);
+  assert.equal(saved.resources[0].label, "Resource A");
+  assert.equal(saved.resources[0].completionRate, 80);
+  assert.equal(saved.categoryRequirements.energy_facilities, 1);
 });
 
 function feature(id, label, layerId, subcategory, lat, lng, country = "Russia") {

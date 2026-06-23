@@ -22,6 +22,11 @@ const DEFAULT_ESTIMATOR_ASSUMPTIONS = {
   ],
   categoryRequirements: {},
 };
+const ESTIMATOR_BLOCKS = [
+  { key: "rangeBands", label: "Range bands" },
+  { key: "resourceTypes", label: "Resource types" },
+  { key: "categoryAssumptions", label: "Category assumptions" },
+];
 
 const state = {
   manifest: null,
@@ -96,15 +101,25 @@ const els = {
   resetRadiusBtn: document.getElementById("resetRadiusBtn"),
   estimatorSummary: document.getElementById("estimatorSummary"),
   estimatorRadiusLabel: document.getElementById("estimatorRadiusLabel"),
+  rangeBandsBlock: document.getElementById("rangeBandsBlock"),
+  rangeBandsBody: document.getElementById("rangeBandsBody"),
+  rangeBandsToggle: document.getElementById("rangeBandsToggle"),
   rangeBandsList: document.getElementById("rangeBandsList"),
   addRangeBandBtn: document.getElementById("addRangeBandBtn"),
+  resourceTypesBlock: document.getElementById("resourceTypesBlock"),
+  resourceTypesBody: document.getElementById("resourceTypesBody"),
+  resourceTypesToggle: document.getElementById("resourceTypesToggle"),
   resourceTypesList: document.getElementById("resourceTypesList"),
+  categoryAssumptionsBlock: document.getElementById("categoryAssumptionsBlock"),
+  categoryAssumptionsBody: document.getElementById("categoryAssumptionsBody"),
+  categoryAssumptionsToggle: document.getElementById("categoryAssumptionsToggle"),
   categoryAssumptionsList: document.getElementById("categoryAssumptionsList"),
   estimatorResults: document.getElementById("estimatorResults"),
   exportAssumptionsBtn: document.getElementById("exportAssumptionsBtn"),
   importAssumptionsBtn: document.getElementById("importAssumptionsBtn"),
   importAssumptionsInput: document.getElementById("importAssumptionsInput"),
   exportEstimateBtn: document.getElementById("exportEstimateBtn"),
+  resetEstimatorBtn: document.getElementById("resetEstimatorBtn"),
 };
 
 function escapeHtml(value) {
@@ -174,6 +189,12 @@ function savedCountrySet() {
   return new Set(countries.map((country) => country.id));
 }
 
+function savedEstimatorBlockSet() {
+  const validKeys = new Set(ESTIMATOR_BLOCKS.map((block) => block.key));
+  const saved = state.savedPreferences?.collapsedEstimatorBlocks;
+  return new Set(Array.isArray(saved) ? saved.filter((key) => validKeys.has(key)) : []);
+}
+
 function serializeRadius() {
   if (!state.radiusOrigin || !Number.isFinite(state.radiusKm)) return null;
   return {
@@ -204,6 +225,9 @@ function currentPreferences() {
     layersPanelCollapsed: els.layersPanelBody.hidden,
     countriesPanelCollapsed: els.countriesPanelBody.hidden,
     collapsedLayers,
+    collapsedEstimatorBlocks: ESTIMATOR_BLOCKS
+      .filter((block) => els[`${block.key}Body`]?.hidden)
+      .map((block) => block.key),
     countries: [...state.countryFilters],
     subcategories,
     search: els.searchInput.value,
@@ -1065,6 +1089,10 @@ function fitLoadedLayers() {
 
 function applySavedInterfaceState() {
   const prefs = state.savedPreferences;
+  const collapsedEstimatorBlocks = savedEstimatorBlockSet();
+  for (const block of ESTIMATOR_BLOCKS) {
+    setEstimatorBlockCollapsed(block.key, collapsedEstimatorBlocks.has(block.key), false);
+  }
   if (!prefs) {
     setLayersPanelCollapsed(false, false);
     setCountriesPanelCollapsed(false, false);
@@ -1095,6 +1123,19 @@ function setCountriesPanelCollapsed(collapsed, persist = true) {
   els.countriesPanelBody.hidden = collapsed;
   els.countriesPanelToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
   els.countriesPanelToggle.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} Countries`);
+  if (persist) queueSavePreferences();
+}
+
+function setEstimatorBlockCollapsed(key, collapsed, persist = true) {
+  const block = ESTIMATOR_BLOCKS.find((item) => item.key === key);
+  if (!block) return;
+  const blockElement = els[`${key}Block`];
+  const body = els[`${key}Body`];
+  const toggle = els[`${key}Toggle`];
+  blockElement.classList.toggle("collapsed", collapsed);
+  body.hidden = collapsed;
+  toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  toggle.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} ${block.label}`);
   if (persist) queueSavePreferences();
 }
 
@@ -1551,6 +1592,12 @@ function importEstimatorAssumptionsFromText(text) {
   savePreferencesNow();
 }
 
+function resetEstimatorAssumptions() {
+  state.estimator = normalizeEstimatorAssumptions(null);
+  renderEstimator();
+  savePreferencesNow();
+}
+
 function buildEstimatorCsv() {
   const fields = [
     "layer_id",
@@ -1643,7 +1690,13 @@ els.importAssumptionsInput.addEventListener("change", async () => {
     alert(`Could not import settings: ${error.message}`);
   }
 });
+els.resetEstimatorBtn.addEventListener("click", resetEstimatorAssumptions);
 els.exportEstimateBtn.addEventListener("click", exportEstimatorCsv);
+for (const block of ESTIMATOR_BLOCKS) {
+  els[`${block.key}Toggle`].addEventListener("click", () => {
+    setEstimatorBlockCollapsed(block.key, !els[`${block.key}Body`].hidden);
+  });
+}
 els.clearCountriesBtn.addEventListener("click", clearAllCountries);
 els.clearLayersBtn.addEventListener("click", clearAllLayers);
 
