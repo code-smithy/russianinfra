@@ -18,6 +18,7 @@ globalThis.__api = {
   els,
   currentPreferences,
   featureDistanceToPointKm,
+  groupedLayerInfos,
   handleSubcategoryChange,
   manualFeature,
   metersKm,
@@ -203,6 +204,34 @@ test("saves and restores the collapsed Layers panel", async () => {
   assert.equal(second.__api.els.layersPanelToggle.getAttribute("aria-expanded"), "false");
 });
 
+test("groups layers by domain and puts line layers last inside each group", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  app.__api.state.manifest.layers = [
+    layerInfo("transport_rail", "Railway Lines", 0, 10),
+    layerInfo("energy_gas", "Gas Pipelines", 0, 10),
+    layerInfo("power_facilities", "Power Plants & Substations", 10, 0),
+    layerInfo("military_boundaries", "Military Boundaries & Paths", 0, 10),
+    layerInfo("other_infrastructure", "Other Infrastructure", 1, 0),
+    layerInfo("transport_other", "Transport Structures", 10, 0),
+    layerInfo("energy_facilities", "Oil/Gas Facilities", 10, 0),
+    layerInfo("power_lines", "HV Transmission Lines", 0, 10),
+    layerInfo("military_sites", "Military Sites", 10, 0),
+  ];
+
+  const grouped = JSON.parse(JSON.stringify(app.__api.groupedLayerInfos().map((group) => ({
+    id: group.id,
+    layers: group.layers.map((layer) => layer.id),
+  }))));
+
+  assert.deepEqual(grouped.map((group) => group.id), ["military", "oil_gas", "transport", "power", "other"]);
+  assert.deepEqual(grouped[0].layers, ["military_sites", "military_boundaries"]);
+  assert.deepEqual(grouped[1].layers, ["energy_facilities", "energy_gas"]);
+  assert.deepEqual(grouped[2].layers, ["transport_other", "transport_rail"]);
+  assert.deepEqual(grouped[3].layers, ["power_facilities", "power_lines"]);
+});
+
 test("distance helpers handle points and geometry vertices", async () => {
   const app = createAppContext();
   await app.__initPromise;
@@ -245,6 +274,17 @@ function feature(id, label, layerId, subcategory, lat, lng) {
       search_text: `${label} ${subcategory}`,
       map_color: "#d4472f",
     },
+  };
+}
+
+function layerInfo(id, label, pointCount, lineCount) {
+  return {
+    id,
+    label,
+    point_count: pointCount,
+    line_count: lineCount,
+    count: pointCount + lineCount,
+    subcategories: [],
   };
 }
 

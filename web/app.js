@@ -1,5 +1,12 @@
 const DATA_DIR = "data/";
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
+const LAYER_GROUPS = [
+  { id: "military", label: "Military" },
+  { id: "oil_gas", label: "Oil/Gas" },
+  { id: "transport", label: "Transport" },
+  { id: "power", label: "Power" },
+  { id: "other", label: "Other" },
+];
 
 const state = {
   manifest: null,
@@ -508,6 +515,35 @@ function unloadLayer(layerInfo) {
   syncOverlaysWithVisibleLayers();
 }
 
+function layerGroupId(layerInfo) {
+  if (layerInfo.id.startsWith("military")) return "military";
+  if (layerInfo.id.startsWith("energy")) return "oil_gas";
+  if (layerInfo.id.startsWith("transport")) return "transport";
+  if (layerInfo.id.startsWith("power")) return "power";
+  return "other";
+}
+
+function isLineLayer(layerInfo) {
+  return Number(layerInfo.line_count || 0) > 0 && Number(layerInfo.point_count || 0) === 0;
+}
+
+function groupedLayerInfos() {
+  const groups = LAYER_GROUPS.map((group) => ({ ...group, layers: [] }));
+  const groupMap = new Map(groups.map((group) => [group.id, group]));
+  for (const layerInfo of state.manifest.layers) {
+    const group = groupMap.get(layerGroupId(layerInfo)) || groupMap.get("other");
+    group.layers.push(layerInfo);
+  }
+  for (const group of groups) {
+    group.layers.sort((a, b) => {
+      const lineDelta = Number(isLineLayer(a)) - Number(isLineLayer(b));
+      if (lineDelta) return lineDelta;
+      return a.label.localeCompare(b.label);
+    });
+  }
+  return groups.filter((group) => group.layers.length);
+}
+
 function layerHasEnabledSubcategories(layerInfo) {
   const controls = state.layerSubcategoryControls.get(layerInfo.id) || [];
   if (!controls.length) return savedLayerVisible(layerInfo);
@@ -570,7 +606,14 @@ async function renderLayers() {
   state.layerSubcategoryControls.clear();
   state.layerCollapseControls.clear();
   const initialLoads = [];
-  for (const layerInfo of state.manifest.layers) {
+  for (const group of groupedLayerInfos()) {
+    const groupHeading = document.createElement("div");
+    groupHeading.className = "layer-group-heading";
+    groupHeading.dataset.groupId = group.id;
+    groupHeading.textContent = group.label;
+    els.layersList.appendChild(groupHeading);
+
+    for (const layerInfo of group.layers) {
     const subcategories = Array.isArray(layerInfo.subcategories) ? layerInfo.subcategories : [];
     if (subcategories.length) {
       state.subcategoryFilters.set(layerInfo.id, savedSubcategorySet(layerInfo));
@@ -578,6 +621,7 @@ async function renderLayers() {
 
     const row = document.createElement("div");
     row.className = "layer-row";
+    row.dataset.layerId = layerInfo.id;
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     state.layerControls.set(layerInfo.id, checkbox);
@@ -670,6 +714,7 @@ async function renderLayers() {
         hideLoading();
         console.error(error);
       }));
+    }
     }
   }
   await Promise.allSettled(initialLoads);

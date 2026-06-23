@@ -168,6 +168,19 @@ input {
   gap: 7px;
 }
 
+.layer-group-heading {
+  margin: 8px 2px 1px;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.layer-group-heading:first-child {
+  margin-top: 0;
+}
+
 .layer-row {
   display: grid;
   grid-template-columns: 20px 18px minmax(0, 1fr) auto;
