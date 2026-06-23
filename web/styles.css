@@ -427,6 +427,56 @@ input {
   border-top: 1px solid var(--border);
 }
 
+.radius-controls {
+  display: grid;
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #171717;
+}
+
+.radius-detail,
+.radius-edit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, auto);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.radius-detail span,
+.radius-edit-row span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.radius-detail strong {
+  overflow: hidden;
+  color: #ded9ce;
+  font-size: 12px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.radius-edit-row input {
+  width: 120px;
+  min-width: 0;
+  height: 30px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: #101010;
+  text-align: right;
+}
+
+.radius-edit-row input:focus {
+  border-color: var(--accent-2);
+  outline: none;
+}
+
 .radius-panel .result-list {
   max-height: 260px;
 }

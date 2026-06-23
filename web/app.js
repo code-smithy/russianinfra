@@ -177,6 +177,8 @@ const els = {
   radiusModeBtn: document.getElementById("radiusModeBtn"),
   radiusPanel: document.getElementById("radiusPanel"),
   radiusSummary: document.getElementById("radiusSummary"),
+  radiusCenterLabel: document.getElementById("radiusCenterLabel"),
+  radiusKmInput: document.getElementById("radiusKmInput"),
   radiusResults: document.getElementById("radiusResults"),
   exportRadiusBtn: document.getElementById("exportRadiusBtn"),
   resetRadiusBtn: document.getElementById("resetRadiusBtn"),
@@ -431,6 +433,11 @@ function numberFmt(value, digits = 1) {
   return n.toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
+function coordinateFmt(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toFixed(5) : "";
+}
+
 function boundedNumber(value, fallback, min = 0, max = Infinity) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
@@ -439,6 +446,12 @@ function boundedNumber(value, fallback, min = 0, max = Infinity) {
 
 function positiveNumber(value, fallback, min = 0.1, max = Infinity) {
   if (value === null || value === "") return fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function positiveFiniteNumber(value, fallback, min = 0.1, max = Infinity) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
@@ -1528,6 +1541,41 @@ function drawStoredRadius(origin, radiusKm) {
   }).addTo(map);
 }
 
+function updateRadiusOverlay(radiusKm) {
+  if (!Number.isFinite(radiusKm) || radiusKm <= 0) return;
+  if (state.radiusCircle) {
+    state.radiusCircle.setRadius(radiusKm * 1000);
+  }
+  if (state.radiusLabel) {
+    state.radiusLabel.setIcon(L.divIcon({
+      className: "radius-distance-label",
+      html: `${numberFmt(radiusKm, 1)} km`,
+      iconSize: [82, 28],
+      iconAnchor: [-8, 14],
+    }));
+  }
+}
+
+function updateRadiusPanelDetails(origin, radiusKm) {
+  if (!origin || !Number.isFinite(radiusKm)) {
+    els.radiusCenterLabel.textContent = "No radius";
+    els.radiusKmInput.value = "";
+    return;
+  }
+  els.radiusCenterLabel.textContent = `${coordinateFmt(origin.lat)}, ${coordinateFmt(origin.lng)}`;
+  if (document.activeElement !== els.radiusKmInput) {
+    els.radiusKmInput.value = String(Number(radiusKm.toFixed(1)));
+  }
+}
+
+function applyRadiusInputValue() {
+  if (!state.radiusOrigin || !Number.isFinite(state.radiusKm)) return;
+  const radiusKm = positiveFiniteNumber(els.radiusKmInput.value, state.radiusKm, 0.1);
+  els.radiusKmInput.value = String(Number(radiusKm.toFixed(1)));
+  updateRadiusOverlay(radiusKm);
+  renderRadiusResults(state.radiusOrigin, radiusKm);
+}
+
 function restoreSavedRadius() {
   const saved = state.savedPreferences?.radius;
   const origin = storedPoint(saved?.origin);
@@ -1891,23 +1939,28 @@ function resetRadius() {
   els.radiusPanel.hidden = true;
   els.radiusResults.innerHTML = "";
   els.radiusSummary.textContent = "0 objects";
+  updateRadiusPanelDetails(null, null);
   renderEstimatorResults();
   queueSavePreferences();
 }
 
 function renderRadiusResults(origin, radiusKm) {
+  const normalizedRadiusKm = positiveFiniteNumber(radiusKm, 0, 0.1);
+  if (!Number.isFinite(normalizedRadiusKm) || normalizedRadiusKm <= 0) return;
   state.radiusHighlightGroup.clearLayers();
   state.radiusOrigin = origin;
-  state.radiusKm = radiusKm;
+  state.radiusKm = normalizedRadiusKm;
+  updateRadiusOverlay(normalizedRadiusKm);
+  updateRadiusPanelDetails(origin, normalizedRadiusKm);
   const activeFeatures = loadedVisibleFeatures();
   const results = activeFeatures
     .map((stored) => ({ stored, distance: featureDistanceToPointKm(stored.feature, origin) }))
-    .filter((item) => item.distance <= radiusKm)
+    .filter((item) => item.distance <= normalizedRadiusKm)
     .sort((a, b) => a.distance - b.distance);
   state.radiusResults = results;
   applyRadiusDimming(activeFeatures, results);
   els.radiusPanel.hidden = false;
-  els.radiusSummary.textContent = `${results.length.toLocaleString()} objects • ${numberFmt(radiusKm, 1)} km • active layers only`;
+  els.radiusSummary.textContent = `${results.length.toLocaleString()} objects • ${numberFmt(normalizedRadiusKm, 1)} km • active layers only`;
   els.radiusResults.innerHTML = "";
 
   for (const item of results) {
@@ -2177,6 +2230,13 @@ els.resetRadiusBtn.addEventListener("click", () => {
   resetRadius();
   setRadiusMode(false);
   map.dragging.enable();
+});
+els.radiusKmInput.addEventListener("change", applyRadiusInputValue);
+els.radiusKmInput.addEventListener("blur", applyRadiusInputValue);
+els.radiusKmInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  applyRadiusInputValue();
 });
 els.exportRadiusBtn.addEventListener("click", exportRadiusCsv);
 els.addRangeBandBtn.addEventListener("click", () => {

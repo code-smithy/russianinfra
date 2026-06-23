@@ -96,6 +96,16 @@
               </div>
               <span id="radiusSummary" class="muted">0 objects</span>
             </div>
+            <div class="radius-controls">
+              <div class="radius-detail">
+                <span>Center</span>
+                <strong id="radiusCenterLabel">No radius</strong>
+              </div>
+              <label class="radius-edit-row">
+                <span>Radius (km)</span>
+                <input id="radiusKmInput" type="number" min="0.1" step="0.1" inputmode="decimal" />
+              </label>
+            </div>
             <div class="actions-row">
               <button id="exportRadiusBtn" class="text-btn" type="button">Export CSV</button>
               <button id="resetRadiusBtn" class="text-btn" type="button">Reset radius</button>

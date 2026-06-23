@@ -340,6 +340,25 @@ test("dims visible datapoints outside the drawn radius and restores them on rese
   assert.equal(outside.radiusDimmed, false);
 });
 
+test("radius panel shows center and applies manual radius edits", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  api.renderRadiusResults({ lat: 55.2, lng: 59.1 }, 746.3);
+
+  assert.equal(api.els.radiusCenterLabel.textContent, "55.20000, 59.10000");
+  assert.equal(api.els.radiusKmInput.value, "746.3");
+
+  api.els.radiusKmInput.value = "750";
+  api.els.radiusKmInput.listeners.change[0]();
+
+  assert.equal(api.state.radiusKm, 750);
+  assert.equal(api.els.radiusKmInput.value, "750");
+  assert.equal(api.currentPreferences().radius.radiusKm, 750);
+  assert.match(api.els.radiusSummary.textContent, /750 km/);
+});
+
 test("scenario estimator groups active radius results and calculates resource totals", async () => {
   const app = createAppContext();
   await app.__initPromise;
