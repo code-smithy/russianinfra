@@ -21,6 +21,7 @@ const DEFAULT_ESTIMATOR_ASSUMPTIONS = {
     { id: "resource_c", label: "Resource C", completionRate: 50 },
   ],
   categoryRequirements: {},
+  profiles: [],
   summaryDisplay: {
     compactTotals: false,
     rangeBandMatrix: true,
@@ -207,6 +208,10 @@ const els = {
   importAssumptionsInput: document.getElementById("importAssumptionsInput"),
   exportEstimateBtn: document.getElementById("exportEstimateBtn"),
   resetEstimatorBtn: document.getElementById("resetEstimatorBtn"),
+  estimatorProfileSelect: document.getElementById("estimatorProfileSelect"),
+  saveEstimatorProfileBtn: document.getElementById("saveEstimatorProfileBtn"),
+  loadEstimatorProfileBtn: document.getElementById("loadEstimatorProfileBtn"),
+  deleteEstimatorProfileBtn: document.getElementById("deleteEstimatorProfileBtn"),
   infoPopover: document.getElementById("infoPopover"),
   infoPopoverTitle: document.getElementById("infoPopoverTitle"),
   infoPopoverBody: document.getElementById("infoPopoverBody"),
@@ -464,6 +469,58 @@ function isFiniteRangeMax(value) {
   return value !== null && value !== "" && Number.isFinite(Number(value));
 }
 
+function profileId(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 48) || `profile_${Date.now()}`;
+}
+
+function estimatorProfileSnapshot(name) {
+  return {
+    id: profileId(name),
+    name: String(name || "").trim().slice(0, 60),
+    rangeBands: state.estimator.rangeBands.map((band) => ({ id: band.id, maxKm: band.maxKm })),
+    resources: state.estimator.resources.map((resource) => ({
+      id: resource.id,
+      label: resource.label,
+      completionRate: resource.completionRate,
+    })),
+    categoryRequirements: { ...state.estimator.categoryRequirements },
+  };
+}
+
+function normalizeEstimatorProfiles(savedProfiles) {
+  const profiles = [];
+  const seen = new Set();
+  for (const item of Array.isArray(savedProfiles) ? savedProfiles : []) {
+    const name = String(item?.name || "").trim().slice(0, 60);
+    if (!name) continue;
+    const id = profileId(item?.id || name);
+    if (seen.has(id)) continue;
+    const normalized = normalizeEstimatorAssumptions({
+      rangeBands: item?.rangeBands,
+      resources: item?.resources,
+      categoryRequirements: item?.categoryRequirements,
+    });
+    profiles.push({
+      id,
+      name,
+      rangeBands: normalized.rangeBands.map((band) => ({ id: band.id, maxKm: band.maxKm })),
+      resources: normalized.resources.map((resource) => ({
+        id: resource.id,
+        label: resource.label,
+        completionRate: resource.completionRate,
+      })),
+      categoryRequirements: { ...normalized.categoryRequirements },
+    });
+    seen.add(id);
+  }
+  return profiles.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function normalizeEstimatorAssumptions(saved) {
   const defaults = DEFAULT_ESTIMATOR_ASSUMPTIONS;
   const savedBands = Array.isArray(saved?.rangeBands) ? saved.rangeBands : [];
@@ -515,7 +572,13 @@ function normalizeEstimatorAssumptions(saved) {
     summaryDisplay.compactTotals = true;
   }
 
-  return { rangeBands, resources, categoryRequirements, summaryDisplay };
+  return {
+    rangeBands,
+    resources,
+    categoryRequirements,
+    profiles: normalizeEstimatorProfiles(saved?.profiles),
+    summaryDisplay,
+  };
 }
 
 function serializeEstimatorAssumptions() {
@@ -528,6 +591,17 @@ function serializeEstimatorAssumptions() {
       completionRate: resource.completionRate,
     })),
     categoryRequirements: { ...state.estimator.categoryRequirements },
+    profiles: state.estimator.profiles.map((profile) => ({
+      id: profile.id,
+      name: profile.name,
+      rangeBands: profile.rangeBands.map((band) => ({ id: band.id, maxKm: band.maxKm })),
+      resources: profile.resources.map((resource) => ({
+        id: resource.id,
+        label: resource.label,
+        completionRate: resource.completionRate,
+      })),
+      categoryRequirements: { ...profile.categoryRequirements },
+    })),
     summaryDisplay: { ...state.estimator.summaryDisplay },
   };
 }
@@ -1794,6 +1868,81 @@ function renderCategoryAssumptions() {
   }
 }
 
+function renderEstimatorProfiles(selectedId = els.estimatorProfileSelect.value) {
+  els.estimatorProfileSelect.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = state.estimator.profiles.length ? "Select profile..." : "No saved profiles";
+  els.estimatorProfileSelect.appendChild(placeholder);
+
+  for (const profile of state.estimator.profiles) {
+    const option = document.createElement("option");
+    option.value = profile.id;
+    option.textContent = profile.name;
+    els.estimatorProfileSelect.appendChild(option);
+  }
+
+  if (state.estimator.profiles.some((profile) => profile.id === selectedId)) {
+    els.estimatorProfileSelect.value = selectedId;
+  } else {
+    els.estimatorProfileSelect.value = "";
+  }
+  const hasSelection = !!els.estimatorProfileSelect.value;
+  els.estimatorProfileSelect.disabled = !state.estimator.profiles.length;
+  els.loadEstimatorProfileBtn.disabled = !hasSelection;
+  els.deleteEstimatorProfileBtn.disabled = !hasSelection;
+}
+
+function selectedEstimatorProfile() {
+  const profileIdValue = els.estimatorProfileSelect.value;
+  return state.estimator.profiles.find((profile) => profile.id === profileIdValue) || null;
+}
+
+function saveEstimatorProfile() {
+  const suggested = selectedEstimatorProfile()?.name || "New profile";
+  const name = window.prompt?.("Profile name", suggested);
+  if (name === null || name === undefined) return;
+  const profile = estimatorProfileSnapshot(name);
+  if (!profile.name) return;
+  const existingIndex = state.estimator.profiles.findIndex((item) => item.id === profile.id);
+  if (existingIndex >= 0) {
+    state.estimator.profiles[existingIndex] = profile;
+  } else {
+    state.estimator.profiles.push(profile);
+  }
+  state.estimator.profiles.sort((a, b) => a.name.localeCompare(b.name));
+  renderEstimatorProfiles(profile.id);
+  savePreferencesNow();
+}
+
+function loadEstimatorProfile() {
+  const profile = selectedEstimatorProfile();
+  if (!profile) return;
+  const normalized = normalizeEstimatorAssumptions({
+    ...state.estimator,
+    rangeBands: profile.rangeBands,
+    resources: profile.resources,
+    categoryRequirements: profile.categoryRequirements,
+  });
+  state.estimator.rangeBands = normalized.rangeBands;
+  state.estimator.resources = normalized.resources;
+  state.estimator.categoryRequirements = normalized.categoryRequirements;
+  renderRangeBands();
+  refreshRadiusRangeOverlay();
+  renderResourceTypes();
+  renderCategoryAssumptions();
+  renderEstimatorResults();
+  savePreferencesNow();
+}
+
+function deleteEstimatorProfile() {
+  const profile = selectedEstimatorProfile();
+  if (!profile) return;
+  state.estimator.profiles = state.estimator.profiles.filter((item) => item.id !== profile.id);
+  renderEstimatorProfiles();
+  savePreferencesNow();
+}
+
 function renderSummaryDisplayControls() {
   enforceSummaryDisplaySelection();
   els.summaryDisplayControls.innerHTML = "";
@@ -1996,6 +2145,7 @@ function renderEstimatorResults() {
 
 function renderEstimator() {
   if (!state.manifest) return;
+  renderEstimatorProfiles();
   renderRangeBands();
   refreshRadiusRangeOverlay();
   renderResourceTypes();
@@ -2245,13 +2395,18 @@ function exportEstimatorAssumptions() {
 function importEstimatorAssumptionsFromText(text) {
   const parsed = JSON.parse(text);
   const assumptions = parsed?.estimator || parsed;
-  state.estimator = normalizeEstimatorAssumptions(assumptions);
+  state.estimator = normalizeEstimatorAssumptions({
+    ...assumptions,
+    profiles: Array.isArray(assumptions?.profiles) ? assumptions.profiles : state.estimator.profiles,
+  });
   renderEstimator();
   savePreferencesNow();
 }
 
 function resetEstimatorAssumptions() {
-  state.estimator = normalizeEstimatorAssumptions(null);
+  state.estimator = normalizeEstimatorAssumptions({
+    profiles: state.estimator.profiles,
+  });
   renderEstimator();
   savePreferencesNow();
 }
@@ -2360,6 +2515,10 @@ els.importAssumptionsInput.addEventListener("change", async () => {
 });
 els.resetEstimatorBtn.addEventListener("click", resetEstimatorAssumptions);
 els.exportEstimateBtn.addEventListener("click", exportEstimatorCsv);
+els.estimatorProfileSelect.addEventListener("change", () => renderEstimatorProfiles());
+els.saveEstimatorProfileBtn.addEventListener("click", saveEstimatorProfile);
+els.loadEstimatorProfileBtn.addEventListener("click", loadEstimatorProfile);
+els.deleteEstimatorProfileBtn.addEventListener("click", deleteEstimatorProfile);
 for (const block of ESTIMATOR_BLOCKS) {
   els[`${block.key}Toggle`].addEventListener("click", () => {
     setEstimatorBlockCollapsed(block.key, !els[`${block.key}Body`].hidden);

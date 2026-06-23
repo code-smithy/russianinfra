@@ -597,6 +597,39 @@ input {
   min-width: 0;
 }
 
+.profile-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(3, auto);
+  gap: 8px;
+  align-items: center;
+}
+
+.profile-actions select {
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: #101010;
+}
+
+.profile-actions select:focus {
+  border-color: var(--accent-2);
+  outline: none;
+}
+
+.profile-actions .text-btn {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.profile-actions .text-btn:disabled,
+.profile-actions select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .estimator-block {
   display: grid;
   gap: 8px;

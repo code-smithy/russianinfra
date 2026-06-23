@@ -597,6 +597,53 @@ test("scenario estimator clear all restores default assumptions", async () => {
   assert.equal(saved.categoryRequirements.energy_facilities, 1);
 });
 
+test("scenario estimator saves loads and deletes range/resource profiles", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  api.state.estimator.rangeBands = [
+    { id: "profile_band", maxKm: 750 },
+    { id: "band_open", maxKm: null },
+  ];
+  api.state.estimator.resources[0].label = "Effector Alpha";
+  api.state.estimator.resources[0].completionRate = 70;
+  api.state.estimator.categoryRequirements.energy_facilities = 4;
+  api.state.estimator.categoryRequirements.military_sites = 2;
+  app.prompt = () => "Strike profile";
+
+  api.els.saveEstimatorProfileBtn.listeners.click[0]();
+
+  assert.equal(api.state.estimator.profiles.length, 1);
+  assert.equal(api.els.estimatorProfileSelect.value, "strike_profile");
+  assert.equal(api.currentPreferences().estimator.profiles[0].name, "Strike profile");
+
+  api.state.estimator.rangeBands = [
+    { id: "changed_band", maxKm: 1200 },
+    { id: "band_open", maxKm: null },
+  ];
+  api.state.estimator.resources[0].label = "Changed";
+  api.state.estimator.resources[0].completionRate = 25;
+  api.state.estimator.categoryRequirements.energy_facilities = 1;
+  api.state.estimator.categoryRequirements.military_sites = 1;
+  api.els.loadEstimatorProfileBtn.listeners.click[0]();
+
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.estimator.rangeBands.map((band) => band.maxKm))), [750, null]);
+  assert.equal(api.state.estimator.resources[0].label, "Effector Alpha");
+  assert.equal(api.state.estimator.resources[0].completionRate, 70);
+  assert.equal(api.state.estimator.categoryRequirements.energy_facilities, 4);
+  assert.equal(api.state.estimator.categoryRequirements.military_sites, 2);
+  assert.equal(api.currentPreferences().estimator.profiles[0].categoryRequirements.energy_facilities, 4);
+
+  api.els.resetEstimatorBtn.listeners.click[0]();
+  assert.equal(api.state.estimator.profiles.length, 1);
+
+  api.els.estimatorProfileSelect.value = "strike_profile";
+  api.els.deleteEstimatorProfileBtn.listeners.click[0]();
+  assert.equal(api.state.estimator.profiles.length, 0);
+  assert.equal(api.els.estimatorProfileSelect.disabled, true);
+});
+
 test("range band edits update one band without adding extra bands", async () => {
   const app = createAppContext();
   await app.__initPromise;
