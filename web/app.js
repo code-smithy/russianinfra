@@ -161,6 +161,7 @@ state.radiusHighlightGroup = L.layerGroup().addTo(map);
 
 const els = {
   datasetSummary: document.getElementById("datasetSummary"),
+  layersCount: document.getElementById("layersCount"),
   layersList: document.getElementById("layersList"),
   loadedCount: document.getElementById("loadedCount"),
   searchInput: document.getElementById("searchInput"),
@@ -1248,18 +1249,32 @@ function layerHasEnabledSubcategories(layerInfo) {
   return controls.some((control) => control.checked);
 }
 
+function renderSelectionCounts() {
+  const layers = Array.isArray(state.manifest?.layers) ? state.manifest.layers : [];
+  const selectedLayers = layers.filter((layerInfo) => {
+    const checkbox = state.layerControls.get(layerInfo.id);
+    return checkbox?.checked || checkbox?.indeterminate;
+  }).length;
+  els.layersCount.textContent = `${selectedLayers.toLocaleString()} of ${layers.length.toLocaleString()} selected`;
+
+  const countries = Array.isArray(state.manifest?.countries) ? state.manifest.countries : [];
+  els.countriesCount.textContent = `${state.countryFilters.size.toLocaleString()} of ${countries.length.toLocaleString()} selected`;
+}
+
 function updateLayerCheckboxState(layerInfo) {
   const checkbox = state.layerControls.get(layerInfo.id);
   if (!checkbox) return;
   const controls = state.layerSubcategoryControls.get(layerInfo.id) || [];
   if (!controls.length) {
     checkbox.indeterminate = false;
+    renderSelectionCounts();
     return;
   }
 
   const checkedCount = controls.filter((control) => control.checked).length;
   checkbox.checked = checkedCount === controls.length;
   checkbox.indeterminate = checkedCount > 0 && checkedCount < controls.length;
+  renderSelectionCounts();
 }
 
 function syncSubcategoriesToLayer(layerInfo, enabled) {
@@ -1394,9 +1409,11 @@ async function renderLayers() {
         } else {
           unloadLayer(layerInfo);
         }
+        renderSelectionCounts();
         savePreferencesNow();
       } catch (error) {
         checkbox.checked = false;
+        renderSelectionCounts();
         row.classList.remove("loading");
         hideLoading();
         savePreferencesNow();
@@ -1416,6 +1433,7 @@ async function renderLayers() {
     }
   }
   await Promise.allSettled(initialLoads);
+  renderSelectionCounts();
   renderLoadedCount();
   renderSearch();
 }
@@ -1425,11 +1443,11 @@ function renderCountries() {
   state.countryControls.clear();
   state.countryFilters = savedCountrySet();
   els.countriesList.innerHTML = "";
-  els.countriesCount.textContent = `${countries.length.toLocaleString()} ${countries.length === 1 ? "country" : "countries"}`;
   els.clearCountriesBtn.disabled = countries.length === 0;
 
   if (!countries.length) {
     els.countriesList.innerHTML = `<div class="muted">No country metadata.</div>`;
+    renderSelectionCounts();
     return;
   }
 
@@ -1452,10 +1470,12 @@ function renderCountries() {
       } else {
         state.countryFilters.delete(country.id);
       }
+      renderSelectionCounts();
       refreshAllLayerFilters();
       savePreferencesNow();
     });
   }
+  renderSelectionCounts();
 }
 
 function clearAllCountries() {
@@ -1463,6 +1483,7 @@ function clearAllCountries() {
     checkbox.checked = false;
   }
   state.countryFilters.clear();
+  renderSelectionCounts();
   refreshAllLayerFilters();
   savePreferencesNow();
 }
@@ -1478,6 +1499,7 @@ function clearAllLayers() {
     checkbox.indeterminate = false;
     unloadLayer({ id: layerId });
   }
+  renderSelectionCounts();
   savePreferencesNow();
 }
 

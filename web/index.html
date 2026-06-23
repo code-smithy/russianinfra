@@ -42,7 +42,10 @@
               </button>
               <button id="layersInfoBtn" class="info-btn" type="button" data-info-topic="layers" aria-label="Information about Layers" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
             </div>
-            <button id="clearLayersBtn" class="text-btn" type="button">Clear all</button>
+            <div class="panel-actions">
+              <span id="layersCount" class="muted">0 of 0 selected</span>
+              <button id="clearLayersBtn" class="text-btn" type="button">Clear all</button>
+            </div>
           </div>
           <div id="layersPanelBody">
             <div id="layersList" class="layers-list"></div>
@@ -59,7 +62,7 @@
               <button id="countriesInfoBtn" class="info-btn" type="button" data-info-topic="countries" aria-label="Information about Countries" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
             </div>
             <div class="panel-actions">
-              <span id="countriesCount" class="muted">0 countries</span>
+              <span id="countriesCount" class="muted">0 of 0 selected</span>
               <button id="clearCountriesBtn" class="text-btn" type="button">Clear all</button>
             </div>
           </div>

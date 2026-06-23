@@ -143,12 +143,14 @@ test("syncs category checkboxes with subcategories and saves collapsed state", a
   const subcategories = api.state.layerSubcategoryControls.get("energy_facilities");
   const collapseButton = api.state.layerCollapseControls.get("energy_facilities");
   assert.equal(collapseButton.innerHTML, `<span aria-hidden="true"></span>`);
+  assert.equal(api.els.layersCount.textContent, "1 of 2 selected");
 
   subcategories[1].checked = false;
   await api.handleSubcategoryChange(manifest.layers[0], new FakeElement("row"));
 
   assert.equal(parent.checked, false);
   assert.equal(parent.indeterminate, true);
+  assert.equal(api.els.layersCount.textContent, "1 of 2 selected");
   assert.deepEqual([...api.state.subcategoryFilters.get("energy_facilities")], ["energy_oil_facility"]);
   assert.equal(api.currentPreferences().layers.energy_facilities, true);
 
@@ -157,6 +159,7 @@ test("syncs category checkboxes with subcategories and saves collapsed state", a
 
   assert.equal(parent.checked, true);
   assert.equal(parent.indeterminate, false);
+  assert.equal(api.els.layersCount.textContent, "1 of 2 selected");
   assert.equal(subcategories[0].checked, true);
   assert.equal(subcategories[1].checked, true);
 
@@ -252,9 +255,11 @@ test("clears all country filters from the Countries panel button", async () => {
   const app = createAppContext();
   await app.__initPromise;
 
+  assert.equal(app.__api.els.countriesCount.textContent, "2 of 2 selected");
   app.__api.els.clearCountriesBtn.listeners.click[0]();
 
   assert.equal(app.__api.currentPreferences().countries.length, 0);
+  assert.equal(app.__api.els.countriesCount.textContent, "0 of 2 selected");
   assert.equal(app.__api.state.countryControls.get("Russia").checked, false);
   assert.equal(app.__api.state.countryControls.get("Ukraine").checked, false);
   assert.equal(app.__api.featurePassesActiveFilters(fixtures["data/energy_facilities.geojson"].features[0]), false);
