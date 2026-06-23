@@ -87,6 +87,13 @@ input {
   margin-bottom: 10px;
 }
 
+.panel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .panel h2 {
   margin: 0;
   font-size: 13px;
@@ -110,9 +117,15 @@ input {
 
 .panel-collapse-btn span {
   display: block;
+  width: 8px;
+  height: 8px;
+  margin-left: 2px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
   color: var(--muted);
-  line-height: 1;
-  transition: transform 150ms ease;
+  transform: rotate(45deg);
+  transform-origin: center;
+  transition: transform 150ms ease, color 150ms ease;
 }
 
 .panel-collapse-btn:hover span {
@@ -120,7 +133,7 @@ input {
 }
 
 .panel.collapsed .panel-collapse-btn span {
-  transform: rotate(-90deg);
+  transform: rotate(135deg);
 }
 
 .panel.collapsed .panel-title {
@@ -225,12 +238,17 @@ input {
 
 .layer-collapse-btn span {
   display: block;
-  line-height: 1;
-  transition: transform 150ms ease;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transform-origin: center;
+  transition: transform 150ms ease, color 150ms ease;
 }
 
 .layer-row.collapsed .layer-collapse-btn span {
-  transform: rotate(-90deg);
+  transform: rotate(135deg);
 }
 
 .layer-row input {
@@ -310,6 +328,11 @@ input {
   padding: 6px;
   border-radius: 6px;
   background: #171717;
+  border: 1px solid transparent;
+}
+
+.country-row:hover {
+  border-color: #3f3f3f;
 }
 
 .country-row input {

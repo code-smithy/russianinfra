@@ -14,8 +14,10 @@ const appSource = fs.readFileSync("web/app.js", "utf8").replace(
   throw error;
 });
 globalThis.__api = {
+  colorForLayer,
   state,
   els,
+  clearAllCountries,
   currentPreferences,
   featureDistanceToPointKm,
   featurePassesActiveFilters,
@@ -24,6 +26,7 @@ globalThis.__api = {
   manualFeature,
   metersKm,
   savePreferencesNow,
+  setCountriesPanelCollapsed,
   setLayersPanelCollapsed,
   selectFeature
 };`
@@ -168,6 +171,7 @@ test("syncs category checkboxes with subcategories and saves collapsed state", a
   const parent = api.state.layerControls.get("energy_facilities");
   const subcategories = api.state.layerSubcategoryControls.get("energy_facilities");
   const collapseButton = api.state.layerCollapseControls.get("energy_facilities");
+  assert.equal(collapseButton.innerHTML, `<span aria-hidden="true"></span>`);
 
   subcategories[1].checked = false;
   await api.handleSubcategoryChange(manifest.layers[0], new FakeElement("row"));
@@ -210,6 +214,25 @@ test("saves and restores the collapsed Layers panel", async () => {
   assert.equal(second.__api.els.layersPanelToggle.getAttribute("aria-expanded"), "false");
 });
 
+test("saves and restores the collapsed Countries panel", async () => {
+  const first = createAppContext();
+  await first.__initPromise;
+
+  first.__api.setCountriesPanelCollapsed(true);
+  first.__api.savePreferencesNow();
+
+  const savedRaw = first.localStorage.getItem(STORAGE_KEY);
+  const saved = JSON.parse(savedRaw);
+  assert.equal(saved.countriesPanelCollapsed, true);
+
+  const second = createAppContext({ [STORAGE_KEY]: savedRaw });
+  await second.__initPromise;
+
+  assert.equal(second.__api.els.countriesPanelBody.hidden, true);
+  assert.equal(second.__api.els.countriesPanel.classList.contains("collapsed"), true);
+  assert.equal(second.__api.els.countriesPanelToggle.getAttribute("aria-expanded"), "false");
+});
+
 test("saves country selections and applies them to active filters", async () => {
   const first = createAppContext();
   await first.__initPromise;
@@ -230,6 +253,19 @@ test("saves country selections and applies them to active filters", async () => 
 
   assert.equal(second.__api.state.countryControls.get("Russia").checked, false);
   assert.equal(second.__api.state.countryControls.get("Ukraine").checked, true);
+});
+
+test("clears all country filters from the Countries panel button", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  app.__api.els.clearCountriesBtn.listeners.click[0]();
+
+  assert.equal(app.__api.currentPreferences().countries.length, 0);
+  assert.equal(app.__api.state.countryControls.get("Russia").checked, false);
+  assert.equal(app.__api.state.countryControls.get("Ukraine").checked, false);
+  assert.equal(app.__api.featurePassesActiveFilters(fixtures["data/energy_facilities.geojson"].features[0]), false);
+  assert.equal(app.__api.featurePassesActiveFilters(fixtures["data/military_sites.geojson"].features[0]), false);
 });
 
 test("groups layers by domain and puts line layers last inside each group", async () => {
@@ -258,6 +294,16 @@ test("groups layers by domain and puts line layers last inside each group", asyn
   assert.deepEqual(grouped[1].layers, ["energy_facilities", "energy_gas"]);
   assert.deepEqual(grouped[2].layers, ["transport_other", "transport_rail"]);
   assert.deepEqual(grouped[3].layers, ["power_facilities", "power_lines"]);
+});
+
+test("harmonizes layer colors by category family", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  assert.equal(app.__api.colorForLayer("military_sites"), "#2f78ff");
+  assert.equal(app.__api.colorForLayer("military_boundaries"), "#9ac4ff");
+  assert.equal(app.__api.colorForLayer("power_facilities"), "#ffd34d");
+  assert.equal(app.__api.colorForLayer("power_lines"), "#ffac12");
 });
 
 test("distance helpers handle points and geometry vertices", async () => {

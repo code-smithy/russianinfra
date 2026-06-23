@@ -29,29 +29,37 @@
             <p id="datasetSummary">Loading manifest...</p>
           </div>
           <button id="fitLoadedBtn" class="icon-btn" type="button" title="Fit loaded layers" aria-label="Fit loaded layers">
-            <span aria-hidden="true">⌖</span>
+            <span aria-hidden="true">&#8982;</span>
           </button>
         </header>
 
         <section id="layersPanel" class="panel">
           <div class="panel-title">
             <button id="layersPanelToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="layersPanelBody" aria-label="Collapse Layers">
-              <span aria-hidden="true">▾</span>
+              <span aria-hidden="true"></span>
               <h2>Layers</h2>
             </button>
-            <button id="clearLayersBtn" class="text-btn" type="button">Clear</button>
+            <button id="clearLayersBtn" class="text-btn" type="button">Clear all</button>
           </div>
           <div id="layersPanelBody">
             <div id="layersList" class="layers-list"></div>
           </div>
         </section>
 
-        <section class="panel">
+        <section id="countriesPanel" class="panel">
           <div class="panel-title">
-            <h2>Countries</h2>
-            <span id="countriesCount" class="muted">0 countries</span>
+            <button id="countriesPanelToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="countriesPanelBody" aria-label="Collapse Countries">
+              <span aria-hidden="true"></span>
+              <h2>Countries</h2>
+            </button>
+            <div class="panel-actions">
+              <span id="countriesCount" class="muted">0 countries</span>
+              <button id="clearCountriesBtn" class="text-btn" type="button">Clear all</button>
+            </div>
           </div>
-          <div id="countriesList" class="countries-list"></div>
+          <div id="countriesPanelBody">
+            <div id="countriesList" class="countries-list"></div>
+          </div>
         </section>
 
         <section class="panel">

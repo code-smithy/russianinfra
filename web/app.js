@@ -69,12 +69,16 @@ const els = {
   loadingToast: document.getElementById("loadingToast"),
   countriesCount: document.getElementById("countriesCount"),
   countriesList: document.getElementById("countriesList"),
+  countriesPanel: document.getElementById("countriesPanel"),
+  countriesPanelBody: document.getElementById("countriesPanelBody"),
+  countriesPanelToggle: document.getElementById("countriesPanelToggle"),
   layersPanel: document.getElementById("layersPanel"),
   layersPanelBody: document.getElementById("layersPanelBody"),
   layersPanelToggle: document.getElementById("layersPanelToggle"),
   slotABtn: document.getElementById("slotABtn"),
   slotBBtn: document.getElementById("slotBBtn"),
   clearSelectionBtn: document.getElementById("clearSelectionBtn"),
+  clearCountriesBtn: document.getElementById("clearCountriesBtn"),
   clearLayersBtn: document.getElementById("clearLayersBtn"),
   fitLoadedBtn: document.getElementById("fitLoadedBtn"),
   nearestBtn: document.getElementById("nearestBtn"),
@@ -148,6 +152,10 @@ function savedLayerCollapsed(layerId) {
   return Array.isArray(collapsedLayers) && collapsedLayers.includes(layerId);
 }
 
+function savedCountriesPanelCollapsed() {
+  return state.savedPreferences?.countriesPanelCollapsed === true;
+}
+
 function savedCountrySet() {
   const countries = Array.isArray(state.manifest?.countries) ? state.manifest.countries : [];
   const validIds = new Set(countries.map((country) => country.id));
@@ -203,6 +211,7 @@ function currentPreferences() {
     mapView: { lat: center.lat, lng: center.lng, zoom: map.getZoom() },
     layers,
     layersPanelCollapsed: els.layersPanelBody.hidden,
+    countriesPanelCollapsed: els.countriesPanelBody.hidden,
     collapsedLayers,
     countries: [...state.countryFilters],
     subcategories,
@@ -305,7 +314,7 @@ function featurePoint(feature, fallbackLatLng) {
 }
 
 function layerColor(properties) {
-  return properties.map_color || "#999999";
+  return colorForLayer(properties.map_layer || properties.source_layer, properties.map_color);
 }
 
 function markerIcon(properties) {
@@ -687,7 +696,7 @@ async function renderLayers() {
     toggleButton.className = "layer-collapse-btn";
     toggleButton.setAttribute("aria-label", `${savedLayerCollapsed(layerInfo.id) ? "Expand" : "Collapse"} ${layerInfo.label}`);
     toggleButton.setAttribute("aria-expanded", savedLayerCollapsed(layerInfo.id) ? "false" : "true");
-    toggleButton.innerHTML = `<span aria-hidden="true">▾</span>`;
+    toggleButton.innerHTML = `<span aria-hidden="true"></span>`;
     if (!hasSubcategories) {
       toggleButton.hidden = true;
       toggleButton.tabIndex = -1;
@@ -780,6 +789,7 @@ function renderCountries() {
   state.countryFilters = savedCountrySet();
   els.countriesList.innerHTML = "";
   els.countriesCount.textContent = `${countries.length.toLocaleString()} ${countries.length === 1 ? "country" : "countries"}`;
+  els.clearCountriesBtn.disabled = countries.length === 0;
 
   if (!countries.length) {
     els.countriesList.innerHTML = `<div class="muted">No country metadata.</div>`;
@@ -811,21 +821,44 @@ function renderCountries() {
   }
 }
 
-function colorForLayer(layerId) {
+function clearAllCountries() {
+  for (const checkbox of state.countryControls.values()) {
+    checkbox.checked = false;
+  }
+  state.countryFilters.clear();
+  refreshAllLayerFilters();
+  savePreferencesNow();
+}
+
+function clearAllLayers() {
+  for (const [layerId, checkbox] of state.layerControls.entries()) {
+    if (!checkbox.checked && !checkbox.indeterminate) continue;
+    for (const control of state.layerSubcategoryControls.get(layerId) || []) {
+      control.checked = false;
+    }
+    state.subcategoryFilters.set(layerId, new Set());
+    checkbox.checked = false;
+    checkbox.indeterminate = false;
+    unloadLayer({ id: layerId });
+  }
+  savePreferencesNow();
+}
+
+function colorForLayer(layerId, fallbackColor = null) {
   const colors = {
-    energy_oil: "#993d1f",
-    energy_gas: "#e07b39",
-    energy_facilities: "#d62728",
-    power_lines: "#ffd200",
-    power_facilities: "#d4a600",
-    transport_rail: "#8a8a8a",
-    transport_other: "#2a93d5",
-    military_industrial: "#4f7cff",
-    military_sites: "#d4472f",
-    military_boundaries: "#ff6b4a",
-    other_infrastructure: "#2a93d5",
+    military_industrial: "#1247b8",
+    military_sites: "#2f78ff",
+    military_boundaries: "#9ac4ff",
+    energy_oil: "#7b2d12",
+    energy_gas: "#b4461b",
+    energy_facilities: "#e46a25",
+    power_facilities: "#ffd34d",
+    power_lines: "#ffac12",
+    transport_rail: "#0f8f9a",
+    transport_other: "#19b7a5",
+    other_infrastructure: "#7a8899",
   };
-  return colors[layerId] || "#999999";
+  return colors[layerId] || fallbackColor || "#999999";
 }
 
 function loadedVisibleFeatures() {
@@ -1088,12 +1121,14 @@ function applySavedInterfaceState() {
   if (!prefs) {
     updateSlotButtons();
     setLayersPanelCollapsed(false, false);
+    setCountriesPanelCollapsed(false, false);
     return;
   }
 
   state.activeSlot = prefs.activeSlot === "B" ? "B" : "A";
   updateSlotButtons();
   setLayersPanelCollapsed(prefs.layersPanelCollapsed === true, false);
+  setCountriesPanelCollapsed(savedCountriesPanelCollapsed(), false);
   if (typeof prefs.search === "string") els.searchInput.value = prefs.search;
   els.manualPanel.hidden = prefs.manualPanelOpen !== true;
 
@@ -1115,6 +1150,14 @@ function setLayersPanelCollapsed(collapsed, persist = true) {
   els.layersPanelBody.hidden = collapsed;
   els.layersPanelToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
   els.layersPanelToggle.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} Layers`);
+  if (persist) queueSavePreferences();
+}
+
+function setCountriesPanelCollapsed(collapsed, persist = true) {
+  els.countriesPanel.classList.toggle("collapsed", collapsed);
+  els.countriesPanelBody.hidden = collapsed;
+  els.countriesPanelToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  els.countriesPanelToggle.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} Countries`);
   if (persist) queueSavePreferences();
 }
 
@@ -1410,6 +1453,9 @@ els.fitLoadedBtn.addEventListener("click", fitLoadedLayers);
 els.layersPanelToggle.addEventListener("click", () => {
   setLayersPanelCollapsed(!els.layersPanelBody.hidden);
 });
+els.countriesPanelToggle.addEventListener("click", () => {
+  setCountriesPanelCollapsed(!els.countriesPanelBody.hidden);
+});
 els.manualToggleBtn.addEventListener("click", () => {
   els.manualPanel.hidden = !els.manualPanel.hidden;
   queueSavePreferences();
@@ -1426,11 +1472,8 @@ els.resetRadiusBtn.addEventListener("click", () => {
   map.dragging.enable();
 });
 els.exportRadiusBtn.addEventListener("click", exportRadiusCsv);
-els.clearLayersBtn.addEventListener("click", () => {
-  els.layersList.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
-    if (checkbox.checked) checkbox.click();
-  });
-});
+els.clearCountriesBtn.addEventListener("click", clearAllCountries);
+els.clearLayersBtn.addEventListener("click", clearAllLayers);
 
 map.on("mousedown", onRadiusMouseDown);
 map.on("mousemove", onRadiusMouseMove);
