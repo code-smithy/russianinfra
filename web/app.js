@@ -58,6 +58,9 @@ const els = {
   selectionB: document.getElementById("selectionB"),
   distancePanel: document.getElementById("distancePanel"),
   loadingToast: document.getElementById("loadingToast"),
+  layersPanel: document.getElementById("layersPanel"),
+  layersPanelBody: document.getElementById("layersPanelBody"),
+  layersPanelToggle: document.getElementById("layersPanelToggle"),
   slotABtn: document.getElementById("slotABtn"),
   slotBBtn: document.getElementById("slotBBtn"),
   clearSelectionBtn: document.getElementById("clearSelectionBtn"),
@@ -178,6 +181,7 @@ function currentPreferences() {
     baseLayer: activeBaseLayer,
     mapView: { lat: center.lat, lng: center.lng, zoom: map.getZoom() },
     layers,
+    layersPanelCollapsed: els.layersPanelBody.hidden,
     collapsedLayers,
     subcategories,
     search: els.searchInput.value,
@@ -948,11 +952,13 @@ function applySavedInterfaceState() {
   const prefs = state.savedPreferences;
   if (!prefs) {
     updateSlotButtons();
+    setLayersPanelCollapsed(false, false);
     return;
   }
 
   state.activeSlot = prefs.activeSlot === "B" ? "B" : "A";
   updateSlotButtons();
+  setLayersPanelCollapsed(prefs.layersPanelCollapsed === true, false);
   if (typeof prefs.search === "string") els.searchInput.value = prefs.search;
   els.manualPanel.hidden = prefs.manualPanelOpen !== true;
 
@@ -967,6 +973,14 @@ function applySavedInterfaceState() {
   if (center && Number.isFinite(zoom)) {
     map.setView(center, zoom);
   }
+}
+
+function setLayersPanelCollapsed(collapsed, persist = true) {
+  els.layersPanel.classList.toggle("collapsed", collapsed);
+  els.layersPanelBody.hidden = collapsed;
+  els.layersPanelToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  els.layersPanelToggle.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} Layers`);
+  if (persist) queueSavePreferences();
 }
 
 function restoreSavedSelections() {
@@ -1257,6 +1271,9 @@ els.slotBBtn.addEventListener("click", () => {
 els.clearSelectionBtn.addEventListener("click", clearSelection);
 els.nearestBtn.addEventListener("click", renderNearest);
 els.fitLoadedBtn.addEventListener("click", fitLoadedLayers);
+els.layersPanelToggle.addEventListener("click", () => {
+  setLayersPanelCollapsed(!els.layersPanelBody.hidden);
+});
 els.manualToggleBtn.addEventListener("click", () => {
   els.manualPanel.hidden = !els.manualPanel.hidden;
   queueSavePreferences();

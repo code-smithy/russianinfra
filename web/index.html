@@ -33,12 +33,17 @@
           </button>
         </header>
 
-        <section class="panel">
+        <section id="layersPanel" class="panel">
           <div class="panel-title">
-            <h2>Layers</h2>
+            <button id="layersPanelToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="layersPanelBody" aria-label="Collapse Layers">
+              <span aria-hidden="true">▾</span>
+              <h2>Layers</h2>
+            </button>
             <button id="clearLayersBtn" class="text-btn" type="button">Clear</button>
           </div>
-          <div id="layersList" class="layers-list"></div>
+          <div id="layersPanelBody">
+            <div id="layersList" class="layers-list"></div>
+          </div>
         </section>
 
         <section class="panel">

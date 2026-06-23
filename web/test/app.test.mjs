@@ -22,6 +22,7 @@ globalThis.__api = {
   manualFeature,
   metersKm,
   savePreferencesNow,
+  setLayersPanelCollapsed,
   selectFeature
 };`
 );
@@ -181,6 +182,25 @@ test("syncs category checkboxes with subcategories and saves collapsed state", a
 
   assert.equal(api.currentPreferences().collapsedLayers.length, 1);
   assert.equal(api.currentPreferences().collapsedLayers[0], "energy_facilities");
+});
+
+test("saves and restores the collapsed Layers panel", async () => {
+  const first = createAppContext();
+  await first.__initPromise;
+
+  first.__api.setLayersPanelCollapsed(true);
+  first.__api.savePreferencesNow();
+
+  const savedRaw = first.localStorage.getItem(STORAGE_KEY);
+  const saved = JSON.parse(savedRaw);
+  assert.equal(saved.layersPanelCollapsed, true);
+
+  const second = createAppContext({ [STORAGE_KEY]: savedRaw });
+  await second.__initPromise;
+
+  assert.equal(second.__api.els.layersPanelBody.hidden, true);
+  assert.equal(second.__api.els.layersPanel.classList.contains("collapsed"), true);
+  assert.equal(second.__api.els.layersPanelToggle.getAttribute("aria-expanded"), "false");
 });
 
 test("distance helpers handle points and geometry vertices", async () => {
