@@ -267,13 +267,24 @@ function boundedNumber(value, fallback, min = 0, max = Infinity) {
   return Math.min(max, Math.max(min, n));
 }
 
+function positiveNumber(value, fallback, min = 0.1, max = Infinity) {
+  if (value === null || value === "") return fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function isFiniteRangeMax(value) {
+  return value !== null && value !== "" && Number.isFinite(Number(value));
+}
+
 function normalizeEstimatorAssumptions(saved) {
   const defaults = DEFAULT_ESTIMATOR_ASSUMPTIONS;
   const savedBands = Array.isArray(saved?.rangeBands) ? saved.rangeBands : [];
   const finiteBands = savedBands
     .map((band, index) => ({
       id: typeof band?.id === "string" && band.id ? band.id : `band_${Date.now()}_${index}`,
-      maxKm: boundedNumber(band?.maxKm, NaN, 0.1),
+      maxKm: positiveNumber(band?.maxKm, NaN, 0.1),
     }))
     .filter((band) => Number.isFinite(band.maxKm))
     .sort((a, b) => a.maxKm - b.maxKm);
@@ -315,7 +326,7 @@ function serializeEstimatorAssumptions() {
 }
 
 function finiteRangeBands() {
-  return state.estimator.rangeBands.filter((band) => Number.isFinite(Number(band.maxKm)));
+  return state.estimator.rangeBands.filter((band) => isFiniteRangeMax(band.maxKm));
 }
 
 function sortedRangeBands() {
@@ -326,18 +337,18 @@ function sortedRangeBands() {
 }
 
 function rangeBandLabel(band, index, bands = sortedRangeBands()) {
-  if (!Number.isFinite(Number(band.maxKm))) {
+  if (!isFiniteRangeMax(band.maxKm)) {
     const previous = bands[index - 1];
     return previous ? `Over ${numberFmt(previous.maxKm, 0)} km` : "All distances";
   }
   const previous = bands[index - 1];
-  if (!previous || !Number.isFinite(Number(previous.maxKm))) return `0-${numberFmt(band.maxKm, 0)} km`;
+  if (!previous || !isFiniteRangeMax(previous.maxKm)) return `0-${numberFmt(band.maxKm, 0)} km`;
   return `${numberFmt(previous.maxKm, 0)}-${numberFmt(band.maxKm, 0)} km`;
 }
 
 function bandForDistance(distanceKm) {
   const bands = sortedRangeBands();
-  return bands.find((band) => !Number.isFinite(Number(band.maxKm)) || distanceKm <= Number(band.maxKm)) || bands[bands.length - 1];
+  return bands.find((band) => !isFiniteRangeMax(band.maxKm) || distanceKm <= Number(band.maxKm)) || bands[bands.length - 1];
 }
 
 function layerInfoById(layerId) {
@@ -1183,7 +1194,7 @@ function renderRangeBands() {
   for (let index = 0; index < bands.length; index += 1) {
     const band = bands[index];
     const row = document.createElement("div");
-    row.className = "estimator-row three-col";
+    row.className = "estimator-row range-band-row";
     const label = document.createElement("span");
     label.className = "estimator-label";
     label.innerHTML = `<strong>${escapeHtml(rangeBandLabel(band, index, bands))}</strong><span>Upper bound in km</span>`;
@@ -1191,21 +1202,27 @@ function renderRangeBands() {
     input.type = "number";
     input.min = "1";
     input.step = "1";
-    input.value = Number.isFinite(Number(band.maxKm)) ? String(band.maxKm) : "";
+    input.value = isFiniteRangeMax(band.maxKm) ? String(band.maxKm) : "";
     input.placeholder = "Open";
-    input.disabled = !Number.isFinite(Number(band.maxKm));
+    input.disabled = !isFiniteRangeMax(band.maxKm);
+    const applyButton = document.createElement("button");
+    applyButton.type = "button";
+    applyButton.className = "icon-btn";
+    applyButton.innerHTML = `<span aria-hidden="true">&#10003;</span>`;
+    applyButton.setAttribute("aria-label", `Apply ${rangeBandLabel(band, index, bands)} upper bound`);
+    applyButton.hidden = input.disabled;
     const removeButton = document.createElement("button");
     removeButton.type = "button";
     removeButton.className = "icon-btn";
     removeButton.innerHTML = `<span aria-hidden="true">&times;</span>`;
     removeButton.setAttribute("aria-label", `Remove ${rangeBandLabel(band, index, bands)}`);
     removeButton.hidden = input.disabled || finiteRangeBands().length <= 1;
-    row.append(label, input, removeButton);
+    row.append(label, input, applyButton, removeButton);
     els.rangeBandsList.appendChild(row);
 
-    input.addEventListener("change", () => {
+    const applyValue = () => {
       const updated = state.estimator.rangeBands.map((item) => (
-        item.id === band.id ? { ...item, maxKm: boundedNumber(input.value, band.maxKm, 1) } : item
+        item.id === band.id ? { ...item, maxKm: positiveNumber(input.value, band.maxKm, 1) } : item
       ));
       state.estimator.rangeBands = normalizeEstimatorAssumptions({
         ...state.estimator,
@@ -1214,6 +1231,13 @@ function renderRangeBands() {
       renderRangeBands();
       renderEstimatorResults();
       savePreferencesNow();
+    };
+
+    applyButton.addEventListener("click", applyValue);
+    input.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      applyValue();
     });
 
     removeButton.addEventListener("click", () => {
@@ -1669,7 +1693,6 @@ els.addRangeBandBtn.addEventListener("click", () => {
     rangeBands: [
       ...bands,
       { id: `band_${Date.now()}`, maxKm: nextMax },
-      { id: "band_open", maxKm: null },
     ],
   }).rangeBands;
   renderRangeBands();

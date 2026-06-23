@@ -563,6 +563,10 @@ input {
   grid-template-columns: minmax(0, 1fr) 76px 34px;
 }
 
+.estimator-row.range-band-row {
+  grid-template-columns: minmax(0, 1fr) 76px 34px 34px;
+}
+
 .estimator-row:hover {
   border-color: #3f3f3f;
 }

@@ -406,6 +406,25 @@ test("scenario estimator clear all restores default assumptions", async () => {
   assert.equal(saved.categoryRequirements.energy_facilities, 1);
 });
 
+test("range band edits update one band without adding extra bands", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  api.els.addRangeBandBtn.listeners.click[0]();
+
+  assert.deepEqual(JSON.parse(JSON.stringify(api.currentPreferences().estimator.rangeBands.map((band) => band.maxKm))), [500, 2500, 3000, null]);
+
+  const firstRow = api.els.rangeBandsList.children[0];
+  const input = firstRow.children[1];
+  const applyButton = firstRow.children[2];
+  input.value = "650";
+  applyButton.listeners.click[0]();
+
+  assert.deepEqual(JSON.parse(JSON.stringify(api.currentPreferences().estimator.rangeBands.map((band) => band.maxKm))), [650, 2500, 3000, null]);
+  assert.equal(api.els.rangeBandsList.children.length, 4);
+});
+
 function feature(id, label, layerId, subcategory, lat, lng, country = "Russia") {
   return {
     type: "Feature",
