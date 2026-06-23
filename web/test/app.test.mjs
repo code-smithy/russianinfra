@@ -18,6 +18,7 @@ globalThis.__api = {
   els,
   currentPreferences,
   featureDistanceToPointKm,
+  handleSubcategoryChange,
   manualFeature,
   metersKm,
   savePreferencesNow,
@@ -151,6 +152,37 @@ test("restores saved feature selections after their layers load", async () => {
   assert.equal(api.els.searchInput.value, "Bravo");
 });
 
+test("syncs category checkboxes with subcategories and saves collapsed state", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  const parent = api.state.layerControls.get("energy_facilities");
+  const subcategories = api.state.layerSubcategoryControls.get("energy_facilities");
+  const collapseButton = api.state.layerCollapseControls.get("energy_facilities");
+
+  subcategories[1].checked = false;
+  await api.handleSubcategoryChange(manifest.layers[0], new FakeElement("row"));
+
+  assert.equal(parent.checked, false);
+  assert.equal(parent.indeterminate, true);
+  assert.deepEqual([...api.state.subcategoryFilters.get("energy_facilities")], ["energy_oil_facility"]);
+  assert.equal(api.currentPreferences().layers.energy_facilities, true);
+
+  parent.checked = true;
+  parent.listeners.change[0]();
+
+  assert.equal(parent.checked, true);
+  assert.equal(parent.indeterminate, false);
+  assert.equal(subcategories[0].checked, true);
+  assert.equal(subcategories[1].checked, true);
+
+  collapseButton.listeners.click[0]();
+
+  assert.equal(api.currentPreferences().collapsedLayers.length, 1);
+  assert.equal(api.currentPreferences().collapsedLayers[0], "energy_facilities");
+});
+
 test("distance helpers handle points and geometry vertices", async () => {
   const app = createAppContext();
   await app.__initPromise;
@@ -267,12 +299,15 @@ class FakeElement {
     this.id = id;
     this.children = [];
     this.classList = new FakeClassList();
+    this.dataset = {};
     this.hidden = false;
+    this.indeterminate = false;
     this.listeners = {};
     this.style = {};
     this.type = "";
     this.value = "";
     this.checked = false;
+    this.attributes = new Map();
     this._className = "";
     this._innerHTML = "";
     this._textContent = "";
@@ -319,6 +354,14 @@ class FakeElement {
 
   querySelectorAll() {
     return [];
+  }
+
+  getAttribute(name) {
+    return this.attributes.has(name) ? this.attributes.get(name) : null;
+  }
+
+  setAttribute(name, value) {
+    this.attributes.set(name, String(value));
   }
 }
 

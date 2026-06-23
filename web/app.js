@@ -7,6 +7,8 @@ const state = {
   features: new Map(),
   subcategoryFilters: new Map(),
   layerControls: new Map(),
+  layerSubcategoryControls: new Map(),
+  layerCollapseControls: new Map(),
   savedPreferences: loadSavedPreferences(),
   persistenceReady: false,
   saveTimer: null,
@@ -127,6 +129,11 @@ function savedSubcategorySet(layerInfo) {
   return new Set(subcategories.map((item) => item.id));
 }
 
+function savedLayerCollapsed(layerId) {
+  const collapsedLayers = state.savedPreferences?.collapsedLayers;
+  return Array.isArray(collapsedLayers) && collapsedLayers.includes(layerId);
+}
+
 function serializeSelection(slot) {
   const selection = state.selections[slot];
   if (!selection?.point) return null;
@@ -155,11 +162,14 @@ function currentPreferences() {
   const center = map.getCenter();
   const layers = {};
   const subcategories = {};
+  const collapsedLayers = [];
   for (const layerInfo of state.manifest?.layers || []) {
     const checkbox = state.layerControls.get(layerInfo.id);
-    layers[layerInfo.id] = checkbox ? checkbox.checked : !!state.layers.get(layerInfo.id)?.visible;
+    layers[layerInfo.id] = checkbox ? checkbox.checked || checkbox.indeterminate : !!state.layers.get(layerInfo.id)?.visible;
     const enabled = state.subcategoryFilters.get(layerInfo.id);
     if (enabled) subcategories[layerInfo.id] = [...enabled];
+    const collapseButton = state.layerCollapseControls.get(layerInfo.id);
+    if (collapseButton?.getAttribute("aria-expanded") === "false") collapsedLayers.push(layerInfo.id);
   }
 
   return {
@@ -168,6 +178,7 @@ function currentPreferences() {
     baseLayer: activeBaseLayer,
     mapView: { lat: center.lat, lng: center.lng, zoom: map.getZoom() },
     layers,
+    collapsedLayers,
     subcategories,
     search: els.searchInput.value,
     manualPanelOpen: !els.manualPanel.hidden,
@@ -493,9 +504,67 @@ function unloadLayer(layerInfo) {
   syncOverlaysWithVisibleLayers();
 }
 
+function layerHasEnabledSubcategories(layerInfo) {
+  const controls = state.layerSubcategoryControls.get(layerInfo.id) || [];
+  if (!controls.length) return savedLayerVisible(layerInfo);
+  return controls.some((control) => control.checked);
+}
+
+function updateLayerCheckboxState(layerInfo) {
+  const checkbox = state.layerControls.get(layerInfo.id);
+  if (!checkbox) return;
+  const controls = state.layerSubcategoryControls.get(layerInfo.id) || [];
+  if (!controls.length) {
+    checkbox.indeterminate = false;
+    return;
+  }
+
+  const checkedCount = controls.filter((control) => control.checked).length;
+  checkbox.checked = checkedCount === controls.length;
+  checkbox.indeterminate = checkedCount > 0 && checkedCount < controls.length;
+}
+
+function syncSubcategoriesToLayer(layerInfo, enabled) {
+  const controls = state.layerSubcategoryControls.get(layerInfo.id) || [];
+  if (!controls.length) return;
+  const active = new Set();
+  for (const control of controls) {
+    control.checked = enabled;
+    if (enabled) active.add(control.dataset.subcategoryId);
+  }
+  state.subcategoryFilters.set(layerInfo.id, active);
+  updateLayerCheckboxState(layerInfo);
+}
+
+async function handleSubcategoryChange(layerInfo, row) {
+  const enabled = new Set();
+  for (const control of state.layerSubcategoryControls.get(layerInfo.id) || []) {
+    if (control.checked) enabled.add(control.dataset.subcategoryId);
+  }
+  state.subcategoryFilters.set(layerInfo.id, enabled);
+  updateLayerCheckboxState(layerInfo);
+
+  const checkbox = state.layerControls.get(layerInfo.id);
+  try {
+    if (enabled.size) {
+      await loadLayer(layerInfo, checkbox, row);
+      refreshLayerFilters(layerInfo);
+    } else {
+      unloadLayer(layerInfo);
+    }
+    savePreferencesNow();
+  } catch (error) {
+    row.classList.remove("loading");
+    hideLoading();
+    alert(error.message);
+  }
+}
+
 async function renderLayers() {
   els.layersList.innerHTML = "";
   state.layerControls.clear();
+  state.layerSubcategoryControls.clear();
+  state.layerCollapseControls.clear();
   const initialLoads = [];
   for (const layerInfo of state.manifest.layers) {
     const subcategories = Array.isArray(layerInfo.subcategories) ? layerInfo.subcategories : [];
@@ -503,51 +572,76 @@ async function renderLayers() {
       state.subcategoryFilters.set(layerInfo.id, savedSubcategorySet(layerInfo));
     }
 
-    const row = document.createElement("label");
+    const row = document.createElement("div");
     row.className = "layer-row";
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
-    checkbox.checked = savedLayerVisible(layerInfo);
     state.layerControls.set(layerInfo.id, checkbox);
+    const hasSubcategories = subcategories.length > 1;
+    const subcategoryControls = [];
+    state.layerSubcategoryControls.set(layerInfo.id, subcategoryControls);
+
+    const toggleButton = document.createElement("button");
+    toggleButton.type = "button";
+    toggleButton.className = "layer-collapse-btn";
+    toggleButton.setAttribute("aria-label", `${savedLayerCollapsed(layerInfo.id) ? "Expand" : "Collapse"} ${layerInfo.label}`);
+    toggleButton.setAttribute("aria-expanded", savedLayerCollapsed(layerInfo.id) ? "false" : "true");
+    toggleButton.innerHTML = `<span aria-hidden="true">▾</span>`;
+    if (!hasSubcategories) {
+      toggleButton.hidden = true;
+      toggleButton.tabIndex = -1;
+    }
+    state.layerCollapseControls.set(layerInfo.id, toggleButton);
+
     const swatch = document.createElement("span");
     swatch.className = "layer-swatch";
     swatch.style.background = colorForLayer(layerInfo.id);
     const name = document.createElement("span");
     name.className = "layer-name";
     name.innerHTML = `<strong>${escapeHtml(layerInfo.label)}</strong><span>${layerInfo.count.toLocaleString()} records</span>`;
-    row.append(checkbox, name, swatch);
+    row.append(toggleButton, checkbox, name, swatch);
     els.layersList.appendChild(row);
 
+    let subcategoryList = null;
     if (subcategories.length > 1) {
-      const subcategoryList = document.createElement("div");
+      subcategoryList = document.createElement("div");
       subcategoryList.className = "subcategory-list";
+      subcategoryList.id = `subcategories-${layerInfo.id}`;
+      subcategoryList.hidden = savedLayerCollapsed(layerInfo.id);
+      row.classList.toggle("collapsed", subcategoryList.hidden);
       for (const subcategory of subcategories) {
         const subRow = document.createElement("label");
         subRow.className = "subcategory-row";
         const subCheckbox = document.createElement("input");
         subCheckbox.type = "checkbox";
         subCheckbox.checked = state.subcategoryFilters.get(layerInfo.id)?.has(subcategory.id) ?? true;
+        subCheckbox.dataset.subcategoryId = subcategory.id;
+        subcategoryControls.push(subCheckbox);
         const subName = document.createElement("span");
         subName.textContent = `${subcategory.label} (${subcategory.count.toLocaleString()})`;
         subRow.append(subCheckbox, subName);
         subcategoryList.appendChild(subRow);
-        subCheckbox.addEventListener("change", () => {
-          const enabled = state.subcategoryFilters.get(layerInfo.id) || new Set();
-          if (subCheckbox.checked) {
-            enabled.add(subcategory.id);
-          } else {
-            enabled.delete(subcategory.id);
-          }
-          state.subcategoryFilters.set(layerInfo.id, enabled);
-          refreshLayerFilters(layerInfo);
-          queueSavePreferences();
-        });
+        subCheckbox.addEventListener("change", () => handleSubcategoryChange(layerInfo, row));
       }
       els.layersList.appendChild(subcategoryList);
     }
 
+    updateLayerCheckboxState(layerInfo);
+    if (!hasSubcategories && !checkbox.checked) checkbox.checked = savedLayerVisible(layerInfo);
+
+    toggleButton.addEventListener("click", () => {
+      if (!subcategoryList) return;
+      const expanded = toggleButton.getAttribute("aria-expanded") === "true";
+      toggleButton.setAttribute("aria-expanded", expanded ? "false" : "true");
+      toggleButton.setAttribute("aria-label", `${expanded ? "Expand" : "Collapse"} ${layerInfo.label}`);
+      subcategoryList.hidden = expanded;
+      row.classList.toggle("collapsed", expanded);
+      queueSavePreferences();
+    });
+
     checkbox.addEventListener("change", async () => {
       try {
+        syncSubcategoriesToLayer(layerInfo, checkbox.checked);
         if (checkbox.checked) {
           await loadLayer(layerInfo, checkbox, row);
         } else {
@@ -563,9 +657,10 @@ async function renderLayers() {
       }
     });
 
-    if (checkbox.checked) {
+    if (checkbox.checked || checkbox.indeterminate || layerHasEnabledSubcategories(layerInfo)) {
       initialLoads.push(loadLayer(layerInfo, checkbox, row).catch((error) => {
         checkbox.checked = false;
+        checkbox.indeterminate = false;
         row.classList.remove("loading");
         hideLoading();
         console.error(error);

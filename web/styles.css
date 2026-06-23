@@ -138,7 +138,7 @@ input {
 
 .layer-row {
   display: grid;
-  grid-template-columns: 18px 1fr auto;
+  grid-template-columns: 20px 18px minmax(0, 1fr) auto;
   align-items: center;
   gap: 9px;
   min-height: 34px;
@@ -148,13 +148,47 @@ input {
   border: 1px solid transparent;
 }
 
+.layer-row:hover {
+  border-color: #3f3f3f;
+}
+
 .layer-row.loading {
   border-color: #5a4d2c;
+}
+
+.layer-collapse-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.layer-collapse-btn:hover {
+  color: var(--text);
+  background: #252525;
+}
+
+.layer-collapse-btn span {
+  display: block;
+  line-height: 1;
+  transition: transform 150ms ease;
+}
+
+.layer-row.collapsed .layer-collapse-btn span {
+  transform: rotate(-90deg);
 }
 
 .layer-row input {
   width: 16px;
   height: 16px;
+  accent-color: var(--accent-2);
+  cursor: pointer;
 }
 
 .layer-name {
@@ -185,7 +219,7 @@ input {
 .subcategory-list {
   display: grid;
   gap: 4px;
-  margin: -3px 0 4px 27px;
+  margin: -3px 0 4px 47px;
   padding: 6px 0 7px 9px;
   border-left: 1px solid var(--border);
 }
@@ -203,6 +237,8 @@ input {
 .subcategory-row input {
   width: 13px;
   height: 13px;
+  accent-color: var(--accent-2);
+  cursor: pointer;
 }
 
 .subcategory-row span {
