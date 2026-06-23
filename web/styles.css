@@ -822,16 +822,35 @@ input {
   transition: opacity 160ms ease;
 }
 
+.selection-halo {
+  display: grid;
+  place-items: center;
+  color: #161616;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45);
+}
+
+.selection-halo span {
+  transform: translateY(0.5px);
+}
+
 .selection-halo-a,
 .selection-halo-b {
-  border-radius: 50%;
   border: 3px solid var(--accent-2);
-  background: rgba(224, 167, 47, 0.2);
+  background: rgba(224, 167, 47, 0.92);
 }
 
 .selection-halo-b {
   border-color: var(--blue);
-  background: rgba(90, 139, 255, 0.2);
+  color: #ffffff;
+  background: rgba(90, 139, 255, 0.92);
+}
+
+.selection-link-line {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.65));
 }
 
 @media (max-width: 900px) {

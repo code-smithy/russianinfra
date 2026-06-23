@@ -39,6 +39,7 @@ const state = {
   activeSlot: "A",
   selections: { A: null, B: null },
   selectionMarkers: { A: null, B: null },
+  selectionLine: null,
   radiusMode: false,
   radiusStart: null,
   radiusOrigin: null,
@@ -1106,6 +1107,7 @@ function syncOverlaysWithVisibleLayers() {
     }
   }
   renderSelections();
+  renderSelectionLine();
   renderDistance();
 
   if (state.radiusOrigin && Number.isFinite(state.radiusKm)) {
@@ -1177,6 +1179,7 @@ function selectFeature(slot, feature, latlng) {
   }
   drawSelectionMarker(slot);
   renderSelections();
+  renderSelectionLine();
   renderDistance();
   queueSavePreferences();
 }
@@ -1188,12 +1191,35 @@ function drawSelectionMarker(slot) {
     state.selectionMarkers[slot] = null;
   }
   if (!selection?.point) return;
-  const className = slot === "A" ? "selection-halo-a" : "selection-halo-b";
-  const icon = L.divIcon({ className, iconSize: [26, 26], iconAnchor: [13, 13] });
+  const className = `selection-halo ${slot === "A" ? "selection-halo-a" : "selection-halo-b"}`;
+  const icon = L.divIcon({
+    className,
+    html: `<span>${slot}</span>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+  });
   state.selectionMarkers[slot] = L.marker(selection.point, {
     icon,
     interactive: false,
     zIndexOffset: 2000,
+  }).addTo(map);
+}
+
+function renderSelectionLine() {
+  if (state.selectionLine) {
+    map.removeLayer(state.selectionLine);
+    state.selectionLine = null;
+  }
+  const a = state.selections.A?.point;
+  const b = state.selections.B?.point;
+  if (!a || !b) return;
+  state.selectionLine = L.polyline([a, b], {
+    color: "#f2c94c",
+    weight: 3,
+    opacity: 0.9,
+    dashArray: "8,7",
+    interactive: false,
+    className: "selection-link-line",
   }).addTo(map);
 }
 
@@ -1263,6 +1289,10 @@ function clearSelection() {
       map.removeLayer(state.selectionMarkers[slot]);
       state.selectionMarkers[slot] = null;
     }
+  }
+  if (state.selectionLine) {
+    map.removeLayer(state.selectionLine);
+    state.selectionLine = null;
   }
   els.nearestResults.innerHTML = "";
   renderSelections();

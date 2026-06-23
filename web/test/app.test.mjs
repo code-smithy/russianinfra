@@ -180,6 +180,27 @@ test("restores saved feature selections after their layers load", async () => {
   assert.equal(api.els.searchInput.value, "Bravo");
 });
 
+test("draws labelled A/B selection markers and a connecting line", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  api.selectFeature("A", fixtures["data/energy_facilities.geojson"].features[0], { lat: 55.2, lng: 59.1 });
+  assert.equal(api.state.selectionMarkers.A.options.icon.html, "<span>A</span>");
+  assert.equal(api.state.selectionLine, null);
+
+  api.selectFeature("B", fixtures["data/military_sites.geojson"].features[0], { lat: 56.2, lng: 60.1 });
+  assert.equal(api.state.selectionMarkers.B.options.icon.html, "<span>B</span>");
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.selectionLine.latlngs)), [
+    { lat: 55.2, lng: 59.1 },
+    { lat: 56.2, lng: 60.1 },
+  ]);
+  assert.equal(api.state.selectionLine.options.className, "selection-link-line");
+
+  api.els.clearSelectionBtn.listeners.click[0]();
+  assert.equal(api.state.selectionLine, null);
+});
+
 test("syncs category checkboxes with subcategories and saves collapsed state", async () => {
   const app = createAppContext();
   await app.__initPromise;
@@ -628,10 +649,11 @@ function createLeafletStub(document) {
     };
   }
 
-  function layer() {
+  function layer(initial = {}) {
     return {
       opacity: 1,
       style: {},
+      ...initial,
       addTo(target) {
         if (target?.addLayer) target.addLayer(this);
         return this;
@@ -646,7 +668,8 @@ function createLeafletStub(document) {
       openPopup() {
         return this;
       },
-      setIcon() {
+      setIcon(icon) {
+        this.options = { ...(this.options || {}), icon };
         return this;
       },
       setOpacity(value) {
@@ -657,10 +680,12 @@ function createLeafletStub(document) {
         this.style = { ...this.style, ...value };
         return this;
       },
-      setLatLng() {
+      setLatLng(value) {
+        this.latlng = value;
         return this;
       },
-      setLatLngs() {
+      setLatLngs(value) {
+        this.latlngs = value;
         return this;
       },
       setRadius() {
@@ -736,9 +761,9 @@ function createLeafletStub(document) {
       clearLayers() {},
     }),
     map,
-    marker: layer,
+    marker: (latlng, options = {}) => layer({ latlng, options }),
     markerClusterGroup: () => Object.assign(layer(), { addLayer() {} }),
-    polyline: layer,
+    polyline: (latlngs, options = {}) => layer({ latlngs, options }),
     tileLayer: layer,
   };
 }
