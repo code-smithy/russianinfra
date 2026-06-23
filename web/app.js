@@ -36,6 +36,78 @@ const ESTIMATOR_BLOCKS = [
   { key: "resourceTypes", label: "Resource types" },
   { key: "categoryAssumptions", label: "Category assumptions" },
 ];
+const INFO_TOPICS = {
+  layers: {
+    title: "Layers",
+    paragraphs: [
+      "Loads and shows the selected infrastructure and military data layers on the map.",
+      "Layer and subcategory selections define which records are active for Search Loaded, Radius Results, and the Scenario Estimator.",
+    ],
+  },
+  countries: {
+    title: "Countries",
+    paragraphs: [
+      "Filters loaded records by country.",
+      "Unchecked countries are excluded from the map view, search, radius results, and estimator calculations.",
+    ],
+  },
+  search: {
+    title: "Search Loaded",
+    paragraphs: [
+      "Searches only records already loaded through Layers and still active after country and subcategory filters.",
+      "Selecting a result opens that object on the map.",
+    ],
+  },
+  radius: {
+    title: "Radius",
+    paragraphs: [
+      "Draws a distance radius from a selected map point.",
+      "The radius collects active-layer objects inside the circle and sends those objects to Radius Results and the Scenario Estimator.",
+    ],
+  },
+  radiusResults: {
+    title: "Radius Results",
+    paragraphs: [
+      "Lists active-layer objects inside the drawn radius, ordered by distance from the radius origin.",
+      "Export CSV writes the matching objects and their source fields.",
+    ],
+  },
+  estimator: {
+    title: "Scenario Estimator",
+    paragraphs: [
+      "Uses Radius Results to estimate required effectors by target category, range band, and effector type.",
+      "This is an assumption calculator. It does not edit the map data.",
+    ],
+  },
+  rangeBands: {
+    title: "Range bands",
+    paragraphs: [
+      "Defines distance bands in kilometers from the radius origin.",
+      "Each radius result is assigned to the first upper bound it fits, with an open band above the last bound.",
+    ],
+  },
+  resourceTypes: {
+    title: "Resource types",
+    paragraphs: [
+      "Defines the effector types used in the estimate.",
+      "The text field is the effector type label. The percent field is the assumed survivability of that effector; lower survivability increases the required count.",
+    ],
+  },
+  categoryAssumptions: {
+    title: "Category assumptions",
+    paragraphs: [
+      "Defines the assumption for how many effectors are needed per target in each layer/category.",
+      "This factor is multiplied by the number of targets in the radius before the survivability correction is applied.",
+    ],
+  },
+  estimate: {
+    title: "Estimate",
+    paragraphs: [
+      "Shows the calculated effector demand from the current radius results and estimator assumptions.",
+      "Per row, the calculation is: targets x effectors per target / survivability, rounded up to a whole effector count.",
+    ],
+  },
+};
 
 const state = {
   manifest: null,
@@ -130,7 +202,12 @@ const els = {
   importAssumptionsInput: document.getElementById("importAssumptionsInput"),
   exportEstimateBtn: document.getElementById("exportEstimateBtn"),
   resetEstimatorBtn: document.getElementById("resetEstimatorBtn"),
+  infoPopover: document.getElementById("infoPopover"),
+  infoPopoverTitle: document.getElementById("infoPopoverTitle"),
+  infoPopoverBody: document.getElementById("infoPopoverBody"),
 };
+
+let activeInfoButton = null;
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -140,6 +217,89 @@ function escapeHtml(value) {
     '"': "&quot;",
     "'": "&#039;",
   })[char]);
+}
+
+function setInfoButtonExpanded(button, expanded) {
+  button?.setAttribute("aria-expanded", expanded ? "true" : "false");
+}
+
+function positionInfoPopover(anchor) {
+  const anchorRect = anchor?.getBoundingClientRect?.();
+  const popoverRect = els.infoPopover?.getBoundingClientRect?.();
+  if (!anchorRect || !popoverRect) return;
+
+  const gutter = 8;
+  const viewportWidth = Number(window.innerWidth) || 1280;
+  const viewportHeight = Number(window.innerHeight) || 720;
+  let left = anchorRect.right + gutter;
+  let top = anchorRect.top;
+
+  if (left + popoverRect.width > viewportWidth - gutter) {
+    left = anchorRect.left - popoverRect.width - gutter;
+  }
+  left = Math.max(gutter, Math.min(left, viewportWidth - popoverRect.width - gutter));
+  top = Math.max(gutter, Math.min(top, viewportHeight - popoverRect.height - gutter));
+
+  els.infoPopover.classList.toggle("placed-left", left < anchorRect.left);
+  els.infoPopover.style.left = `${left}px`;
+  els.infoPopover.style.top = `${top}px`;
+}
+
+function openInfoPopover(topicKey, anchor) {
+  const topic = INFO_TOPICS[topicKey];
+  if (!topic) return;
+  setInfoButtonExpanded(activeInfoButton, false);
+  activeInfoButton = anchor || null;
+  setInfoButtonExpanded(activeInfoButton, true);
+  els.infoPopoverTitle.textContent = topic.title;
+  els.infoPopoverBody.innerHTML = topic.paragraphs
+    .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`)
+    .join("");
+  els.infoPopover.hidden = false;
+  positionInfoPopover(anchor);
+}
+
+function closeInfoPopover() {
+  els.infoPopover.hidden = true;
+  els.infoPopover.classList.remove("placed-left");
+  setInfoButtonExpanded(activeInfoButton, false);
+  activeInfoButton = null;
+}
+
+function setupInfoButtons() {
+  const buttonIds = [
+    "layersInfoBtn",
+    "countriesInfoBtn",
+    "searchInfoBtn",
+    "radiusInfoBtn",
+    "radiusResultsInfoBtn",
+    "estimatorInfoBtn",
+    "rangeBandsInfoBtn",
+    "resourceTypesInfoBtn",
+    "categoryAssumptionsInfoBtn",
+    "estimateInfoBtn",
+  ];
+  for (const id of buttonIds) {
+    const button = document.getElementById(id);
+    button?.addEventListener("click", (event) => {
+      event?.stopPropagation?.();
+      if (activeInfoButton === button && !els.infoPopover.hidden) {
+        closeInfoPopover();
+        return;
+      }
+      openInfoPopover(button.dataset.infoTopic, button);
+    });
+  }
+  document.addEventListener?.("click", (event) => {
+    if (els.infoPopover.hidden) return;
+    const target = event.target;
+    if (els.infoPopover.contains?.(target) || target?.closest?.(".info-btn")) return;
+    closeInfoPopover();
+  });
+  document.addEventListener?.("keydown", (event) => {
+    if (event.key === "Escape") closeInfoPopover();
+  });
+  window.addEventListener("resize", closeInfoPopover);
 }
 
 function loadSavedPreferences() {
@@ -2000,6 +2160,7 @@ async function init() {
   savePreferencesNow();
 }
 
+setupInfoButtons();
 els.searchInput.addEventListener("input", () => {
   renderSearch();
   queueSavePreferences();

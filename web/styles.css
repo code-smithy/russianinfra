@@ -87,6 +87,13 @@ input {
   margin-bottom: 10px;
 }
 
+.heading-with-info {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+}
+
 .panel-actions {
   display: inline-flex;
   align-items: center;
@@ -100,6 +107,38 @@ input {
   font-weight: 700;
   text-transform: uppercase;
   color: #d9d5ce;
+}
+
+.info-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid #565656;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #242424;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 17px;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.info-btn span {
+  transform: translate(-1px, -1px);
+}
+
+.info-btn:hover,
+.info-btn:focus-visible,
+.info-btn[aria-expanded="true"] {
+  border-color: var(--accent-2);
+  background: #2f2f2f;
+  outline: none;
 }
 
 .panel-collapse-btn {
@@ -534,6 +573,10 @@ input {
   flex: 1;
 }
 
+.estimator-heading-with-info {
+  flex: 1;
+}
+
 .estimator-block h3 {
   margin: 0;
   color: #d9d5ce;
@@ -802,6 +845,62 @@ input {
 .estimate-matrix .matrix-grand-row td {
   border-top: 1px solid #4a422e;
   border-bottom: 0;
+}
+
+.info-popover {
+  position: fixed;
+  z-index: 1200;
+  display: grid;
+  gap: 8px;
+  width: min(310px, calc(100vw - 18px));
+  max-height: min(360px, calc(100vh - 18px));
+  padding: 11px 12px 12px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  box-shadow: var(--shadow);
+}
+
+.info-popover::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: -6px;
+  width: 10px;
+  height: 10px;
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+  transform: rotate(45deg);
+}
+
+.info-popover.placed-left::before {
+  right: -6px;
+  left: auto;
+  border-right: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  border-left: 0;
+  border-bottom: 0;
+}
+
+.info-popover h2 {
+  margin: 0;
+  color: #d9d5ce;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.info-popover-body {
+  display: grid;
+  gap: 7px;
+  color: #ded9ce;
+  font-size: 12px;
+}
+
+.info-popover-body p {
+  margin: 0;
 }
 
 #map {

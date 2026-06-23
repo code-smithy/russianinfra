@@ -35,10 +35,13 @@
 
         <section id="layersPanel" class="panel">
           <div class="panel-title">
-            <button id="layersPanelToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="layersPanelBody" aria-label="Collapse Layers">
-              <span aria-hidden="true"></span>
-              <h2>Layers</h2>
-            </button>
+            <div class="heading-with-info">
+              <button id="layersPanelToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="layersPanelBody" aria-label="Collapse Layers">
+                <span aria-hidden="true"></span>
+                <h2>Layers</h2>
+              </button>
+              <button id="layersInfoBtn" class="info-btn" type="button" data-info-topic="layers" aria-label="Information about Layers" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+            </div>
             <button id="clearLayersBtn" class="text-btn" type="button">Clear all</button>
           </div>
           <div id="layersPanelBody">
@@ -48,10 +51,13 @@
 
         <section id="countriesPanel" class="panel">
           <div class="panel-title">
-            <button id="countriesPanelToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="countriesPanelBody" aria-label="Collapse Countries">
-              <span aria-hidden="true"></span>
-              <h2>Countries</h2>
-            </button>
+            <div class="heading-with-info">
+              <button id="countriesPanelToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="countriesPanelBody" aria-label="Collapse Countries">
+                <span aria-hidden="true"></span>
+                <h2>Countries</h2>
+              </button>
+              <button id="countriesInfoBtn" class="info-btn" type="button" data-info-topic="countries" aria-label="Information about Countries" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+            </div>
             <div class="panel-actions">
               <span id="countriesCount" class="muted">0 countries</span>
               <button id="clearCountriesBtn" class="text-btn" type="button">Clear all</button>
@@ -64,7 +70,10 @@
 
         <section class="panel">
           <div class="panel-title">
-            <h2>Search Loaded</h2>
+            <div class="heading-with-info">
+              <h2>Search Loaded</h2>
+              <button id="searchInfoBtn" class="info-btn" type="button" data-info-topic="search" aria-label="Information about Search Loaded" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+            </div>
             <span id="loadedCount" class="muted">0 loaded</span>
           </div>
           <input id="searchInput" class="search-input" type="search" placeholder="Name, INN, type, region..." />
@@ -73,12 +82,18 @@
 
         <section class="panel">
           <div class="panel-title">
-            <h2>Radius</h2>
+            <div class="heading-with-info">
+              <h2>Radius</h2>
+              <button id="radiusInfoBtn" class="info-btn" type="button" data-info-topic="radius" aria-label="Information about Radius" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+            </div>
             <button id="radiusModeBtn" class="text-btn" type="button">Draw Radius</button>
           </div>
           <div id="radiusPanel" class="radius-panel" hidden>
             <div class="panel-title">
-              <h2>Radius Results</h2>
+              <div class="heading-with-info">
+                <h2>Radius Results</h2>
+                <button id="radiusResultsInfoBtn" class="info-btn" type="button" data-info-topic="radiusResults" aria-label="Information about Radius Results" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+              </div>
               <span id="radiusSummary" class="muted">0 objects</span>
             </div>
             <div class="actions-row">
@@ -98,7 +113,10 @@
       <aside class="estimator-sidebar" aria-label="Scenario estimator">
         <section id="estimatorPanel" class="panel estimator-panel">
           <div class="panel-title">
-            <h2>Scenario Estimator</h2>
+            <div class="heading-with-info">
+              <h2>Scenario Estimator</h2>
+              <button id="estimatorInfoBtn" class="info-btn" type="button" data-info-topic="estimator" aria-label="Information about Scenario Estimator" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+            </div>
             <span id="estimatorSummary" class="muted">Draw a radius</span>
           </div>
           <div class="estimator-actions">
@@ -111,10 +129,13 @@
 
           <section id="rangeBandsBlock" class="estimator-block">
             <div class="estimator-block-title">
-              <button id="rangeBandsToggle" class="panel-collapse-btn estimator-collapse-btn" type="button" aria-expanded="true" aria-controls="rangeBandsBody" aria-label="Collapse Range bands">
-                <span aria-hidden="true"></span>
-                <h3>Range bands</h3>
-              </button>
+              <div class="heading-with-info estimator-heading-with-info">
+                <button id="rangeBandsToggle" class="panel-collapse-btn estimator-collapse-btn" type="button" aria-expanded="true" aria-controls="rangeBandsBody" aria-label="Collapse Range bands">
+                  <span aria-hidden="true"></span>
+                  <h3>Range bands</h3>
+                </button>
+                <button id="rangeBandsInfoBtn" class="info-btn" type="button" data-info-topic="rangeBands" aria-label="Information about Range bands" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+              </div>
               <button id="addRangeBandBtn" class="text-btn" type="button">Add</button>
             </div>
             <div id="rangeBandsBody">
@@ -124,10 +145,13 @@
 
           <section id="resourceTypesBlock" class="estimator-block">
             <div class="estimator-block-title">
-              <button id="resourceTypesToggle" class="panel-collapse-btn estimator-collapse-btn" type="button" aria-expanded="true" aria-controls="resourceTypesBody" aria-label="Collapse Resource types">
-                <span aria-hidden="true"></span>
-                <h3>Resource types</h3>
-              </button>
+              <div class="heading-with-info estimator-heading-with-info">
+                <button id="resourceTypesToggle" class="panel-collapse-btn estimator-collapse-btn" type="button" aria-expanded="true" aria-controls="resourceTypesBody" aria-label="Collapse Resource types">
+                  <span aria-hidden="true"></span>
+                  <h3>Resource types</h3>
+                </button>
+                <button id="resourceTypesInfoBtn" class="info-btn" type="button" data-info-topic="resourceTypes" aria-label="Information about Resource types" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+              </div>
             </div>
             <div id="resourceTypesBody">
               <div id="resourceTypesList" class="estimator-list"></div>
@@ -136,10 +160,13 @@
 
           <section id="categoryAssumptionsBlock" class="estimator-block">
             <div class="estimator-block-title">
-              <button id="categoryAssumptionsToggle" class="panel-collapse-btn estimator-collapse-btn" type="button" aria-expanded="true" aria-controls="categoryAssumptionsBody" aria-label="Collapse Category assumptions">
-                <span aria-hidden="true"></span>
-                <h3>Category assumptions</h3>
-              </button>
+              <div class="heading-with-info estimator-heading-with-info">
+                <button id="categoryAssumptionsToggle" class="panel-collapse-btn estimator-collapse-btn" type="button" aria-expanded="true" aria-controls="categoryAssumptionsBody" aria-label="Collapse Category assumptions">
+                  <span aria-hidden="true"></span>
+                  <h3>Category assumptions</h3>
+                </button>
+                <button id="categoryAssumptionsInfoBtn" class="info-btn" type="button" data-info-topic="categoryAssumptions" aria-label="Information about Category assumptions" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+              </div>
             </div>
             <div id="categoryAssumptionsBody">
               <div id="categoryAssumptionsList" class="estimator-list"></div>
@@ -148,7 +175,10 @@
 
           <section class="estimator-block">
             <div class="estimator-block-title">
-              <h3>Estimate</h3>
+              <div class="heading-with-info">
+                <h3>Estimate</h3>
+                <button id="estimateInfoBtn" class="info-btn" type="button" data-info-topic="estimate" aria-label="Information about Estimate" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+              </div>
               <span id="estimatorRadiusLabel" class="muted">Active layers only</span>
             </div>
             <div id="summaryDisplayControls" class="summary-toggle-row" aria-label="Estimator summary display"></div>
@@ -157,6 +187,11 @@
         </section>
       </aside>
     </main>
+
+    <aside id="infoPopover" class="info-popover" role="dialog" aria-labelledby="infoPopoverTitle" hidden>
+      <h2 id="infoPopoverTitle">Information</h2>
+      <div id="infoPopoverBody" class="info-popover-body"></div>
+    </aside>
 
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
