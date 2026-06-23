@@ -949,7 +949,7 @@ function rememberFeature(feature, latlng) {
 function createLeafletLayer(featureCollection) {
   const cluster = L.markerClusterGroup({
     disableClusteringAtZoom: 9,
-    maxClusterRadius: 44,
+    maxClusterRadius: 24,
     showCoverageOnHover: false,
   });
   const lines = L.geoJSON(null, {
