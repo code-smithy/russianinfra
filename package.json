@@ -1,0 +1,8 @@
+{
+  "name": "russian-infrastructure-explorer",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1"
+  }
+}
