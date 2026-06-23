@@ -1,10 +1,15 @@
 const DATA_DIR = "data/";
+const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 
 const state = {
   manifest: null,
   layers: new Map(),
   features: new Map(),
   subcategoryFilters: new Map(),
+  layerControls: new Map(),
+  savedPreferences: loadSavedPreferences(),
+  persistenceReady: false,
+  saveTimer: null,
   activeSlot: "A",
   selections: { A: null, B: null },
   selectionMarkers: { A: null, B: null },
@@ -28,7 +33,7 @@ const map = L.map("map", {
 const lightTiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 18,
   attribution: "&copy; OpenStreetMap",
-}).addTo(map);
+});
 
 const darkTiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
   maxZoom: 20,
@@ -36,6 +41,8 @@ const darkTiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x
   attribution: "&copy; OpenStreetMap &copy; CARTO",
 });
 
+let activeBaseLayer = state.savedPreferences?.baseLayer === "dark" ? "dark" : "light";
+(activeBaseLayer === "dark" ? darkTiles : lightTiles).addTo(map);
 L.control.layers({ Light: lightTiles, Dark: darkTiles }, {}, { collapsed: true }).addTo(map);
 state.radiusHighlightGroup = L.layerGroup().addTo(map);
 
@@ -80,6 +87,121 @@ function escapeHtml(value) {
     '"': "&quot;",
     "'": "&#039;",
   })[char]);
+}
+
+function loadSavedPreferences() {
+  try {
+    const raw = window.localStorage?.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch (error) {
+    console.warn("Could not read saved preferences.", error);
+    return null;
+  }
+}
+
+function storedPoint(value) {
+  const lat = Number(value?.lat ?? value?.[0]);
+  const lng = Number(value?.lng ?? value?.[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
+function savedLayerVisible(layerInfo) {
+  const layers = state.savedPreferences?.layers;
+  if (layers && Object.prototype.hasOwnProperty.call(layers, layerInfo.id)) {
+    return layers[layerInfo.id] === true;
+  }
+  return !!layerInfo.default_visible;
+}
+
+function savedSubcategorySet(layerInfo) {
+  const subcategories = Array.isArray(layerInfo.subcategories) ? layerInfo.subcategories : [];
+  const validIds = new Set(subcategories.map((item) => item.id));
+  const saved = state.savedPreferences?.subcategories?.[layerInfo.id];
+  if (Array.isArray(saved)) {
+    return new Set(saved.filter((id) => validIds.has(id)));
+  }
+  return new Set(subcategories.map((item) => item.id));
+}
+
+function serializeSelection(slot) {
+  const selection = state.selections[slot];
+  if (!selection?.point) return null;
+  const point = { lat: selection.point.lat, lng: selection.point.lng };
+  const p = selection.feature.properties || {};
+  if (p.source_dataset === "Manual selection") {
+    return { type: "manual", point };
+  }
+  return {
+    type: "feature",
+    id: selection.feature.id,
+    layerId: p.map_layer || null,
+    point,
+  };
+}
+
+function serializeRadius() {
+  if (!state.radiusOrigin || !Number.isFinite(state.radiusKm)) return null;
+  return {
+    origin: { lat: state.radiusOrigin.lat, lng: state.radiusOrigin.lng },
+    radiusKm: state.radiusKm,
+  };
+}
+
+function currentPreferences() {
+  const center = map.getCenter();
+  const layers = {};
+  const subcategories = {};
+  for (const layerInfo of state.manifest?.layers || []) {
+    const checkbox = state.layerControls.get(layerInfo.id);
+    layers[layerInfo.id] = checkbox ? checkbox.checked : !!state.layers.get(layerInfo.id)?.visible;
+    const enabled = state.subcategoryFilters.get(layerInfo.id);
+    if (enabled) subcategories[layerInfo.id] = [...enabled];
+  }
+
+  return {
+    version: 1,
+    activeSlot: state.activeSlot,
+    baseLayer: activeBaseLayer,
+    mapView: { lat: center.lat, lng: center.lng, zoom: map.getZoom() },
+    layers,
+    subcategories,
+    search: els.searchInput.value,
+    manualPanelOpen: !els.manualPanel.hidden,
+    manualInputs: {
+      aLat: els.manualALat.value,
+      aLng: els.manualALng.value,
+      bLat: els.manualBLat.value,
+      bLng: els.manualBLng.value,
+    },
+    selections: {
+      A: serializeSelection("A"),
+      B: serializeSelection("B"),
+    },
+    radius: serializeRadius(),
+  };
+}
+
+function savePreferencesNow() {
+  if (!state.persistenceReady || !state.manifest) return;
+  if (state.saveTimer) {
+    window.clearTimeout(state.saveTimer);
+    state.saveTimer = null;
+  }
+  try {
+    window.localStorage?.setItem(STORAGE_KEY, JSON.stringify(currentPreferences()));
+  } catch (error) {
+    console.warn("Could not save preferences.", error);
+  }
+}
+
+function queueSavePreferences() {
+  if (!state.persistenceReady) return;
+  if (state.saveTimer) window.clearTimeout(state.saveTimer);
+  state.saveTimer = window.setTimeout(savePreferencesNow, 120);
 }
 
 function numberFmt(value, digits = 1) {
@@ -371,19 +493,22 @@ function unloadLayer(layerInfo) {
   syncOverlaysWithVisibleLayers();
 }
 
-function renderLayers() {
+async function renderLayers() {
   els.layersList.innerHTML = "";
+  state.layerControls.clear();
+  const initialLoads = [];
   for (const layerInfo of state.manifest.layers) {
     const subcategories = Array.isArray(layerInfo.subcategories) ? layerInfo.subcategories : [];
     if (subcategories.length) {
-      state.subcategoryFilters.set(layerInfo.id, new Set(subcategories.map((item) => item.id)));
+      state.subcategoryFilters.set(layerInfo.id, savedSubcategorySet(layerInfo));
     }
 
     const row = document.createElement("label");
     row.className = "layer-row";
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
-    checkbox.checked = !!layerInfo.default_visible;
+    checkbox.checked = savedLayerVisible(layerInfo);
+    state.layerControls.set(layerInfo.id, checkbox);
     const swatch = document.createElement("span");
     swatch.className = "layer-swatch";
     swatch.style.background = colorForLayer(layerInfo.id);
@@ -401,7 +526,7 @@ function renderLayers() {
         subRow.className = "subcategory-row";
         const subCheckbox = document.createElement("input");
         subCheckbox.type = "checkbox";
-        subCheckbox.checked = true;
+        subCheckbox.checked = state.subcategoryFilters.get(layerInfo.id)?.has(subcategory.id) ?? true;
         const subName = document.createElement("span");
         subName.textContent = `${subcategory.label} (${subcategory.count.toLocaleString()})`;
         subRow.append(subCheckbox, subName);
@@ -415,6 +540,7 @@ function renderLayers() {
           }
           state.subcategoryFilters.set(layerInfo.id, enabled);
           refreshLayerFilters(layerInfo);
+          queueSavePreferences();
         });
       }
       els.layersList.appendChild(subcategoryList);
@@ -427,23 +553,28 @@ function renderLayers() {
         } else {
           unloadLayer(layerInfo);
         }
+        savePreferencesNow();
       } catch (error) {
         checkbox.checked = false;
         row.classList.remove("loading");
         hideLoading();
+        savePreferencesNow();
         alert(error.message);
       }
     });
 
     if (checkbox.checked) {
-      loadLayer(layerInfo, checkbox, row).catch((error) => {
+      initialLoads.push(loadLayer(layerInfo, checkbox, row).catch((error) => {
         checkbox.checked = false;
         row.classList.remove("loading");
         hideLoading();
         console.error(error);
-      });
+      }));
     }
   }
+  await Promise.allSettled(initialLoads);
+  renderLoadedCount();
+  renderSearch();
 }
 
 function colorForLayer(layerId) {
@@ -481,10 +612,12 @@ function isFeatureVisible(feature) {
 }
 
 function syncOverlaysWithVisibleLayers() {
+  let changedSelections = false;
   for (const slot of ["A", "B"]) {
     const selection = state.selections[slot];
     if (!selection || isFeatureVisible(selection.feature)) continue;
     state.selections[slot] = null;
+    changedSelections = true;
     if (state.selectionMarkers[slot]) {
       map.removeLayer(state.selectionMarkers[slot]);
       state.selectionMarkers[slot] = null;
@@ -496,6 +629,7 @@ function syncOverlaysWithVisibleLayers() {
   if (state.radiusOrigin && Number.isFinite(state.radiusKm)) {
     renderRadiusResults(state.radiusOrigin, state.radiusKm);
   }
+  if (changedSelections) queueSavePreferences();
 }
 
 function renderLoadedCount() {
@@ -562,6 +696,7 @@ function selectFeature(slot, feature, latlng) {
   drawSelectionMarker(slot);
   renderSelections();
   renderDistance();
+  queueSavePreferences();
 }
 
 function drawSelectionMarker(slot) {
@@ -650,6 +785,7 @@ function clearSelection() {
   els.nearestResults.innerHTML = "";
   renderSelections();
   renderDistance();
+  queueSavePreferences();
 }
 
 function renderNearest() {
@@ -713,6 +849,79 @@ function setManualSelection(slot) {
   map.setView(point, Math.max(map.getZoom(), 7));
 }
 
+function applySavedInterfaceState() {
+  const prefs = state.savedPreferences;
+  if (!prefs) {
+    updateSlotButtons();
+    return;
+  }
+
+  state.activeSlot = prefs.activeSlot === "B" ? "B" : "A";
+  updateSlotButtons();
+  if (typeof prefs.search === "string") els.searchInput.value = prefs.search;
+  els.manualPanel.hidden = prefs.manualPanelOpen !== true;
+
+  const manual = prefs.manualInputs || {};
+  els.manualALat.value = manual.aLat || "";
+  els.manualALng.value = manual.aLng || "";
+  els.manualBLat.value = manual.bLat || "";
+  els.manualBLng.value = manual.bLng || "";
+
+  const center = storedPoint(prefs.mapView);
+  const zoom = Number(prefs.mapView?.zoom);
+  if (center && Number.isFinite(zoom)) {
+    map.setView(center, zoom);
+  }
+}
+
+function restoreSavedSelections() {
+  const selections = state.savedPreferences?.selections;
+  if (!selections) return;
+  for (const slot of ["A", "B"]) {
+    const saved = selections[slot];
+    if (!saved) continue;
+    const point = storedPoint(saved.point);
+    if (saved.type === "manual" && point) {
+      selectFeature(slot, manualFeature(slot, point.lat, point.lng), point);
+    } else if (saved.type === "feature" && typeof saved.id === "string") {
+      const stored = state.features.get(saved.id);
+      if (stored) selectFeature(slot, stored.feature, stored.point || point);
+    }
+  }
+}
+
+function drawStoredRadius(origin, radiusKm) {
+  if (state.radiusCircle) map.removeLayer(state.radiusCircle);
+  if (state.radiusLine) map.removeLayer(state.radiusLine);
+  if (state.radiusLabel) map.removeLayer(state.radiusLabel);
+  state.radiusCircle = L.circle(origin, {
+    radius: radiusKm * 1000,
+    color: "#e0a72f",
+    weight: 2,
+    fillColor: "#e0a72f",
+    fillOpacity: 0.12,
+  }).addTo(map);
+  state.radiusLine = null;
+  state.radiusLabel = L.marker(origin, {
+    interactive: false,
+    icon: L.divIcon({
+      className: "radius-distance-label",
+      html: `${numberFmt(radiusKm, 1)} km`,
+      iconSize: [82, 28],
+      iconAnchor: [-8, 14],
+    }),
+  }).addTo(map);
+}
+
+function restoreSavedRadius() {
+  const saved = state.savedPreferences?.radius;
+  const origin = storedPoint(saved?.origin);
+  const radiusKm = Number(saved?.radiusKm);
+  if (!origin || !Number.isFinite(radiusKm) || radiusKm <= 0) return;
+  drawStoredRadius(origin, radiusKm);
+  renderRadiusResults(origin, radiusKm);
+}
+
 function setRadiusMode(enabled) {
   state.radiusMode = enabled;
   els.radiusModeBtn.classList.toggle("radius-mode-active", enabled);
@@ -740,6 +949,7 @@ function resetRadius() {
   els.radiusPanel.hidden = true;
   els.radiusResults.innerHTML = "";
   els.radiusSummary.textContent = "0 objects";
+  queueSavePreferences();
 }
 
 function renderRadiusResults(origin, radiusKm) {
@@ -779,6 +989,7 @@ function renderRadiusResults(origin, radiusKm) {
     note.textContent = `Showing first ${renderLimit.toLocaleString()} here. CSV export includes all ${results.length.toLocaleString()}.`;
     els.radiusResults.appendChild(note);
   }
+  queueSavePreferences();
 }
 
 function onRadiusMouseDown(event) {
@@ -923,20 +1134,41 @@ async function init() {
   const manifestResponse = await fetch(DATA_DIR + "manifest.json");
   state.manifest = await manifestResponse.json();
   els.datasetSummary.textContent = `${state.manifest.total_features.toLocaleString()} normalized records across ${state.manifest.layers.length} layers`;
-  renderLayers();
+  applySavedInterfaceState();
+  await renderLayers();
+  restoreSavedSelections();
+  restoreSavedRadius();
+  renderSearch();
   renderSelections();
   renderDistance();
+  state.persistenceReady = true;
+  savePreferencesNow();
 }
 
-els.searchInput.addEventListener("input", renderSearch);
-els.slotABtn.addEventListener("click", () => { state.activeSlot = "A"; updateSlotButtons(); });
-els.slotBBtn.addEventListener("click", () => { state.activeSlot = "B"; updateSlotButtons(); });
+els.searchInput.addEventListener("input", () => {
+  renderSearch();
+  queueSavePreferences();
+});
+els.slotABtn.addEventListener("click", () => {
+  state.activeSlot = "A";
+  updateSlotButtons();
+  queueSavePreferences();
+});
+els.slotBBtn.addEventListener("click", () => {
+  state.activeSlot = "B";
+  updateSlotButtons();
+  queueSavePreferences();
+});
 els.clearSelectionBtn.addEventListener("click", clearSelection);
 els.nearestBtn.addEventListener("click", renderNearest);
 els.fitLoadedBtn.addEventListener("click", fitLoadedLayers);
 els.manualToggleBtn.addEventListener("click", () => {
   els.manualPanel.hidden = !els.manualPanel.hidden;
+  queueSavePreferences();
 });
+for (const input of [els.manualALat, els.manualALng, els.manualBLat, els.manualBLng]) {
+  input.addEventListener("input", queueSavePreferences);
+}
 els.manualASetBtn.addEventListener("click", () => setManualSelection("A"));
 els.manualBSetBtn.addEventListener("click", () => setManualSelection("B"));
 els.radiusModeBtn.addEventListener("click", () => setRadiusMode(!state.radiusMode));
@@ -955,6 +1187,12 @@ els.clearLayersBtn.addEventListener("click", () => {
 map.on("mousedown", onRadiusMouseDown);
 map.on("mousemove", onRadiusMouseMove);
 map.on("mouseup", onRadiusMouseUp);
+map.on("baselayerchange", (event) => {
+  activeBaseLayer = event.name === "Dark" ? "dark" : "light";
+  queueSavePreferences();
+});
+map.on("moveend", queueSavePreferences);
+window.addEventListener("beforeunload", savePreferencesNow);
 
 init().catch((error) => {
   console.error(error);
