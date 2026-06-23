@@ -31,6 +31,7 @@ globalThis.__api = {
   metersKm,
   renderEstimatorResults,
   renderRadiusResults,
+  resetRadius,
   savePreferencesNow,
   setCountriesPanelCollapsed,
   setLayersPanelCollapsed,
@@ -40,9 +41,9 @@ globalThis.__api = {
 );
 
 const manifest = {
-  total_features: 2,
+  total_features: 3,
   countries: [
-    { id: "Russia", label: "Russia", count: 1, point_count: 1 },
+    { id: "Russia", label: "Russia", count: 2, point_count: 2 },
     { id: "Ukraine", label: "Ukraine", count: 1, point_count: 1 },
   ],
   layers: [
@@ -51,9 +52,9 @@ const manifest = {
       label: "Oil/Gas Facilities",
       file: "energy_facilities.geojson",
       files: ["energy_facilities.geojson"],
-      count: 1,
+      count: 2,
       subcategories: [
-        { id: "energy_oil_facility", label: "Oil facility", count: 1 },
+        { id: "energy_oil_facility", label: "Oil facility", count: 2 },
         { id: "energy_gas_facility", label: "Gas facility", count: 0 },
       ],
       default_visible: true,
@@ -82,6 +83,15 @@ const fixtures = {
         "energy_oil_facility",
         55.2,
         59.1,
+        "Russia"
+      ),
+      feature(
+        "fixture_energy_2",
+        "Charlie Terminal",
+        "energy_facilities",
+        "energy_oil_facility",
+        65.2,
+        80.1,
         "Russia"
       ),
     ],
@@ -333,6 +343,25 @@ test("distance helpers handle points and geometry vertices", async () => {
 
   assert.ok(oneDegreeAtEquator > 111 && oneDegreeAtEquator < 112);
   assert.equal(api.featureDistanceToPointKm(lineFeature, { lat: 50, lng: 30 }), 0);
+});
+
+test("dims visible datapoints outside the drawn radius and restores them on reset", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  api.renderRadiusResults({ lat: 55.2, lng: 59.1 }, 20);
+
+  const inside = api.state.features.get("fixture_energy_1");
+  const outside = api.state.features.get("fixture_energy_2");
+  assert.equal(inside.layer.opacity, 1);
+  assert.equal(outside.layer.opacity, 0.5);
+  assert.equal(outside.radiusDimmed, true);
+
+  api.resetRadius();
+
+  assert.equal(outside.layer.opacity, 1);
+  assert.equal(outside.radiusDimmed, false);
 });
 
 test("scenario estimator groups active radius results and calculates resource totals", async () => {
@@ -601,6 +630,8 @@ function createLeafletStub(document) {
 
   function layer() {
     return {
+      opacity: 1,
+      style: {},
       addTo(target) {
         if (target?.addLayer) target.addLayer(this);
         return this;
@@ -616,6 +647,14 @@ function createLeafletStub(document) {
         return this;
       },
       setIcon() {
+        return this;
+      },
+      setOpacity(value) {
+        this.opacity = value;
+        return this;
+      },
+      setStyle(value) {
+        this.style = { ...this.style, ...value };
         return this;
       },
       setLatLng() {

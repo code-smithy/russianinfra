@@ -1,5 +1,7 @@
 const DATA_DIR = "data/";
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
+const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
+const OUT_OF_RADIUS_LINE_OPACITY = 0.38;
 const LAYER_GROUPS = [
   { id: "military", label: "Military" },
   { id: "oil_gas", label: "Oil/Gas" },
@@ -563,6 +565,7 @@ function rememberFeature(feature, latlng) {
     feature,
     point,
     layer: null,
+    radiusDimmed: false,
   };
   state.features.set(feature.id, stored);
   return stored;
@@ -677,6 +680,37 @@ function createFilteredLayer(record) {
     type: "FeatureCollection",
     features: record.features.filter(featurePassesActiveFilters),
   });
+}
+
+function setStoredFeatureRadiusDimmed(stored, dimmed) {
+  if (!stored?.layer || stored.radiusDimmed === dimmed) return;
+  stored.radiusDimmed = dimmed;
+  if (typeof stored.layer.setOpacity === "function") {
+    stored.layer.setOpacity(dimmed ? OUT_OF_RADIUS_POINT_OPACITY : 1);
+  }
+  if (typeof stored.layer.setStyle === "function") {
+    const normalStyle = styleFeature(stored.feature);
+    const stylePatch = { opacity: dimmed ? OUT_OF_RADIUS_LINE_OPACITY : normalStyle.opacity };
+    if (normalStyle.fillOpacity !== undefined || dimmed) {
+      stylePatch.fillOpacity = dimmed ? OUT_OF_RADIUS_LINE_OPACITY : normalStyle.fillOpacity;
+    }
+    stored.layer.setStyle(stylePatch);
+  }
+  stored.layer.getElement?.()?.classList?.toggle("radius-outside", dimmed);
+}
+
+function clearRadiusDimming() {
+  for (const stored of state.features.values()) {
+    setStoredFeatureRadiusDimmed(stored, false);
+  }
+}
+
+function applyRadiusDimming(activeFeatures, radiusResults) {
+  const activeIds = new Set(activeFeatures.map((stored) => stored.id));
+  const insideIds = new Set(radiusResults.map((item) => item.stored.id));
+  for (const stored of state.features.values()) {
+    setStoredFeatureRadiusDimmed(stored, activeIds.has(stored.id) && !insideIds.has(stored.id));
+  }
 }
 
 function refreshLayerFilters(layerInfo) {
@@ -1590,6 +1624,7 @@ function resetRadius() {
   state.radiusKm = null;
   state.radiusResults = [];
   state.radiusHighlightGroup.clearLayers();
+  clearRadiusDimming();
   els.radiusPanel.hidden = true;
   els.radiusResults.innerHTML = "";
   els.radiusSummary.textContent = "0 objects";
@@ -1607,6 +1642,7 @@ function renderRadiusResults(origin, radiusKm) {
     .filter((item) => item.distance <= radiusKm)
     .sort((a, b) => a.distance - b.distance);
   state.radiusResults = results;
+  applyRadiusDimming(activeFeatures, results);
   els.radiusPanel.hidden = false;
   els.radiusSummary.textContent = `${results.length.toLocaleString()} objects • ${numberFmt(radiusKm, 1)} km • active layers only`;
   els.radiusResults.innerHTML = "";
