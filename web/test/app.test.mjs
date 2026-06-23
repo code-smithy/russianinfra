@@ -359,6 +359,29 @@ test("radius panel shows center and applies manual radius edits", async () => {
   assert.match(api.els.radiusSummary.textContent, /750 km/);
 });
 
+test("radius overlay draws colored range-band circles", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  api.state.estimator.rangeBands = [
+    { id: "near", maxKm: 100 },
+    { id: "mid", maxKm: 200 },
+    { id: "band_open", maxKm: null },
+  ];
+
+  api.renderRadiusResults({ lat: 55.2, lng: 59.1 }, 250);
+
+  assert.equal(api.state.radiusBandCircles.length, 3);
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.radiusBandCircles.map((circle) => circle.rangeBandSegment.upperKm))), [100, 200, 250]);
+
+  api.els.radiusKmInput.value = "150";
+  api.els.radiusKmInput.listeners.change[0]();
+
+  assert.equal(api.state.radiusBandCircles.length, 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.radiusBandCircles.map((circle) => circle.rangeBandSegment.upperKm))), [100, 150]);
+});
+
 test("scenario estimator groups active radius results and calculates resource totals", async () => {
   const app = createAppContext();
   await app.__initPromise;

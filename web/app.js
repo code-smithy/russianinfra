@@ -84,6 +84,7 @@ const INFO_TOPICS = {
     paragraphs: [
       "Defines distance bands in kilometers from the radius origin.",
       "Each radius result is assigned to the first upper bound it fits, with an open band above the last bound.",
+      "When a radius is drawn, the circle is split into matching colored rings. The colors are generated from the current band list.",
     ],
   },
   resourceTypes: {
@@ -127,6 +128,7 @@ const state = {
   radiusOrigin: null,
   radiusKm: null,
   radiusCircle: null,
+  radiusBandCircles: [],
   radiusLine: null,
   radiusLabel: null,
   radiusHighlightGroup: null,
@@ -562,6 +564,38 @@ function rangeBandLabel(band, index, bands = sortedRangeBands()) {
   const previous = bands[index - 1];
   if (!previous || !isFiniteRangeMax(previous.maxKm)) return `0-${numberFmt(band.maxKm, 0)} km`;
   return `${numberFmt(previous.maxKm, 0)}-${numberFmt(band.maxKm, 0)} km`;
+}
+
+function rangeBandColor(index, total) {
+  if (total <= 1) return "#e0a72f";
+  const hue = (42 + index * 137.508) % 360;
+  return `hsl(${Math.round(hue)}, 78%, 55%)`;
+}
+
+function radiusBandSegments(radiusKm) {
+  const radius = Number(radiusKm);
+  if (!Number.isFinite(radius) || radius <= 0) return [];
+  const bands = sortedRangeBands();
+  const segments = [];
+  let lower = 0;
+  for (let index = 0; index < bands.length; index += 1) {
+    const band = bands[index];
+    const upper = isFiniteRangeMax(band.maxKm)
+      ? Math.min(Number(band.maxKm), radius)
+      : radius;
+    if (upper > lower) {
+      segments.push({
+        id: band.id,
+        label: rangeBandLabel(band, index, bands),
+        lowerKm: lower,
+        upperKm: upper,
+        color: rangeBandColor(index, bands.length),
+      });
+    }
+    if (radius <= upper) break;
+    lower = upper;
+  }
+  return segments;
 }
 
 function bandForDistance(distanceKm) {
@@ -1518,16 +1552,45 @@ function setEstimatorBlockCollapsed(key, collapsed, persist = true) {
   if (persist) queueSavePreferences();
 }
 
+function clearRadiusBandCircles() {
+  for (const circle of state.radiusBandCircles) {
+    map.removeLayer(circle);
+  }
+  state.radiusBandCircles = [];
+}
+
+function drawRadiusBandCircles(origin, radiusKm) {
+  clearRadiusBandCircles();
+  if (!origin || !Number.isFinite(radiusKm) || radiusKm <= 0) return;
+  const segments = radiusBandSegments(radiusKm);
+  for (const segment of [...segments].reverse()) {
+    const circle = L.circle(origin, {
+      radius: segment.upperKm * 1000,
+      color: segment.color,
+      weight: 2,
+      opacity: 0.82,
+      fillColor: segment.color,
+      fillOpacity: 0.28,
+      interactive: false,
+    }).addTo(map);
+    circle.rangeBandSegment = segment;
+    state.radiusBandCircles.unshift(circle);
+  }
+}
+
 function drawStoredRadius(origin, radiusKm) {
   if (state.radiusCircle) map.removeLayer(state.radiusCircle);
   if (state.radiusLine) map.removeLayer(state.radiusLine);
   if (state.radiusLabel) map.removeLayer(state.radiusLabel);
+  clearRadiusBandCircles();
+  drawRadiusBandCircles(origin, radiusKm);
   state.radiusCircle = L.circle(origin, {
     radius: radiusKm * 1000,
-    color: "#e0a72f",
-    weight: 2,
-    fillColor: "#e0a72f",
-    fillOpacity: 0.12,
+    color: "#f3d46b",
+    weight: 3,
+    opacity: 0.98,
+    fillOpacity: 0,
+    interactive: false,
   }).addTo(map);
   state.radiusLine = null;
   state.radiusLabel = L.marker(origin, {
@@ -1541,8 +1604,9 @@ function drawStoredRadius(origin, radiusKm) {
   }).addTo(map);
 }
 
-function updateRadiusOverlay(radiusKm) {
+function updateRadiusOverlay(radiusKm, origin = state.radiusOrigin || state.radiusStart) {
   if (!Number.isFinite(radiusKm) || radiusKm <= 0) return;
+  drawRadiusBandCircles(origin, radiusKm);
   if (state.radiusCircle) {
     state.radiusCircle.setRadius(radiusKm * 1000);
   }
@@ -1576,6 +1640,11 @@ function applyRadiusInputValue() {
   renderRadiusResults(state.radiusOrigin, radiusKm);
 }
 
+function refreshRadiusRangeOverlay() {
+  if (!state.radiusOrigin || !Number.isFinite(state.radiusKm)) return;
+  updateRadiusOverlay(state.radiusKm);
+}
+
 function restoreSavedRadius() {
   const saved = state.savedPreferences?.radius;
   const origin = storedPoint(saved?.origin);
@@ -1600,7 +1669,13 @@ function renderRangeBands() {
     row.className = "estimator-row range-band-row";
     const label = document.createElement("span");
     label.className = "estimator-label";
-    label.innerHTML = `<strong>${escapeHtml(rangeBandLabel(band, index, bands))}</strong><span>Upper bound in km</span>`;
+    label.innerHTML = `
+      <strong class="range-band-label">
+        <i class="range-band-swatch" style="background: ${rangeBandColor(index, bands.length)}" aria-hidden="true"></i>
+        <span>${escapeHtml(rangeBandLabel(band, index, bands))}</span>
+      </strong>
+      <span>Upper bound in km</span>
+    `;
     const input = document.createElement("input");
     input.type = "number";
     input.min = "1";
@@ -1632,6 +1707,7 @@ function renderRangeBands() {
         rangeBands: updated,
       }).rangeBands;
       renderRangeBands();
+      refreshRadiusRangeOverlay();
       renderEstimatorResults();
       savePreferencesNow();
     };
@@ -1649,6 +1725,7 @@ function renderRangeBands() {
         rangeBands: state.estimator.rangeBands.filter((item) => item.id !== band.id),
       }).rangeBands;
       renderRangeBands();
+      refreshRadiusRangeOverlay();
       renderEstimatorResults();
       savePreferencesNow();
     });
@@ -1912,6 +1989,7 @@ function renderEstimatorResults() {
 function renderEstimator() {
   if (!state.manifest) return;
   renderRangeBands();
+  refreshRadiusRangeOverlay();
   renderResourceTypes();
   renderCategoryAssumptions();
   renderEstimatorResults();
@@ -1930,6 +2008,7 @@ function resetRadius() {
     map.removeLayer(state.radiusLabel);
     state.radiusLabel = null;
   }
+  clearRadiusBandCircles();
   state.radiusStart = null;
   state.radiusOrigin = null;
   state.radiusKm = null;
@@ -1998,11 +2077,13 @@ function onRadiusMouseDown(event) {
   map.dragging.disable();
   state.radiusCircle = L.circle(state.radiusStart, {
     radius: 1,
-    color: "#e0a72f",
-    weight: 2,
-    fillColor: "#e0a72f",
-    fillOpacity: 0.12,
+    color: "#f3d46b",
+    weight: 3,
+    opacity: 0.98,
+    fillOpacity: 0,
+    interactive: false,
   }).addTo(map);
+  updateRadiusOverlay(0.1, state.radiusStart);
   state.radiusLine = L.polyline([state.radiusStart, state.radiusStart], {
     color: "#e0a72f",
     weight: 2,
@@ -2024,7 +2105,7 @@ function onRadiusMouseDown(event) {
 function onRadiusMouseMove(event) {
   if (!state.radiusMode || !state.radiusStart || !state.radiusCircle) return;
   const radiusKm = metersKm(state.radiusStart, event.latlng);
-  state.radiusCircle.setRadius(radiusKm * 1000);
+  updateRadiusOverlay(radiusKm, state.radiusStart);
   if (state.radiusLine) {
     state.radiusLine.setLatLngs([state.radiusStart, event.latlng]);
   }
@@ -2042,7 +2123,7 @@ function onRadiusMouseMove(event) {
 async function onRadiusMouseUp(event) {
   if (!state.radiusMode || !state.radiusStart || !state.radiusCircle) return;
   const radiusKm = metersKm(state.radiusStart, event.latlng);
-  state.radiusCircle.setRadius(radiusKm * 1000);
+  updateRadiusOverlay(radiusKm, state.radiusStart);
   if (state.radiusLine) {
     state.radiusLine.setLatLngs([state.radiusStart, event.latlng]);
   }
@@ -2251,6 +2332,7 @@ els.addRangeBandBtn.addEventListener("click", () => {
     ],
   }).rangeBands;
   renderRangeBands();
+  refreshRadiusRangeOverlay();
   renderEstimatorResults();
   savePreferencesNow();
 });

@@ -684,6 +684,31 @@ input {
   font-size: 11px;
 }
 
+.estimator-label .range-band-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.estimator-label .range-band-label span {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.range-band-swatch {
+  display: block;
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 50%;
+}
+
 .estimator-row input {
   width: 100%;
   min-width: 0;
