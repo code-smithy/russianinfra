@@ -38,6 +38,7 @@ globalThis.__api = {
   setCountriesPanelCollapsed,
   setEstimatorBlockCollapsed,
   setLayersPanelCollapsed,
+  setMenuWidth,
   summarizeEstimatorResults,
   validateEstimatorAggregates,
 };`
@@ -205,6 +206,26 @@ test("saves and restores the collapsed Countries panel", async () => {
   assert.equal(second.__api.els.countriesPanelBody.hidden, true);
   assert.equal(second.__api.els.countriesPanel.classList.contains("collapsed"), true);
   assert.equal(second.__api.els.countriesPanelToggle.getAttribute("aria-expanded"), "false");
+});
+
+test("saves and restores resized menu widths", async () => {
+  const first = createAppContext();
+  await first.__initPromise;
+
+  first.__api.setMenuWidth("left", 410);
+  first.__api.setMenuWidth("right", 430);
+  first.__api.savePreferencesNow();
+
+  const savedRaw = first.localStorage.getItem(STORAGE_KEY);
+  const saved = JSON.parse(savedRaw);
+  assert.deepEqual(saved.menuWidths, { left: 410, right: 430 });
+
+  const second = createAppContext({ [STORAGE_KEY]: savedRaw });
+  await second.__initPromise;
+
+  assert.deepEqual(JSON.parse(JSON.stringify(second.__api.state.menuWidths)), { left: 410, right: 430 });
+  assert.equal(second.__api.els.leftResizeHandle.getAttribute("aria-valuenow"), "410");
+  assert.equal(second.__api.els.rightResizeHandle.getAttribute("aria-valuenow"), "430");
 });
 
 test("saves and restores collapsed estimator assumption sections", async () => {

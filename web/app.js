@@ -2,6 +2,10 @@ const DATA_DIR = "data/";
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
 const OUT_OF_RADIUS_LINE_OPACITY = 0.38;
+const MENU_WIDTH_LIMITS = {
+  left: { defaultValue: 390, min: 280, max: 620 },
+  right: { defaultValue: 420, min: 300, max: 680 },
+};
 const LAYER_GROUPS = [
   { id: "military", label: "Military" },
   { id: "oil_gas", label: "Oil/Gas" },
@@ -134,6 +138,11 @@ const state = {
   radiusLabel: null,
   radiusHighlightGroup: null,
   radiusResults: [],
+  menuWidths: {
+    left: MENU_WIDTH_LIMITS.left.defaultValue,
+    right: MENU_WIDTH_LIMITS.right.defaultValue,
+  },
+  activeMenuResize: null,
   estimator: normalizeEstimatorAssumptions(loadSavedPreferences()?.estimator),
 };
 
@@ -160,6 +169,11 @@ L.control.layers({ Light: lightTiles, Dark: darkTiles }, {}, { collapsed: true }
 state.radiusHighlightGroup = L.layerGroup().addTo(map);
 
 const els = {
+  appShell: document.querySelector?.(".app-shell"),
+  sidebar: document.querySelector?.(".sidebar"),
+  estimatorSidebar: document.querySelector?.(".estimator-sidebar"),
+  leftResizeHandle: document.getElementById("leftResizeHandle"),
+  rightResizeHandle: document.getElementById("rightResizeHandle"),
   datasetSummary: document.getElementById("datasetSummary"),
   layersCount: document.getElementById("layersCount"),
   layersList: document.getElementById("layersList"),
@@ -313,6 +327,156 @@ function setupInfoButtons() {
   window.addEventListener("resize", closeInfoPopover);
 }
 
+function viewportWidth() {
+  return Number(window.innerWidth) || 1280;
+}
+
+function isStackedLayout() {
+  return viewportWidth() <= 900;
+}
+
+function isRightOverlayLayout() {
+  const width = viewportWidth();
+  return width > 900 && width <= 1240;
+}
+
+function savedMenuWidth(preferences, side) {
+  const limits = MENU_WIDTH_LIMITS[side];
+  const value = Number(preferences?.menuWidths?.[side]);
+  return Number.isFinite(value) ? value : limits.defaultValue;
+}
+
+function dynamicMenuMax(side) {
+  const limits = MENU_WIDTH_LIMITS[side];
+  if (isStackedLayout()) return limits.max;
+
+  const handleSpace = 16;
+  const mapMinimum = isRightOverlayLayout() ? 360 : 420;
+  const viewport = viewportWidth();
+  if (side === "left") {
+    const rightSpace = isRightOverlayLayout() ? 0 : state.menuWidths.right;
+    return Math.min(limits.max, viewport - rightSpace - mapMinimum - handleSpace);
+  }
+
+  const sideClearance = isRightOverlayLayout() ? 120 : mapMinimum + handleSpace;
+  return Math.min(limits.max, viewport - state.menuWidths.left - sideClearance);
+}
+
+function clampMenuWidth(side, width) {
+  const limits = MENU_WIDTH_LIMITS[side];
+  const max = Math.max(limits.min, dynamicMenuMax(side));
+  const numericWidth = Number(width);
+  const fallback = state.menuWidths[side] || limits.defaultValue;
+  const candidate = Number.isFinite(numericWidth) ? numericWidth : fallback;
+  return Math.round(Math.min(max, Math.max(limits.min, candidate)));
+}
+
+function setStyleProperty(element, name, value) {
+  if (element?.style?.setProperty) {
+    element.style.setProperty(name, value);
+  } else if (element?.style) {
+    element.style[name] = value;
+  }
+}
+
+function updateResizeHandleA11y(side) {
+  const handle = side === "left" ? els.leftResizeHandle : els.rightResizeHandle;
+  const limits = MENU_WIDTH_LIMITS[side];
+  handle?.setAttribute("aria-valuemin", String(limits.min));
+  handle?.setAttribute("aria-valuemax", String(Math.max(limits.min, dynamicMenuMax(side))));
+  handle?.setAttribute("aria-valuenow", String(state.menuWidths[side]));
+}
+
+function setMenuWidth(side, width, persist = true) {
+  if (!MENU_WIDTH_LIMITS[side]) return;
+  const clamped = clampMenuWidth(side, width);
+  state.menuWidths[side] = clamped;
+  setStyleProperty(els.appShell, `--${side}-menu-width`, `${clamped}px`);
+  updateResizeHandleA11y(side);
+  updateResizeHandleA11y(side === "left" ? "right" : "left");
+  map.invalidateSize?.({ pan: false });
+  if (persist) queueSavePreferences();
+}
+
+function applySavedMenuWidths() {
+  const prefs = state.savedPreferences;
+  setMenuWidth("left", savedMenuWidth(prefs, "left"), false);
+  setMenuWidth("right", savedMenuWidth(prefs, "right"), false);
+}
+
+function refreshMenuWidthsAfterViewportChange() {
+  setMenuWidth("left", state.menuWidths.left, false);
+  setMenuWidth("right", state.menuWidths.right, false);
+}
+
+function onMenuResizeMove(event) {
+  const resize = state.activeMenuResize;
+  if (!resize) return;
+  const delta = Number(event.clientX) - resize.startX;
+  const nextWidth = resize.side === "left"
+    ? resize.startWidth + delta
+    : resize.startWidth - delta;
+  setMenuWidth(resize.side, nextWidth, false);
+}
+
+function finishMenuResize() {
+  if (!state.activeMenuResize) return;
+  els.appShell?.classList.remove(`resizing-${state.activeMenuResize.side}`);
+  state.activeMenuResize = null;
+  document.removeEventListener?.("pointermove", onMenuResizeMove);
+  document.removeEventListener?.("pointerup", finishMenuResize);
+  document.removeEventListener?.("pointercancel", finishMenuResize);
+  savePreferencesNow();
+}
+
+function startMenuResize(side, event) {
+  if (isStackedLayout() || !Number.isFinite(Number(event.clientX))) return;
+  event.preventDefault?.();
+  closeInfoPopover();
+  state.activeMenuResize = {
+    side,
+    startX: Number(event.clientX),
+    startWidth: state.menuWidths[side],
+  };
+  els.appShell?.classList.add(`resizing-${side}`);
+  event.currentTarget?.setPointerCapture?.(event.pointerId);
+  document.addEventListener?.("pointermove", onMenuResizeMove);
+  document.addEventListener?.("pointerup", finishMenuResize);
+  document.addEventListener?.("pointercancel", finishMenuResize);
+}
+
+function resizeMenuWithKeyboard(side, event) {
+  const keySteps = {
+    ArrowLeft: -16,
+    ArrowRight: 16,
+    PageDown: -64,
+    PageUp: 64,
+  };
+  if (event.key === "Home") {
+    event.preventDefault?.();
+    setMenuWidth(side, MENU_WIDTH_LIMITS[side].min);
+    return;
+  }
+  if (event.key === "End") {
+    event.preventDefault?.();
+    setMenuWidth(side, dynamicMenuMax(side));
+    return;
+  }
+  if (!Object.prototype.hasOwnProperty.call(keySteps, event.key)) return;
+  event.preventDefault?.();
+  const direction = side === "left" ? 1 : -1;
+  setMenuWidth(side, state.menuWidths[side] + keySteps[event.key] * direction);
+}
+
+function setupResizableMenus() {
+  applySavedMenuWidths();
+  els.leftResizeHandle?.addEventListener("pointerdown", (event) => startMenuResize("left", event));
+  els.rightResizeHandle?.addEventListener("pointerdown", (event) => startMenuResize("right", event));
+  els.leftResizeHandle?.addEventListener("keydown", (event) => resizeMenuWithKeyboard("left", event));
+  els.rightResizeHandle?.addEventListener("keydown", (event) => resizeMenuWithKeyboard("right", event));
+  window.addEventListener("resize", refreshMenuWidthsAfterViewportChange);
+}
+
 function loadSavedPreferences() {
   try {
     const raw = window.localStorage?.getItem(STORAGE_KEY);
@@ -402,6 +566,7 @@ function currentPreferences() {
     version: 1,
     baseLayer: activeBaseLayer,
     mapView: { lat: center.lat, lng: center.lng, zoom: map.getZoom() },
+    menuWidths: { ...state.menuWidths },
     layers,
     layersPanelCollapsed: els.layersPanelBody.hidden,
     countriesPanelCollapsed: els.countriesPanelBody.hidden,
@@ -2480,6 +2645,7 @@ async function init() {
 }
 
 setupInfoButtons();
+setupResizableMenus();
 els.searchInput.addEventListener("input", () => {
   renderSearch();
   queueSavePreferences();

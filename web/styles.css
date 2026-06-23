@@ -11,6 +11,9 @@
   --blue: #5a8bff;
   --green: #4ea36f;
   --shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  --left-menu-width: 390px;
+  --right-menu-width: 420px;
+  --resize-handle-width: 8px;
 }
 
 * {
@@ -36,7 +39,13 @@ input {
 
 .app-shell {
   display: grid;
-  grid-template-columns: minmax(330px, 390px) minmax(0, 1fr) minmax(340px, 420px);
+  position: relative;
+  grid-template-columns:
+    minmax(280px, var(--left-menu-width))
+    var(--resize-handle-width)
+    minmax(0, 1fr)
+    var(--resize-handle-width)
+    minmax(300px, var(--right-menu-width));
   height: 100vh;
   overflow: hidden;
 }
@@ -49,7 +58,43 @@ input {
   padding: 14px;
   overflow: auto;
   background: var(--panel);
-  border-right: 1px solid var(--border);
+}
+
+.menu-resize-handle {
+  position: relative;
+  z-index: 650;
+  min-width: var(--resize-handle-width);
+  cursor: col-resize;
+  touch-action: none;
+  background:
+    linear-gradient(90deg, transparent 0 2px, var(--border) 2px 3px, transparent 3px 100%);
+}
+
+.menu-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 38px;
+  border-radius: 999px;
+  background: #5b5b5b;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity 140ms ease, background 140ms ease;
+}
+
+.menu-resize-handle:hover::after,
+.menu-resize-handle:focus-visible::after,
+.app-shell.resizing-left .left-resize-handle::after,
+.app-shell.resizing-right .right-resize-handle::after {
+  opacity: 1;
+  background: var(--accent-2);
+}
+
+.menu-resize-handle:focus-visible {
+  outline: 1px solid var(--accent-2);
+  outline-offset: -1px;
 }
 
 .app-header {
@@ -575,7 +620,6 @@ input {
   padding: 14px;
   overflow: auto;
   background: var(--panel);
-  border-left: 1px solid var(--border);
 }
 
 .estimator-panel {
@@ -1075,9 +1119,12 @@ input {
     grid-template-rows: minmax(330px, 42vh) auto auto;
   }
 
+  .menu-resize-handle {
+    display: none;
+  }
+
   .sidebar {
     order: 2;
-    border-right: 0;
     border-top: 1px solid var(--border);
   }
 
@@ -1087,14 +1134,25 @@ input {
 
   .estimator-sidebar {
     order: 3;
-    border-left: 0;
     border-top: 1px solid var(--border);
   }
 }
 
 @media (max-width: 1240px) and (min-width: 901px) {
   .app-shell {
-    grid-template-columns: minmax(320px, 370px) minmax(0, 1fr);
+    grid-template-columns:
+      minmax(280px, var(--left-menu-width))
+      var(--resize-handle-width)
+      minmax(0, 1fr);
+  }
+
+  .right-resize-handle {
+    position: absolute;
+    top: 14px;
+    right: calc(14px + var(--right-menu-width) - (var(--resize-handle-width) / 2));
+    bottom: 14px;
+    z-index: 710;
+    min-width: var(--resize-handle-width);
   }
 
   .estimator-sidebar {
@@ -1103,8 +1161,9 @@ input {
     right: 14px;
     bottom: 14px;
     z-index: 700;
-    width: min(390px, calc(100vw - 760px));
-    min-width: 340px;
+    width: var(--right-menu-width);
+    min-width: 300px;
+    max-width: calc(100vw - var(--left-menu-width) - 120px);
     border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: var(--shadow);
