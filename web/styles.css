@@ -40,12 +40,7 @@ input {
 .app-shell {
   display: grid;
   position: relative;
-  grid-template-columns:
-    minmax(280px, var(--left-menu-width))
-    var(--resize-handle-width)
-    minmax(0, 1fr)
-    var(--resize-handle-width)
-    minmax(300px, var(--right-menu-width));
+  grid-template-columns: var(--left-menu-width) minmax(0, 1fr) var(--right-menu-width);
   height: 100vh;
   overflow: hidden;
 }
@@ -61,13 +56,23 @@ input {
 }
 
 .menu-resize-handle {
-  position: relative;
+  position: absolute;
+  top: 0;
+  bottom: 0;
   z-index: 650;
-  min-width: var(--resize-handle-width);
+  width: var(--resize-handle-width);
   cursor: col-resize;
   touch-action: none;
   background:
     linear-gradient(90deg, transparent 0 2px, var(--border) 2px 3px, transparent 3px 100%);
+}
+
+.left-resize-handle {
+  left: calc(var(--left-menu-width) - (var(--resize-handle-width) / 2));
+}
+
+.right-resize-handle {
+  right: calc(var(--right-menu-width) - (var(--resize-handle-width) / 2));
 }
 
 .menu-resize-handle::after {
@@ -1140,19 +1145,14 @@ input {
 
 @media (max-width: 1240px) and (min-width: 901px) {
   .app-shell {
-    grid-template-columns:
-      minmax(280px, var(--left-menu-width))
-      var(--resize-handle-width)
-      minmax(0, 1fr);
+    grid-template-columns: var(--left-menu-width) minmax(0, 1fr);
   }
 
   .right-resize-handle {
-    position: absolute;
     top: 14px;
     right: calc(14px + var(--right-menu-width) - (var(--resize-handle-width) / 2));
     bottom: 14px;
     z-index: 710;
-    min-width: var(--resize-handle-width);
   }
 
   .estimator-sidebar {
