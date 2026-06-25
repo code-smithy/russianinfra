@@ -1163,6 +1163,88 @@ input {
   transition: opacity 160ms ease;
 }
 
+.milsymbol-marker {
+  display: grid;
+  place-items: center;
+  background: transparent;
+}
+
+.milsymbol-marker svg {
+  display: block;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.35));
+}
+
+.tactical-marker {
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 26px;
+  height: 26px;
+  color: #111111;
+  background: #f2f2f2;
+  border: 2px solid currentColor;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.42);
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  transition: opacity 160ms ease;
+}
+
+.tactical-marker span {
+  position: relative;
+  z-index: 1;
+}
+
+.tactical-hostile {
+  color: #d83a34;
+  background: rgba(255, 230, 226, 0.96);
+  transform: rotate(45deg);
+}
+
+.tactical-hostile span {
+  transform: rotate(-45deg);
+}
+
+.tactical-friendly {
+  color: #2367d1;
+  background: rgba(227, 239, 255, 0.96);
+}
+
+.tactical-neutral {
+  color: #2c8a4a;
+  background: rgba(230, 248, 235, 0.96);
+  border-radius: 50%;
+}
+
+.tactical-unknown {
+  color: #c7921f;
+  background: rgba(255, 247, 224, 0.96);
+  border-radius: 50%;
+}
+
+.tactical-attack {
+  color: #d83a34;
+  background: rgba(255, 230, 226, 0.96);
+  clip-path: polygon(50% 0, 100% 100%, 50% 75%, 0 100%);
+}
+
+.tactical-airport-hostile {
+  color: #d83a34;
+  background: rgba(255, 230, 226, 0.96);
+  border-radius: 4px;
+}
+
+.tactical-airport-hostile::before {
+  content: "";
+  position: absolute;
+  inset: 5px 11px;
+  border-radius: 999px;
+  background: currentColor;
+  transform: rotate(45deg);
+  opacity: 0.85;
+}
+
 .leaflet-interactive {
   transition: opacity 160ms ease;
 }

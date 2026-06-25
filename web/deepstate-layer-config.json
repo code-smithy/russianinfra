@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "type": "geojson",
+  "url": "https://deepstatemap.live/api/history/last",
+  "refreshMinutes": 15,
+  "sourceLabel": "DeepStateMap.Live",
+  "defaultCountry": "Ukraine",
+  "defaultAssetClass": "live_overlay",
+  "defaultSubcategory": "deepstate",
+  "defaultSubcategoryLabel": "DeepState",
+  "color": "#d83a34",
+  "attribution": "DeepStateMap.Live"
+}

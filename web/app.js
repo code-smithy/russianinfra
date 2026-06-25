@@ -1,5 +1,5 @@
 const DATA_DIR = "data/";
-const APP_VERSION = "0.2.0";
+const APP_VERSION = "0.3.0";
 const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
@@ -9,11 +9,82 @@ const MENU_WIDTH_LIMITS = {
   right: { defaultValue: 420, min: 300, max: 680 },
 };
 const LAYER_GROUPS = [
+  { id: "live", label: "Live Overlays (Beta)" },
   { id: "military", label: "Military" },
   { id: "oil_gas", label: "Oil/Gas" },
   { id: "transport", label: "Transport" },
   { id: "power", label: "Power" },
   { id: "other", label: "Other" },
+];
+const EXTERNAL_LAYER_DEFINITIONS = [
+  {
+    id: "deepstate_live",
+    label: "DeepState Map Overlay",
+    count: 0,
+    point_count: 0,
+    line_count: 0,
+    subcategories: [{ id: "deepstate", label: "DeepState", count: 0 }],
+    default_visible: false,
+    external: {
+      group: "live",
+      configUrl: "deepstate-layer-config.json",
+      sourceUrl: "https://deepstatemap.live/en",
+    },
+  },
+];
+const COUNTRY_BOUNDS = {
+  Armenia: [[43.4, 38.8, 46.8, 41.4]],
+  Azerbaijan: [[44.7, 38.3, 50.7, 42.1]],
+  Belarus: [[23.1, 51.1, 32.8, 56.3]],
+  China: [[73.4, 18.1, 135.1, 53.7]],
+  Estonia: [[21.6, 57.5, 28.3, 59.8]],
+  Finland: [[19.0, 59.7, 31.7, 70.2]],
+  Georgia: [[39.8, 41.0, 46.8, 43.8]],
+  Kazakhstan: [[46.4, 40.5, 87.4, 55.6]],
+  Kyrgyzstan: [[69.1, 39.0, 80.4, 43.4]],
+  Latvia: [[20.7, 55.5, 28.3, 58.1]],
+  Lithuania: [[20.9, 53.8, 26.9, 56.5]],
+  Moldova: [[26.5, 45.2, 30.2, 48.7]],
+  Mongolia: [[87.7, 41.5, 119.9, 52.3]],
+  Norway: [[4.0, 57.8, 31.3, 71.4]],
+  Poland: [[14.0, 49.0, 24.2, 54.9]],
+  Russia: [
+    [19.4, 54.2, 22.9, 55.4],
+    [27.2, 41.0, 180.0, 82.1],
+    [-180.0, 41.0, -168.0, 72.0],
+  ],
+  Syria: [[35.5, 32.0, 42.4, 37.4]],
+  Ukraine: [[22.0, 44.0, 40.4, 52.5]],
+};
+const COUNTRY_INFERENCE_PRIORITY = [
+  "Ukraine",
+  "Belarus",
+  "Moldova",
+  "Georgia",
+  "Armenia",
+  "Azerbaijan",
+  "Kazakhstan",
+  "Kyrgyzstan",
+  "Mongolia",
+  "China",
+  "Poland",
+  "Lithuania",
+  "Latvia",
+  "Estonia",
+  "Finland",
+  "Norway",
+  "Syria",
+  "Russia",
+];
+const EXTERNAL_SUBCATEGORY_ORDER = [
+  "attack_arrows",
+  "enemy_units",
+  "airports_airfields",
+  "naval",
+  "reference_points",
+  "areas",
+  "lines",
+  "other_live",
 ];
 const DEFAULT_ESTIMATOR_ASSUMPTIONS = {
   rangeBands: [
@@ -47,10 +118,11 @@ const INFO_TOPICS = {
   app: {
     title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
     paragraphs: [
-      "Version 0.2.0 packages the recent interface work into a minor release after reviewing the current app code and 30 repository commits.",
-      "Highlights include radius appearance fixes, resizable menus, selection counters, saved scenario profiles, improved clustering, colored range bands, and detailed estimator assumptions.",
+      "Version 0.3.0 adds a beta live overlay workflow with DeepStateMap integration, dynamic live categories, coordinate-aware country filtering, and APP-6 / MIL-STD-2525 style point symbols.",
+      "Highlights include live feed refresh, attack-arrow grouping, enemy unit and hostile airfield symbols, and configurable external GeoJSON or tile sources.",
     ],
     history: [
+      { version: "0.3.0", date: "2026-06-25", notes: ["Added Live Overlays (Beta) with DeepStateMap live GeoJSON support.", "Discovers live subcategories from feed icons and tokens, including attack arrows, enemy units, airports and airfields, naval, reference points, areas, and lines.", "Applies coordinate-derived country filters to live features.", "Uses APP-6 / MIL-STD-2525 style hostile symbols through milsymbol with local fallback markers."] },
       { version: "0.2.0", date: "2026-06-25", notes: ["Added visible versioning and version history.", "Includes recent radius, menu resizing, scenario profile, clustering, range matrix, and onboarding improvements."] },
       { version: "0.1.0", date: "Initial app baseline", notes: ["Baseline infrastructure map explorer with layers, country filters, search, radius results, and scenario estimator."] },
     ],
@@ -138,6 +210,7 @@ const state = {
   layerCollapseControls: new Map(),
   countryFilters: new Set(),
   countryControls: new Map(),
+  externalFeatureCache: new Map(),
   savedPreferences: loadSavedPreferences(),
   persistenceReady: false,
   saveTimer: null,
@@ -1157,6 +1230,42 @@ function iterGeometryPositions(geometry) {
   return positions;
 }
 
+function countryForPosition(position) {
+  const lat = Number(position?.lat);
+  const lng = Number(position?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const manifestCountries = new Set((state.manifest?.countries || []).map((country) => country.id));
+  const orderedCountries = [
+    ...COUNTRY_INFERENCE_PRIORITY.filter((country) => manifestCountries.has(country)),
+    ...[...manifestCountries].filter((country) => !COUNTRY_INFERENCE_PRIORITY.includes(country)),
+  ];
+  for (const country of orderedCountries) {
+    const boundsList = COUNTRY_BOUNDS[country];
+    if (!boundsList) continue;
+    if (boundsList.some(([minLng, minLat, maxLng, maxLat]) => (
+      lng >= minLng && lng <= maxLng && lat >= minLat && lat <= maxLat
+    ))) {
+      return country;
+    }
+  }
+  return null;
+}
+
+function inferredFeatureCountries(feature, fallbackCountry) {
+  const countries = new Set();
+  const point = featurePoint(feature);
+  if (point) {
+    const country = countryForPosition(point);
+    if (country) countries.add(country);
+  }
+  for (const position of iterGeometryPositions(feature.geometry)) {
+    const country = countryForPosition(position);
+    if (country) countries.add(country);
+  }
+  if (!countries.size && fallbackCountry) countries.add(fallbackCountry);
+  return [...countries];
+}
+
 function featureDistanceToPointKm(feature, point) {
   const candidates = [];
   const p = featurePoint(feature);
@@ -1168,6 +1277,17 @@ function featureDistanceToPointKm(feature, point) {
     best = Math.min(best, metersKm(point, candidate));
   }
   return best;
+}
+
+function isExternalLayerInfo(layerInfo) {
+  return !!layerInfo?.external;
+}
+
+function mergeExternalLayerDefinitions(manifest) {
+  const existingIds = new Set((manifest.layers || []).map((layerInfo) => layerInfo.id));
+  const externalLayers = EXTERNAL_LAYER_DEFINITIONS.filter((layerInfo) => !existingIds.has(layerInfo.id));
+  manifest.layers = [...(manifest.layers || []), ...externalLayers];
+  return manifest;
 }
 
 function featurePoint(feature, fallbackLatLng) {
@@ -1183,7 +1303,98 @@ function layerColor(properties) {
   return colorForLayer(properties.map_layer || properties.source_layer, properties.map_color);
 }
 
+function normalizedIconKey(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function geoJsonSemanticToken(properties) {
+  const haystack = [
+    properties.geojson_token,
+    properties.semantic_token,
+    properties.name,
+    properties.description,
+  ].filter(Boolean).join(" ");
+  const match = haystack.match(/geoJSON\.[\w.-]+/i);
+  return match ? match[0].toLowerCase() : "";
+}
+
+function tacticalMarkerSpec(properties) {
+  const iconKey = normalizedIconKey(properties.icon_key || properties.icon || properties["marker-symbol"]);
+  const token = geoJsonSemanticToken(properties);
+  if (
+    iconKey === "airport" ||
+    iconKey === "airfield" ||
+    iconKey === "aerodrome" ||
+    token.includes("geojson.airfield.") ||
+    token.includes("geojson.airport.") ||
+    iconKey.endsWith("icon-6.png")
+  ) {
+    return { affiliation: "airport-hostile", label: "AIR", sidc: "SHGPUCF----K" };
+  }
+  if (iconKey === "enemy" || iconKey === "hostile" || token.includes("geojson.units.") || iconKey.endsWith("icon-3.png")) {
+    return { affiliation: "hostile", label: token.includes(".army.") || iconKey.endsWith("icon-4.png") ? "HQ" : "EN", sidc: "SHGPU-----K" };
+  }
+  if (iconKey === "friendly" || iconKey === "friend") {
+    return { affiliation: "friendly", label: "FR" };
+  }
+  if (iconKey === "neutral") {
+    return { affiliation: "neutral", label: "N" };
+  }
+  if (iconKey === "unknown" || token.includes("unknown")) {
+    return { affiliation: "unknown", label: "?" };
+  }
+  if (iconKey === "attack" || token.includes("attack_direction")) {
+    return { affiliation: "attack", label: "ATK" };
+  }
+  if (token.includes("moskow_cruiser") || token.includes("mosk")) {
+    return { affiliation: "hostile", label: "NAV" };
+  }
+  return null;
+}
+
+function milsymbolLibrary() {
+  if (typeof window !== "undefined" && window.ms?.Symbol) return window.ms;
+  if (typeof globalThis !== "undefined" && globalThis.ms?.Symbol) return globalThis.ms;
+  return null;
+}
+
+function milsymbolIcon(spec) {
+  const msLibrary = milsymbolLibrary();
+  if (!msLibrary || !spec?.sidc) return null;
+  try {
+    const symbol = new msLibrary.Symbol(spec.sidc, {
+      size: spec.affiliation === "airport-hostile" ? 30 : 32,
+      fill: true,
+      frame: true,
+      icon: true,
+      uniqueDesignation: spec.label,
+    });
+    const size = symbol.getSize?.() || { width: 40, height: 40 };
+    const anchor = symbol.getAnchor?.() || { x: size.width / 2, y: size.height / 2 };
+    return L.divIcon({
+      className: "milsymbol-marker",
+      html: symbol.asSVG(),
+      iconSize: [size.width, size.height],
+      iconAnchor: [anchor.x, anchor.y],
+    });
+  } catch (error) {
+    console.warn("Could not render milsymbol marker.", error);
+    return null;
+  }
+}
+
 function markerIcon(properties) {
+  const tacticalSpec = tacticalMarkerSpec(properties);
+  if (tacticalSpec) {
+    const standardIcon = milsymbolIcon(tacticalSpec);
+    if (standardIcon) return standardIcon;
+    return L.divIcon({
+      className: "",
+      html: `<span class="tactical-marker tactical-${escapeHtml(tacticalSpec.affiliation)}"><span>${escapeHtml(tacticalSpec.label)}</span></span>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+    });
+  }
   const color = layerColor(properties);
   return L.divIcon({
     className: "",
@@ -1195,10 +1406,14 @@ function markerIcon(properties) {
 
 function styleFeature(feature) {
   const p = feature.properties || {};
+  const isPolygon = feature.geometry?.type === "Polygon" || feature.geometry?.type === "MultiPolygon";
+  const fillOpacity = Number(p.map_fill_opacity ?? p["fill-opacity"]);
   return {
-    color: layerColor(p),
+    color: p.stroke || layerColor(p),
     weight: p.asset_type === "railway" ? 1.5 : 2.4,
-    opacity: p.asset_type === "railway" ? 0.55 : 0.8,
+    opacity: Number.isFinite(Number(p["stroke-opacity"])) ? Number(p["stroke-opacity"]) : (p.asset_type === "railway" ? 0.55 : 0.8),
+    fillColor: p.map_fill_color || p.fill || layerColor(p),
+    fillOpacity: isPolygon ? (Number.isFinite(fillOpacity) ? fillOpacity : 0.28) : undefined,
   };
 }
 
@@ -1333,6 +1548,280 @@ function createFilteredLayer(record) {
   });
 }
 
+function forgetLayerFeatures(layerId) {
+  for (const [featureId, stored] of state.features.entries()) {
+    if (stored.feature?.properties?.map_layer === layerId) {
+      state.features.delete(featureId);
+    }
+  }
+}
+
+function externalLayerConfigUrl(layerInfo) {
+  return layerInfo.external?.configUrl || `${layerInfo.id}.json`;
+}
+
+function externalLayerSourceUrl(layerInfo) {
+  return layerInfo.external?.sourceUrl || "";
+}
+
+function externalLayerError(layerInfo, message) {
+  const source = externalLayerSourceUrl(layerInfo);
+  const suffix = source ? ` Source: ${source}` : "";
+  return new Error(`${message}${suffix}`);
+}
+
+async function fetchExternalLayerConfig(layerInfo) {
+  const configUrl = externalLayerConfigUrl(layerInfo);
+  const response = await fetch(configUrl, { cache: "no-store" });
+  if (!response.ok) {
+    throw externalLayerError(
+      layerInfo,
+      `Configure ${layerInfo.label} in ${configUrl} before enabling this live layer.`
+    );
+  }
+  const config = await response.json();
+  if (!config || typeof config !== "object") {
+    throw externalLayerError(layerInfo, `${configUrl} must contain a JSON object.`);
+  }
+  if (config.enabled === false) {
+    throw externalLayerError(layerInfo, `${layerInfo.label} is present but disabled in ${configUrl}.`);
+  }
+  return config;
+}
+
+function externalLayerFormat(config) {
+  return String(config.type || config.format || (config.urlTemplate ? "tile" : "geojson")).toLowerCase();
+}
+
+function externalLayerRefreshSeconds(config) {
+  const seconds = Number(config.refreshSeconds ?? config.refresh_interval_seconds);
+  const minutes = Number(config.refreshMinutes ?? config.refresh_interval_minutes);
+  const value = Number.isFinite(seconds) ? seconds : minutes * 60;
+  return Number.isFinite(value) && value >= 30 ? value : 0;
+}
+
+function externalTileLayer(layerInfo, config) {
+  const urlTemplate = config.urlTemplate || config.url;
+  if (!urlTemplate) {
+    throw externalLayerError(layerInfo, `${externalLayerConfigUrl(layerInfo)} needs a urlTemplate for tile mode.`);
+  }
+  return L.tileLayer(urlTemplate, {
+    attribution: config.attribution || `<a href="${externalLayerSourceUrl(layerInfo)}" target="_blank" rel="noopener">${layerInfo.label}</a>`,
+    opacity: Number.isFinite(Number(config.opacity)) ? Number(config.opacity) : 0.72,
+    maxZoom: Number.isFinite(Number(config.maxZoom)) ? Number(config.maxZoom) : 18,
+    minZoom: Number.isFinite(Number(config.minZoom)) ? Number(config.minZoom) : 0,
+    subdomains: config.subdomains || undefined,
+    tms: config.tms === true,
+  });
+}
+
+function externalFeatureCategory(layerInfo, config, feature) {
+  const properties = feature.properties || {};
+  const iconKey = normalizedIconKey(properties.icon_key || properties.icon || properties["marker-symbol"]);
+  const token = geoJsonSemanticToken(properties);
+  const geometryType = feature.geometry?.type || "";
+
+  if (token.includes("geojson.status.attack_direction") || iconKey === "attack") {
+    return { id: "attack_arrows", label: "Attack arrows" };
+  }
+  if (
+    iconKey === "airport" ||
+    iconKey === "airfield" ||
+    iconKey === "aerodrome" ||
+    token.includes("geojson.airfield.") ||
+    token.includes("geojson.airport.") ||
+    iconKey.endsWith("icon-6.png")
+  ) {
+    return { id: "airports_airfields", label: "Airports & airfields" };
+  }
+  if (iconKey === "enemy" || iconKey === "hostile" || token.includes("geojson.units.") || iconKey.endsWith("icon-3.png") || iconKey.endsWith("icon-4.png")) {
+    return { id: "enemy_units", label: "Enemy units" };
+  }
+  if (token.includes("geojson.moskow_cruiser") || token.includes("geojson.moskva") || iconKey.endsWith("icon-1.png")) {
+    return { id: "naval", label: "Naval" };
+  }
+  if (token.includes("geojson.territories.") || geometryType === "Point") {
+    return { id: "reference_points", label: "Reference points" };
+  }
+  if (geometryType.includes("Polygon")) {
+    return { id: "areas", label: "Areas" };
+  }
+  if (geometryType.includes("LineString")) {
+    return { id: "lines", label: "Lines" };
+  }
+  return {
+    id: config.defaultSubcategory || layerInfo.subcategories?.[0]?.id || "other_live",
+    label: config.defaultSubcategoryLabel || layerInfo.subcategories?.[0]?.label || "Other live objects",
+  };
+}
+
+function externalFeatureProperties(layerInfo, config, feature, index) {
+  const properties = feature.properties || {};
+  const semanticToken = geoJsonSemanticToken(properties);
+  const label = properties.display_label || properties.name || properties.title || properties.label || `${layerInfo.label} ${index + 1}`;
+  const category = externalFeatureCategory(layerInfo, config, feature);
+  const subcategory = properties.derived_subcategory || category.id;
+  const subcategoryLabel = properties.derived_subcategory_label || properties.asset_type_label || category.label;
+  const sourceLabel = config.sourceLabel || layerInfo.label;
+  const color = properties.stroke || properties.fill || properties.map_color || config.color || colorForLayer(layerInfo.id);
+  const countries = Array.isArray(properties.countries) && properties.countries.length
+    ? properties.countries.map((country) => String(country).trim()).filter(Boolean)
+    : inferredFeatureCountries(feature, properties.country || config.defaultCountry || "Ukraine");
+  const normalized = {
+    ...properties,
+    display_label: label,
+    name: properties.name || label,
+    asset_class: properties.asset_class || config.defaultAssetClass || "live_overlay",
+    asset_type: properties.asset_type || subcategory,
+    country: properties.country || countries[0] || config.defaultCountry || "Ukraine",
+    countries,
+    derived_subcategory: subcategory,
+    derived_subcategory_label: subcategoryLabel,
+    map_color: color,
+    map_fill_color: properties.map_fill_color || properties.fill || color,
+    map_fill_opacity: properties.map_fill_opacity ?? properties["fill-opacity"] ?? config.fillOpacity,
+    map_layer: layerInfo.id,
+    icon_key: properties.icon_key || properties.icon || properties["marker-symbol"] || semanticToken,
+    semantic_token: semanticToken,
+    source_dataset: properties.source_dataset || sourceLabel,
+    source_layer: properties.source_layer || layerInfo.label,
+    source_url: properties.source_url || externalLayerSourceUrl(layerInfo),
+  };
+  normalized.search_text = properties.search_text || Object.values(normalized).filter(Boolean).join(" ");
+  return normalized;
+}
+
+function updateExternalLayerMetadata(layerInfo, features) {
+  const subcategoryMap = new Map();
+  let pointCount = 0;
+  let lineCount = 0;
+  for (const feature of features) {
+    const geometryType = feature.geometry?.type || "";
+    if (geometryType === "Point" || geometryType === "MultiPoint") pointCount += 1;
+    if (geometryType.includes("LineString")) lineCount += 1;
+    const id = featureSubcategory(feature);
+    const label = feature.properties?.derived_subcategory_label || id;
+    const entry = subcategoryMap.get(id) || { id, label, count: 0 };
+    entry.count += 1;
+    subcategoryMap.set(id, entry);
+  }
+  layerInfo.count = features.length;
+  layerInfo.point_count = pointCount;
+  layerInfo.line_count = lineCount;
+  layerInfo.subcategories = [...subcategoryMap.values()].sort((a, b) => {
+    const orderDelta = EXTERNAL_SUBCATEGORY_ORDER.indexOf(a.id) - EXTERNAL_SUBCATEGORY_ORDER.indexOf(b.id);
+    if (orderDelta && EXTERNAL_SUBCATEGORY_ORDER.includes(a.id) && EXTERNAL_SUBCATEGORY_ORDER.includes(b.id)) return orderDelta;
+    if (EXTERNAL_SUBCATEGORY_ORDER.includes(a.id) && !EXTERNAL_SUBCATEGORY_ORDER.includes(b.id)) return -1;
+    if (!EXTERNAL_SUBCATEGORY_ORDER.includes(a.id) && EXTERNAL_SUBCATEGORY_ORDER.includes(b.id)) return 1;
+    if (b.count !== a.count) return b.count - a.count;
+    return a.label.localeCompare(b.label);
+  });
+}
+
+async function fetchExternalGeoJsonFeatures(layerInfo, config) {
+  const url = config.geojsonUrl || config.url;
+  if (!url) {
+    throw externalLayerError(layerInfo, `${externalLayerConfigUrl(layerInfo)} needs a url for GeoJSON mode.`);
+  }
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw externalLayerError(layerInfo, `Failed to load ${layerInfo.label} from configured GeoJSON URL.`);
+  const data = await response.json();
+  const collection = Array.isArray(data?.features) ? data : data?.map;
+  const features = Array.isArray(collection?.features) ? collection.features : [];
+  return features.map((feature, index) => ({
+    ...feature,
+    id: feature.id || `${layerInfo.id}_${index}`,
+    properties: externalFeatureProperties(layerInfo, config, feature, index),
+  }));
+}
+
+async function prepareExternalLayer(layerInfo) {
+  if (!isExternalLayerInfo(layerInfo)) return;
+  try {
+    const config = await fetchExternalLayerConfig(layerInfo);
+    const format = externalLayerFormat(config);
+    if (!["geojson", "json"].includes(format)) return;
+    const features = await fetchExternalGeoJsonFeatures(layerInfo, config);
+    updateExternalLayerMetadata(layerInfo, features);
+    state.externalFeatureCache.set(layerInfo.id, { config, features });
+  } catch (error) {
+    console.warn(error);
+  }
+}
+
+async function prepareExternalLayers(manifest) {
+  await Promise.all((manifest.layers || []).filter(isExternalLayerInfo).map(prepareExternalLayer));
+}
+
+function stopExternalRefresh(record) {
+  if (record?.refreshTimer && typeof window.clearInterval === "function") {
+    window.clearInterval(record.refreshTimer);
+    record.refreshTimer = null;
+  }
+}
+
+async function refreshExternalGeoJsonLayer(record) {
+  if (!record?.visible || record.externalType !== "geojson") return;
+  showLoading(`Refreshing ${record.label}...`);
+  const features = await fetchExternalGeoJsonFeatures(record, record.externalConfig || {});
+  if (record.layer && map.hasLayer(record.layer)) {
+    map.removeLayer(record.layer);
+  }
+  forgetLayerFeatures(record.id);
+  record.features = features;
+  record.count = features.length;
+  updateExternalLayerMetadata(record, features);
+  record.layer = createFilteredLayer(record);
+  if (record.visible) record.layer.addTo(map);
+  hideLoading();
+  renderLoadedCount();
+  renderSearch();
+  syncOverlaysWithVisibleLayers();
+}
+
+function startExternalRefresh(record) {
+  stopExternalRefresh(record);
+  if (record?.externalType !== "geojson" || typeof window.setInterval !== "function") return;
+  const seconds = externalLayerRefreshSeconds(record.externalConfig || {});
+  if (!seconds) return;
+  record.refreshTimer = window.setInterval(() => {
+    refreshExternalGeoJsonLayer(record).catch((error) => {
+      hideLoading();
+      console.warn(error);
+    });
+  }, seconds * 1000);
+}
+
+async function loadExternalLayer(layerInfo, checkbox, row) {
+  const cached = state.externalFeatureCache.get(layerInfo.id);
+  const config = cached?.config || await fetchExternalLayerConfig(layerInfo);
+  const format = externalLayerFormat(config);
+  if (!["geojson", "json", "tile", "xyz"].includes(format)) {
+    throw externalLayerError(layerInfo, `Unsupported external layer type "${format}". Use geojson or tile.`);
+  }
+
+  showLoading(`Loading ${layerInfo.label}...`);
+  let record = { ...layerInfo, features: [], loaded: true, visible: true, externalConfig: config };
+  if (format === "tile" || format === "xyz") {
+    record.externalType = "tile";
+    record.layer = externalTileLayer(layerInfo, config);
+  } else {
+    record.externalType = "geojson";
+    record.features = cached?.features || await fetchExternalGeoJsonFeatures(layerInfo, config);
+    record.count = record.features.length;
+    updateExternalLayerMetadata(record, record.features);
+    record.layer = createFilteredLayer(record);
+  }
+  record.layer.addTo(map);
+  state.layers.set(layerInfo.id, record);
+  row.classList.remove("loading");
+  hideLoading();
+  startExternalRefresh(record);
+  renderLoadedCount();
+  renderSearch();
+  syncOverlaysWithVisibleLayers();
+}
+
 function setStoredFeatureRadiusDimmed(stored, dimmed) {
   if (!stored?.layer || stored.radiusDimmed === dimmed) return;
   stored.radiusDimmed = dimmed;
@@ -1367,10 +1856,12 @@ function applyRadiusDimming(activeFeatures, radiusResults) {
 function refreshLayerFilters(layerInfo) {
   const record = state.layers.get(layerInfo.id);
   if (record?.loaded) {
+    if (record.externalType === "tile") return;
     const wasVisible = record.visible;
     if (record.layer && map.hasLayer(record.layer)) {
       map.removeLayer(record.layer);
     }
+    forgetLayerFeatures(record.id);
     record.layer = createFilteredLayer(record);
     if (wasVisible) {
       record.layer.addTo(map);
@@ -1384,10 +1875,12 @@ function refreshLayerFilters(layerInfo) {
 function refreshAllLayerFilters() {
   for (const record of state.layers.values()) {
     if (!record?.loaded) continue;
+    if (record.externalType === "tile") continue;
     const wasVisible = record.visible;
     if (record.layer && map.hasLayer(record.layer)) {
       map.removeLayer(record.layer);
     }
+    forgetLayerFeatures(record.id);
     record.layer = createFilteredLayer(record);
     if (wasVisible) {
       record.layer.addTo(map);
@@ -1403,6 +1896,7 @@ async function loadLayer(layerInfo, checkbox, row) {
   if (record?.loaded) {
     map.addLayer(record.layer);
     record.visible = true;
+    startExternalRefresh(record);
     renderLoadedCount();
     renderSearch();
     syncOverlaysWithVisibleLayers();
@@ -1410,6 +1904,10 @@ async function loadLayer(layerInfo, checkbox, row) {
   }
 
   row.classList.add("loading");
+  if (isExternalLayerInfo(layerInfo)) {
+    await loadExternalLayer(layerInfo, checkbox, row);
+    return;
+  }
   const files = Array.isArray(layerInfo.files) && layerInfo.files.length ? layerInfo.files : [layerInfo.file];
   const features = [];
   for (let index = 0; index < files.length; index += 1) {
@@ -1437,12 +1935,14 @@ function unloadLayer(layerInfo) {
   if (!record?.loaded) return;
   map.removeLayer(record.layer);
   record.visible = false;
+  stopExternalRefresh(record);
   renderLoadedCount();
   renderSearch();
   syncOverlaysWithVisibleLayers();
 }
 
 function layerGroupId(layerInfo) {
+  if (layerInfo.external?.group) return layerInfo.external.group;
   if (layerInfo.id.startsWith("military")) return "military";
   if (layerInfo.id.startsWith("energy")) return "oil_gas";
   if (layerInfo.id.startsWith("transport")) return "transport";
@@ -1556,8 +2056,10 @@ async function renderLayers() {
 
     for (const layerInfo of group.layers) {
     const subcategories = Array.isArray(layerInfo.subcategories) ? layerInfo.subcategories : [];
+    const initiallyVisible = savedLayerVisible(layerInfo);
+    const hasSubcategories = subcategories.length > 1;
     if (subcategories.length) {
-      state.subcategoryFilters.set(layerInfo.id, savedSubcategorySet(layerInfo));
+      state.subcategoryFilters.set(layerInfo.id, initiallyVisible || !hasSubcategories ? savedSubcategorySet(layerInfo) : new Set());
     }
 
     const row = document.createElement("div");
@@ -1566,7 +2068,6 @@ async function renderLayers() {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     state.layerControls.set(layerInfo.id, checkbox);
-    const hasSubcategories = subcategories.length > 1;
     row.classList.toggle("leaf-layer-row", !hasSubcategories);
     const subcategoryControls = [];
     state.layerSubcategoryControls.set(layerInfo.id, subcategoryControls);
@@ -1588,7 +2089,10 @@ async function renderLayers() {
     swatch.style.background = colorForLayer(layerInfo.id);
     const name = document.createElement("span");
     name.className = "layer-name";
-    name.innerHTML = `<strong>${escapeHtml(layerInfo.label)}</strong><span>${layerInfo.count.toLocaleString()} records</span>`;
+    const layerMeta = isExternalLayerInfo(layerInfo)
+      ? "configured live source"
+      : `${layerInfo.count.toLocaleString()} records`;
+    name.innerHTML = `<strong>${escapeHtml(layerInfo.label)}</strong><span>${escapeHtml(layerMeta)}</span>`;
     row.append(toggleButton, checkbox, name, swatch);
     els.layersList.appendChild(row);
 
@@ -1604,7 +2108,7 @@ async function renderLayers() {
         subRow.className = "subcategory-row";
         const subCheckbox = document.createElement("input");
         subCheckbox.type = "checkbox";
-        subCheckbox.checked = state.subcategoryFilters.get(layerInfo.id)?.has(subcategory.id) ?? true;
+        subCheckbox.checked = state.subcategoryFilters.get(layerInfo.id)?.has(subcategory.id) ?? initiallyVisible;
         subCheckbox.dataset.subcategoryId = subcategory.id;
         subcategoryControls.push(subCheckbox);
         const subName = document.createElement("span");
@@ -1743,6 +2247,7 @@ function colorForLayer(layerId, fallbackColor = null) {
     power_lines: "#ffac12",
     transport_rail: "#0f8f9a",
     transport_other: "#19b7a5",
+    deepstate_live: "#d83a34",
     other_infrastructure: "#7a8899",
   };
   return colors[layerId] || fallbackColor || "#999999";
@@ -2706,7 +3211,8 @@ function exportEstimatorCsv() {
 async function init() {
   if (els.appVersion) els.appVersion.textContent = APP_VERSION_LABEL;
   const manifestResponse = await fetch(DATA_DIR + "manifest.json");
-  state.manifest = await manifestResponse.json();
+  state.manifest = mergeExternalLayerDefinitions(await manifestResponse.json());
+  await prepareExternalLayers(state.manifest);
   els.datasetSummary.textContent = `${state.manifest.total_features.toLocaleString()} normalized records across ${state.manifest.layers.length} layers`;
   applySavedInterfaceState();
   renderCountries();

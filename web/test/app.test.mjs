@@ -29,6 +29,7 @@ globalThis.__api = {
   groupedLayerInfos,
   handleSubcategoryChange,
   importEstimatorAssumptionsFromText,
+  markerIcon,
   metersKm,
   map,
   onRadiusMouseDown,
@@ -79,6 +80,75 @@ const manifest = {
 
 const fixtures = {
   "data/manifest.json": manifest,
+  "deepstate-layer-config.json": {
+    enabled: true,
+    type: "geojson",
+    url: "https://example.test/deepstate.json",
+    refreshMinutes: 15,
+    sourceLabel: "DeepStateMap.Live",
+    defaultCountry: "Ukraine",
+    defaultSubcategory: "deepstate",
+    defaultSubcategoryLabel: "DeepState",
+  },
+  "https://example.test/deepstate.json": {
+    id: 123,
+    map: {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: {
+            type: "Polygon",
+            coordinates: [[
+              [37.75, 48.48, 0],
+              [37.9, 48.48, 0],
+              [37.9, 48.62, 0],
+              [37.75, 48.62, 0],
+              [37.75, 48.48, 0],
+            ]],
+          },
+          properties: {
+            name: "Occupied area",
+            stroke: "#d83a34",
+            fill: "#d83a34",
+            "fill-opacity": 0.3,
+          },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [37.82, 48.52, 0] },
+          properties: {
+            name: "Enemy unit /// geoJSON.units.brigade.test",
+            icon: "enemy",
+          },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [37.83, 48.53, 0] },
+          properties: {
+            name: "Airport /// geoJSON.airfield.test",
+            icon: "images/icon-6.png",
+          },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [37.84, 48.54, 0] },
+          properties: {
+            name: "Direction of attack /// geoJSON.status.attack_direction",
+            icon: "images/icon-2.png",
+          },
+        },
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [37.85, 48.55, 0] },
+          properties: {
+            name: "Another direction /// geoJSON.status.attack_direction",
+            icon: "images/icon-2.png",
+          },
+        },
+      ],
+    },
+  },
   "data/energy_facilities.geojson": {
     type: "FeatureCollection",
     features: [
@@ -146,14 +216,14 @@ test("syncs category checkboxes with subcategories and saves collapsed state", a
   const subcategories = api.state.layerSubcategoryControls.get("energy_facilities");
   const collapseButton = api.state.layerCollapseControls.get("energy_facilities");
   assert.equal(collapseButton.innerHTML, `<span aria-hidden="true"></span>`);
-  assert.equal(api.els.layersCount.textContent, "1 of 2 selected");
+  assert.equal(api.els.layersCount.textContent, "1 of 3 selected");
 
   subcategories[1].checked = false;
   await api.handleSubcategoryChange(manifest.layers[0], new FakeElement("row"));
 
   assert.equal(parent.checked, false);
   assert.equal(parent.indeterminate, true);
-  assert.equal(api.els.layersCount.textContent, "1 of 2 selected");
+  assert.equal(api.els.layersCount.textContent, "1 of 3 selected");
   assert.deepEqual([...api.state.subcategoryFilters.get("energy_facilities")], ["energy_oil_facility"]);
   assert.equal(api.currentPreferences().layers.energy_facilities, true);
 
@@ -162,7 +232,7 @@ test("syncs category checkboxes with subcategories and saves collapsed state", a
 
   assert.equal(parent.checked, true);
   assert.equal(parent.indeterminate, false);
-  assert.equal(api.els.layersCount.textContent, "1 of 2 selected");
+  assert.equal(api.els.layersCount.textContent, "1 of 3 selected");
   assert.equal(subcategories[0].checked, true);
   assert.equal(subcategories[1].checked, true);
 
@@ -317,6 +387,29 @@ test("groups layers by domain and puts line layers last inside each group", asyn
   assert.deepEqual(grouped[3].layers, ["power_facilities", "power_lines"]);
 });
 
+test("puts beta live overlays first and discovers DeepState icon subcategories", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  const groups = api.groupedLayerInfos();
+  const deepstate = api.state.manifest.layers.find((layer) => layer.id === "deepstate_live");
+
+  assert.equal(groups[0].id, "live");
+  assert.equal(groups[0].label, "Live Overlays (Beta)");
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(deepstate.subcategories.map((subcategory) => [subcategory.id, subcategory.count]))),
+    [
+      ["attack_arrows", 2],
+      ["enemy_units", 1],
+      ["airports_airfields", 1],
+      ["areas", 1],
+    ]
+  );
+  assert.equal(api.state.layerControls.get("deepstate_live").checked, false);
+  assert.equal(api.state.layerSubcategoryControls.get("deepstate_live").every((control) => !control.checked), true);
+});
+
 test("harmonizes layer colors by category family", async () => {
   const app = createAppContext();
   await app.__initPromise;
@@ -325,6 +418,34 @@ test("harmonizes layer colors by category family", async () => {
   assert.equal(app.__api.colorForLayer("military_boundaries"), "#9ac4ff");
   assert.equal(app.__api.colorForLayer("power_facilities"), "#ffd34d");
   assert.equal(app.__api.colorForLayer("power_lines"), "#ffac12");
+});
+
+test("loads DeepState-style live GeoJSON and applies country filters from feature coordinates", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  const control = api.state.layerControls.get("deepstate_live");
+  control.checked = true;
+  await control.listeners.change[0]();
+
+  const stored = api.state.features.get("deepstate_live_0");
+  const enemy = api.state.features.get("deepstate_live_1");
+  const airport = api.state.features.get("deepstate_live_2");
+  assert.ok(stored);
+  assert.ok(enemy);
+  assert.ok(airport);
+  assert.deepEqual(JSON.parse(JSON.stringify(stored.feature.properties.countries)), ["Ukraine"]);
+  assert.equal(api.featurePassesActiveFilters(stored.feature), true);
+  assert.equal(enemy.feature.properties.icon_key, "enemy");
+  assert.match(enemy.layer.options.icon.html, /tactical-hostile/);
+  assert.match(airport.layer.options.icon.html, /tactical-airport-hostile/);
+
+  api.state.countryControls.get("Ukraine").checked = false;
+  api.state.countryControls.get("Ukraine").listeners.change[0]();
+
+  assert.equal(api.state.layers.get("deepstate_live").features.length, 5);
+  assert.equal(api.featurePassesActiveFilters(stored.feature), false);
 });
 
 test("distance helpers handle points and geometry vertices", async () => {
