@@ -26,7 +26,11 @@
       <aside class="sidebar" aria-label="Map controls">
         <header class="app-header">
           <div>
-            <h1>Infrastructure Explorer</h1>
+            <div class="app-title-row">
+              <h1>Infrastructure Explorer</h1>
+              <span id="appVersion" class="app-version" aria-label="Application version">v0.2.0</span>
+              <button id="appInfoBtn" class="info-btn" type="button" data-info-topic="app" aria-label="Version history" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+            </div>
             <p id="datasetSummary">Loading manifest...</p>
           </div>
           <button id="fitLoadedBtn" class="icon-btn" type="button" title="Fit loaded layers" aria-label="Fit loaded layers">
