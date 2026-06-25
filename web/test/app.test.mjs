@@ -132,6 +132,14 @@ const fixtures = {
         },
         {
           type: "Feature",
+          geometry: { type: "Point", coordinates: [37.835, 48.535, 0] },
+          properties: {
+            name: "Army HQ /// geoJSON.units.army.test",
+            icon: "images/icon-4.png",
+          },
+        },
+        {
+          type: "Feature",
           geometry: { type: "Point", coordinates: [37.84, 48.54, 0] },
           properties: {
             name: "Direction of attack /// geoJSON.status.attack_direction",
@@ -401,6 +409,7 @@ test("puts beta live overlays first and discovers DeepState icon subcategories",
     JSON.parse(JSON.stringify(deepstate.subcategories.map((subcategory) => [subcategory.id, subcategory.count]))),
     [
       ["attack_arrows", 2],
+      ["headquarters", 1],
       ["enemy_units", 1],
       ["airports_airfields", 1],
       ["areas", 1],
@@ -444,7 +453,7 @@ test("loads DeepState-style live GeoJSON and applies country filters from featur
   api.state.countryControls.get("Ukraine").checked = false;
   api.state.countryControls.get("Ukraine").listeners.change[0]();
 
-  assert.equal(api.state.layers.get("deepstate_live").features.length, 5);
+  assert.equal(api.state.layers.get("deepstate_live").features.length, 6);
   assert.equal(api.featurePassesActiveFilters(stored.feature), false);
 });
 

@@ -1,5 +1,5 @@
 const DATA_DIR = "data/";
-const APP_VERSION = "0.3.0";
+const APP_VERSION = "0.3.1";
 const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
@@ -78,6 +78,7 @@ const COUNTRY_INFERENCE_PRIORITY = [
 ];
 const EXTERNAL_SUBCATEGORY_ORDER = [
   "attack_arrows",
+  "headquarters",
   "enemy_units",
   "airports_airfields",
   "naval",
@@ -118,10 +119,11 @@ const INFO_TOPICS = {
   app: {
     title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
     paragraphs: [
-      "Version 0.3.0 adds a beta live overlay workflow with DeepStateMap integration, dynamic live categories, coordinate-aware country filtering, and APP-6 / MIL-STD-2525 style point symbols.",
-      "Highlights include live feed refresh, attack-arrow grouping, enemy unit and hostile airfield symbols, and configurable external GeoJSON or tile sources.",
+      "Version 0.3.1 refines the beta live overlay filters by separating HQs from regular enemy units.",
+      "Highlights include DeepStateMap live categories, coordinate-aware country filtering, and APP-6 / MIL-STD-2525 style point symbols.",
     ],
     history: [
+      { version: "0.3.1", date: "2026-06-25", notes: ["Split DeepState HQ features into a dedicated HQs subcategory instead of grouping them with regular enemy units.", "Keeps HQ detection based on geoJSON.units army tokens and DeepState icon-4 markers while preserving the existing marker rendering."] },
       { version: "0.3.0", date: "2026-06-25", notes: ["Added Live Overlays (Beta) with DeepStateMap live GeoJSON support.", "Discovers live subcategories from feed icons and tokens, including attack arrows, enemy units, airports and airfields, naval, reference points, areas, and lines.", "Applies coordinate-derived country filters to live features.", "Uses APP-6 / MIL-STD-2525 style hostile symbols through milsymbol with local fallback markers."] },
       { version: "0.2.0", date: "2026-06-25", notes: ["Added visible versioning and version history.", "Includes recent radius, menu resizing, scenario profile, clustering, range matrix, and onboarding improvements."] },
       { version: "0.1.0", date: "Initial app baseline", notes: ["Baseline infrastructure map explorer with layers, country filters, search, radius results, and scenario estimator."] },
@@ -1634,7 +1636,10 @@ function externalFeatureCategory(layerInfo, config, feature) {
   ) {
     return { id: "airports_airfields", label: "Airports & airfields" };
   }
-  if (iconKey === "enemy" || iconKey === "hostile" || token.includes("geojson.units.") || iconKey.endsWith("icon-3.png") || iconKey.endsWith("icon-4.png")) {
+  if (token.includes(".army.") || iconKey.endsWith("icon-4.png")) {
+    return { id: "headquarters", label: "HQs" };
+  }
+  if (iconKey === "enemy" || iconKey === "hostile" || token.includes("geojson.units.") || iconKey.endsWith("icon-3.png")) {
     return { id: "enemy_units", label: "Enemy units" };
   }
   if (token.includes("geojson.moskow_cruiser") || token.includes("geojson.moskva") || iconKey.endsWith("icon-1.png")) {
