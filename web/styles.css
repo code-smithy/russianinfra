@@ -110,10 +110,28 @@ input {
   padding-bottom: 4px;
 }
 
+.app-title-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .app-header h1 {
   margin: 0;
   font-size: 20px;
   font-weight: 700;
+}
+
+.app-version {
+  color: var(--accent-2);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.app-title-row .info-btn {
+  align-self: center;
 }
 
 .app-header p {
@@ -1066,6 +1084,37 @@ input {
 
 .info-popover-body p {
   margin: 0;
+}
+
+.version-history {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.version-history-entry {
+  display: grid;
+  gap: 5px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.version-history-entry h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.version-history-entry h3 span {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.version-history-entry ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 16px;
 }
 
 #map {

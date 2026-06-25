@@ -1,4 +1,6 @@
 const DATA_DIR = "data/";
+const APP_VERSION = "0.2.0";
+const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
 const OUT_OF_RADIUS_LINE_OPACITY = 0.38;
@@ -42,6 +44,17 @@ const ESTIMATOR_BLOCKS = [
   { key: "categoryAssumptions", label: "Category assumptions" },
 ];
 const INFO_TOPICS = {
+  app: {
+    title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
+    paragraphs: [
+      "Version 0.2.0 packages the recent interface work into a minor release after reviewing the current app code and 30 repository commits.",
+      "Highlights include radius appearance fixes, resizable menus, selection counters, saved scenario profiles, improved clustering, colored range bands, and detailed estimator assumptions.",
+    ],
+    history: [
+      { version: "0.2.0", date: "2026-06-25", notes: ["Added visible versioning and version history.", "Includes recent radius, menu resizing, scenario profile, clustering, range matrix, and onboarding improvements."] },
+      { version: "0.1.0", date: "Initial app baseline", notes: ["Baseline infrastructure map explorer with layers, country filters, search, radius results, and scenario estimator."] },
+    ],
+  },
   layers: {
     title: "Layers",
     paragraphs: [
@@ -175,6 +188,7 @@ const els = {
   estimatorSidebar: document.querySelector?.(".estimator-sidebar"),
   leftResizeHandle: document.getElementById("leftResizeHandle"),
   rightResizeHandle: document.getElementById("rightResizeHandle"),
+  appVersion: document.getElementById("appVersion"),
   datasetSummary: document.getElementById("datasetSummary"),
   layersCount: document.getElementById("layersCount"),
   layersList: document.getElementById("layersList"),
@@ -278,9 +292,18 @@ function openInfoPopover(topicKey, anchor) {
   activeInfoButton = anchor || null;
   setInfoButtonExpanded(activeInfoButton, true);
   els.infoPopoverTitle.textContent = topic.title;
-  els.infoPopoverBody.innerHTML = topic.paragraphs
+  const paragraphsHtml = topic.paragraphs
     .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`)
     .join("");
+  const historyHtml = Array.isArray(topic.history)
+    ? `<div class="version-history" aria-label="Version history">${topic.history.map((entry) => `
+      <section class="version-history-entry">
+        <h3>${escapeHtml(`v${entry.version}`)} <span>${escapeHtml(entry.date)}</span></h3>
+        <ul>${entry.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("")}</ul>
+      </section>`).join("")}
+    </div>`
+    : "";
+  els.infoPopoverBody.innerHTML = paragraphsHtml + historyHtml;
   els.infoPopover.hidden = false;
   positionInfoPopover(anchor);
 }
@@ -294,6 +317,7 @@ function closeInfoPopover() {
 
 function setupInfoButtons() {
   const buttonIds = [
+    "appInfoBtn",
     "layersInfoBtn",
     "countriesInfoBtn",
     "searchInfoBtn",
@@ -2680,6 +2704,7 @@ function exportEstimatorCsv() {
 }
 
 async function init() {
+  if (els.appVersion) els.appVersion.textContent = APP_VERSION_LABEL;
   const manifestResponse = await fetch(DATA_DIR + "manifest.json");
   state.manifest = await manifestResponse.json();
   els.datasetSummary.textContent = `${state.manifest.total_features.toLocaleString()} normalized records across ${state.manifest.layers.length} layers`;
