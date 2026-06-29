@@ -1,5 +1,5 @@
 const DATA_DIR = "data/";
-const APP_VERSION = "0.3.2";
+const APP_VERSION = "0.4.0";
 const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
@@ -119,10 +119,11 @@ const INFO_TOPICS = {
   app: {
     title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
     paragraphs: [
-      "Version 0.3.2 records the UID hashing hardening and carries forward the latest DeepState overlay refinement.",
-      "Highlights include DeepStateMap live categories, coordinate-aware country filtering, and APP-6 / MIL-STD-2525 style point symbols.",
+      "Version 0.4.0 expands the DeepState overlay with API response dates and optional historical-day loading.",
+      "Highlights include DeepStateMap live categories, date-aware history selection, coordinate-aware country filtering, and APP-6 / MIL-STD-2525 style point symbols.",
     ],
     history: [
+      { version: "0.4.0", date: "2026-06-29", notes: ["Shows the DeepState API response date in a normalized Date: DD.MM.YYYY HH:mm format.", "Adds optional DeepState historyDate support by selecting the latest public history version for a configured day.", "Keeps the 0.3.x SHA-256 UID hardening and DeepState HQ subcategory refinement."] },
       { version: "0.3.2", date: "2026-06-29", notes: ["Uses SHA-256 for stable UID generation while preserving the infra_<16 hex chars> output format.", "Carries forward the previous pull request that split DeepState HQ features into a dedicated subcategory."] },
       { version: "0.3.1", date: "2026-06-25", notes: ["Split DeepState HQ features into a dedicated HQs subcategory instead of grouping them with regular enemy units.", "Keeps HQ detection based on geoJSON.units army tokens and DeepState icon-4 markers while preserving the existing marker rendering."] },
       { version: "0.3.0", date: "2026-06-25", notes: ["Added Live Overlays (Beta) with DeepStateMap live GeoJSON support.", "Discovers live subcategories from feed icons and tokens, including attack arrows, enemy units, airports and airfields, naval, reference points, areas, and lines.", "Applies coordinate-derived country filters to live features.", "Uses APP-6 / MIL-STD-2525 style hostile symbols through milsymbol with local fallback markers."] },
@@ -1597,10 +1598,138 @@ function externalLayerFormat(config) {
 }
 
 function externalLayerRefreshSeconds(config) {
+  if (config.historyDate || config.date || config.historyVersionId || config.historyId) return 0;
   const seconds = Number(config.refreshSeconds ?? config.refresh_interval_seconds);
   const minutes = Number(config.refreshMinutes ?? config.refresh_interval_minutes);
   const value = Number.isFinite(seconds) ? seconds : minutes * 60;
   return Number.isFinite(value) && value >= 30 ? value : 0;
+}
+
+function externalHistoryDate(config) {
+  return String(config.historyDate || config.date || "").trim();
+}
+
+function externalHistoryVersionId(config) {
+  return String(config.historyVersionId || config.historyId || "").trim();
+}
+
+function externalHistoryIndexUrl(config) {
+  return config.historyIndexUrl || config.historyVersionsUrl || config.historyUrl || "";
+}
+
+function externalHistoryGeoJsonUrl(config, id) {
+  const template = config.historyGeoJsonUrlTemplate || config.historyGeojsonUrlTemplate || "";
+  if (template) return template.replace("{id}", encodeURIComponent(id));
+  const base = String(config.historyBaseUrl || "https://deepstatemap.live/api/history").replace(/\/+$/, "");
+  return `${base}/${encodeURIComponent(id)}/geojson`;
+}
+
+function dateOnly(value) {
+  if (!value) return "";
+  const text = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString().slice(0, 10);
+}
+
+function historyRecordTimestamp(record) {
+  const parsed = Date.parse(record?.createdAt || record?.updatedAt || "");
+  if (Number.isFinite(parsed)) return parsed;
+  const idNumber = Number(record?.id);
+  return Number.isFinite(idNumber) ? idNumber * 1000 : 0;
+}
+
+async function selectedExternalHistoryRecord(layerInfo, config) {
+  const requestedId = externalHistoryVersionId(config);
+  if (requestedId) return { id: requestedId };
+
+  const requestedDate = dateOnly(externalHistoryDate(config));
+  if (!requestedDate) return null;
+
+  const indexUrl = externalHistoryIndexUrl(config);
+  if (!indexUrl) {
+    throw externalLayerError(layerInfo, `${externalLayerConfigUrl(layerInfo)} needs historyIndexUrl to load historyDate.`);
+  }
+
+  const response = await fetch(indexUrl, { cache: "no-store" });
+  if (!response.ok) throw externalLayerError(layerInfo, `Failed to load ${layerInfo.label} history index.`);
+  const records = await response.json();
+  if (!Array.isArray(records)) throw externalLayerError(layerInfo, `${indexUrl} must return a history array.`);
+
+  const matches = records
+    .filter((record) => dateOnly(record?.createdAt || record?.updatedAt) === requestedDate)
+    .sort((a, b) => historyRecordTimestamp(b) - historyRecordTimestamp(a));
+
+  if (!matches.length) throw externalLayerError(layerInfo, `${layerInfo.label} has no public history version for ${requestedDate}.`);
+  return matches[0];
+}
+
+function externalResponseMetadata(data, historyRecord = null, url = "") {
+  const id = data?.id ?? historyRecord?.id ?? "";
+  const timestampFromId = Number.isFinite(Number(id))
+    ? new Date(Number(id) * 1000).toISOString()
+    : "";
+  return {
+    id,
+    url,
+    datetime: data?.datetime || historyRecord?.datetime || "",
+    createdAt: data?.createdAt || historyRecord?.createdAt || timestampFromId,
+    updatedAt: data?.updatedAt || historyRecord?.updatedAt || "",
+    description: data?.description || historyRecord?.descriptionEn || historyRecord?.description || "",
+  };
+}
+
+function padDatePart(value) {
+  return String(value).padStart(2, "0");
+}
+
+function yearFromMetadata(metadata) {
+  const source = metadata.createdAt || metadata.updatedAt || "";
+  const year = dateOnly(source).slice(0, 4);
+  if (year) return year;
+  const idNumber = Number(metadata.id);
+  return Number.isFinite(idNumber) ? String(new Date(idNumber * 1000).getUTCFullYear()) : "";
+}
+
+function formattedIsoDateTime(value) {
+  const parsed = new Date(value || "");
+  if (Number.isNaN(parsed.getTime())) return "";
+  const day = padDatePart(parsed.getUTCDate());
+  const month = padDatePart(parsed.getUTCMonth() + 1);
+  const year = parsed.getUTCFullYear();
+  const hour = padDatePart(parsed.getUTCHours());
+  const minute = padDatePart(parsed.getUTCMinutes());
+  return `${day}.${month}.${year} ${hour}:${minute}`;
+}
+
+function formattedExternalDate(metadata) {
+  const datetime = String(metadata.datetime || "").trim();
+  const match = datetime.match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?\s*(?:[o\u043E]|at)?\s*(\d{1,2}):(\d{2})/i);
+  if (match) {
+    const year = match[3]
+      ? (match[3].length === 2 ? `20${match[3]}` : match[3])
+      : yearFromMetadata(metadata);
+    if (year) {
+      return `${padDatePart(match[1])}.${padDatePart(match[2])}.${year} ${padDatePart(match[4])}:${match[5]}`;
+    }
+  }
+  return formattedIsoDateTime(metadata.createdAt) || formattedIsoDateTime(metadata.updatedAt);
+}
+
+function applyExternalResponseMetadata(layerInfo, metadata) {
+  layerInfo.externalData = metadata;
+  layerInfo.source_capture_date = metadata.createdAt || metadata.datetime || "";
+  layerInfo.source_record_id = metadata.id || "";
+}
+
+function externalLayerMeta(layerInfo) {
+  const metadata = layerInfo.externalData || {};
+  const dateLabel = formattedExternalDate(metadata);
+  const parts = [dateLabel ? `Date: ${dateLabel}` : "Date unavailable"];
+  if (Number.isFinite(Number(layerInfo.count)) && Number(layerInfo.count) > 0) {
+    parts.push(`${Number(layerInfo.count).toLocaleString()} records`);
+  }
+  return parts.join(" | ");
 }
 
 function externalTileLayer(layerInfo, config) {
@@ -1661,7 +1790,7 @@ function externalFeatureCategory(layerInfo, config, feature) {
   };
 }
 
-function externalFeatureProperties(layerInfo, config, feature, index) {
+function externalFeatureProperties(layerInfo, config, feature, index, metadata = {}) {
   const properties = feature.properties || {};
   const semanticToken = geoJsonSemanticToken(properties);
   const label = properties.display_label || properties.name || properties.title || properties.label || `${layerInfo.label} ${index + 1}`;
@@ -1691,6 +1820,8 @@ function externalFeatureProperties(layerInfo, config, feature, index) {
     semantic_token: semanticToken,
     source_dataset: properties.source_dataset || sourceLabel,
     source_layer: properties.source_layer || layerInfo.label,
+    source_record_id: properties.source_record_id || metadata.id || "",
+    source_capture_date: properties.source_capture_date || metadata.createdAt || metadata.datetime || "",
     source_url: properties.source_url || externalLayerSourceUrl(layerInfo),
   };
   normalized.search_text = properties.search_text || Object.values(normalized).filter(Boolean).join(" ");
@@ -1725,19 +1856,24 @@ function updateExternalLayerMetadata(layerInfo, features) {
 }
 
 async function fetchExternalGeoJsonFeatures(layerInfo, config) {
-  const url = config.geojsonUrl || config.url;
+  const historyRecord = await selectedExternalHistoryRecord(layerInfo, config);
+  const url = historyRecord
+    ? externalHistoryGeoJsonUrl(config, historyRecord.id)
+    : config.geojsonUrl || config.url;
   if (!url) {
     throw externalLayerError(layerInfo, `${externalLayerConfigUrl(layerInfo)} needs a url for GeoJSON mode.`);
   }
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) throw externalLayerError(layerInfo, `Failed to load ${layerInfo.label} from configured GeoJSON URL.`);
   const data = await response.json();
+  const metadata = externalResponseMetadata(data, historyRecord, url);
+  applyExternalResponseMetadata(layerInfo, metadata);
   const collection = Array.isArray(data?.features) ? data : data?.map;
   const features = Array.isArray(collection?.features) ? collection.features : [];
   return features.map((feature, index) => ({
     ...feature,
     id: feature.id || `${layerInfo.id}_${index}`,
-    properties: externalFeatureProperties(layerInfo, config, feature, index),
+    properties: externalFeatureProperties(layerInfo, config, feature, index, metadata),
   }));
 }
 
@@ -2096,7 +2232,7 @@ async function renderLayers() {
     const name = document.createElement("span");
     name.className = "layer-name";
     const layerMeta = isExternalLayerInfo(layerInfo)
-      ? "configured live source"
+      ? externalLayerMeta(layerInfo)
       : `${layerInfo.count.toLocaleString()} records`;
     name.innerHTML = `<strong>${escapeHtml(layerInfo.label)}</strong><span>${escapeHtml(layerMeta)}</span>`;
     row.append(toggleButton, checkbox, name, swatch);

@@ -91,7 +91,8 @@ const fixtures = {
     defaultSubcategoryLabel: "DeepState",
   },
   "https://example.test/deepstate.json": {
-    id: 123,
+    id: 1782729914,
+    datetime: "29.06 o 12:45",
     map: {
       type: "FeatureCollection",
       features: [
@@ -417,6 +418,52 @@ test("puts beta live overlays first and discovers DeepState icon subcategories",
   );
   assert.equal(api.state.layerControls.get("deepstate_live").checked, false);
   assert.equal(api.state.layerSubcategoryControls.get("deepstate_live").every((control) => !control.checked), true);
+  const row = api.els.layersList.children.find((child) => child.dataset?.layerId === "deepstate_live");
+  assert.match(row.children[2].innerHTML, /Date: 29\.06\.2026 12:45/);
+  assert.doesNotMatch(row.children[2].innerHTML, /configured live source/);
+});
+
+test("loads a DeepState history version for a configured date", async () => {
+  const originalConfig = fixtures["deepstate-layer-config.json"];
+  fixtures["deepstate-layer-config.json"] = {
+    ...originalConfig,
+    url: "",
+    historyDate: "2026-06-28",
+    historyIndexUrl: "https://example.test/history-public.json",
+    historyGeoJsonUrlTemplate: "https://example.test/history/{id}/geojson",
+  };
+  fixtures["https://example.test/history-public.json"] = [
+    { id: "early", createdAt: "2026-06-28T10:00:00.000Z", datetime: "28.06 o 13:00" },
+    { id: "late", createdAt: "2026-06-28T18:30:00.000Z", datetime: "28.06 o 21:30" },
+    { id: "other", createdAt: "2026-06-27T18:30:00.000Z", datetime: "27.06 o 21:30" },
+  ];
+  fixtures["https://example.test/history/late/geojson"] = {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [37.9, 48.6, 0] },
+        properties: { name: "Historical object", icon: "enemy" },
+      },
+    ],
+  };
+
+  try {
+    const app = createAppContext();
+    await app.__initPromise;
+
+    const api = app.__api;
+    const deepstate = api.state.manifest.layers.find((layer) => layer.id === "deepstate_live");
+    assert.equal(deepstate.count, 1);
+    assert.equal(deepstate.externalData.id, "late");
+    assert.equal(deepstate.externalData.datetime, "28.06 o 21:30");
+    const row = api.els.layersList.children.find((child) => child.dataset?.layerId === "deepstate_live");
+    assert.match(row.children[2].innerHTML, /Date: 28\.06\.2026 21:30/);
+  } finally {
+    fixtures["deepstate-layer-config.json"] = originalConfig;
+    delete fixtures["https://example.test/history-public.json"];
+    delete fixtures["https://example.test/history/late/geojson"];
+  }
 });
 
 test("harmonizes layer colors by category family", async () => {
