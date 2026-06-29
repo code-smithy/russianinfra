@@ -126,7 +126,7 @@ def json_loads_maybe(raw: str) -> Any:
 
 
 def stable_uid(parts: list[str]) -> str:
-    digest = hashlib.sha1("|".join(parts).encode("utf-8", errors="replace")).hexdigest()
+    digest = hashlib.sha256("|".join(parts).encode("utf-8", errors="replace")).hexdigest()
     return f"infra_{digest[:16]}"
 
 
