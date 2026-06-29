@@ -1,5 +1,5 @@
 const DATA_DIR = "data/";
-const APP_VERSION = "0.3.1";
+const APP_VERSION = "0.3.2";
 const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
@@ -119,10 +119,11 @@ const INFO_TOPICS = {
   app: {
     title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
     paragraphs: [
-      "Version 0.3.1 refines the beta live overlay filters by separating HQs from regular enemy units.",
+      "Version 0.3.2 records the UID hashing hardening and carries forward the latest DeepState overlay refinement.",
       "Highlights include DeepStateMap live categories, coordinate-aware country filtering, and APP-6 / MIL-STD-2525 style point symbols.",
     ],
     history: [
+      { version: "0.3.2", date: "2026-06-29", notes: ["Uses SHA-256 for stable UID generation while preserving the infra_<16 hex chars> output format.", "Carries forward the previous pull request that split DeepState HQ features into a dedicated subcategory."] },
       { version: "0.3.1", date: "2026-06-25", notes: ["Split DeepState HQ features into a dedicated HQs subcategory instead of grouping them with regular enemy units.", "Keeps HQ detection based on geoJSON.units army tokens and DeepState icon-4 markers while preserving the existing marker rendering."] },
       { version: "0.3.0", date: "2026-06-25", notes: ["Added Live Overlays (Beta) with DeepStateMap live GeoJSON support.", "Discovers live subcategories from feed icons and tokens, including attack arrows, enemy units, airports and airfields, naval, reference points, areas, and lines.", "Applies coordinate-derived country filters to live features.", "Uses APP-6 / MIL-STD-2525 style hostile symbols through milsymbol with local fallback markers."] },
       { version: "0.2.0", date: "2026-06-25", notes: ["Added visible versioning and version history.", "Includes recent radius, menu resizing, scenario profile, clustering, range matrix, and onboarding improvements."] },
