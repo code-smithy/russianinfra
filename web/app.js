@@ -1,5 +1,5 @@
 const DATA_DIR = "data/";
-const APP_VERSION = "0.4.0";
+const APP_VERSION = "0.5.0";
 const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
@@ -119,10 +119,11 @@ const INFO_TOPICS = {
   app: {
     title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
     paragraphs: [
-      "Version 0.4.0 expands the DeepState overlay with API response dates and optional historical-day loading.",
-      "Highlights include DeepStateMap live categories, date-aware history selection, coordinate-aware country filtering, and APP-6 / MIL-STD-2525 style point symbols.",
+      "Version 0.5.0 renders DeepState attack directions with local rotated arrow markers.",
+      "Highlights include DeepStateMap live categories, date-aware history selection, directional attack arrows, coordinate-aware country filtering, and APP-6 / MIL-STD-2525 style point symbols.",
     ],
     history: [
+      { version: "0.5.0", date: "2026-06-29", notes: ["Replaces generic attack markers with local SVG arrows rotated from DeepState arrow_1 through arrow_16 icon names.", "Maps the 16 arrow icons evenly around the compass at 22.5 degree intervals, with arrow_16 wrapping to 0 degrees."] },
       { version: "0.4.0", date: "2026-06-29", notes: ["Shows the DeepState API response date in a normalized Date: DD.MM.YYYY HH:mm format.", "Adds optional DeepState historyDate support by selecting the latest public history version for a configured day.", "Keeps the 0.3.x SHA-256 UID hardening and DeepState HQ subcategory refinement."] },
       { version: "0.3.2", date: "2026-06-29", notes: ["Uses SHA-256 for stable UID generation while preserving the infra_<16 hex chars> output format.", "Carries forward the previous pull request that split DeepState HQ features into a dedicated subcategory."] },
       { version: "0.3.1", date: "2026-06-25", notes: ["Split DeepState HQ features into a dedicated HQs subcategory instead of grouping them with regular enemy units.", "Keeps HQ detection based on geoJSON.units army tokens and DeepState icon-4 markers while preserving the existing marker rendering."] },
@@ -1311,6 +1312,26 @@ function normalizedIconKey(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function attackArrowNumber(properties) {
+  const haystack = [
+    properties.icon_key,
+    properties.icon,
+    properties["marker-symbol"],
+    properties.name,
+    properties.description,
+    properties.semantic_token,
+  ].filter(Boolean).join(" ");
+  const match = haystack.match(/arrow[_-]?(\d{1,2})/i);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isInteger(value) && value >= 1 && value <= 16 ? value : null;
+}
+
+function attackArrowBearing(properties) {
+  const number = attackArrowNumber(properties);
+  return number == null ? null : (number % 16) * 22.5;
+}
+
 function geoJsonSemanticToken(properties) {
   const haystack = [
     properties.geojson_token,
@@ -1325,6 +1346,7 @@ function geoJsonSemanticToken(properties) {
 function tacticalMarkerSpec(properties) {
   const iconKey = normalizedIconKey(properties.icon_key || properties.icon || properties["marker-symbol"]);
   const token = geoJsonSemanticToken(properties);
+  const arrowBearing = attackArrowBearing(properties);
   if (
     iconKey === "airport" ||
     iconKey === "airfield" ||
@@ -1347,8 +1369,8 @@ function tacticalMarkerSpec(properties) {
   if (iconKey === "unknown" || token.includes("unknown")) {
     return { affiliation: "unknown", label: "?" };
   }
-  if (iconKey === "attack" || token.includes("attack_direction")) {
-    return { affiliation: "attack", label: "ATK" };
+  if (arrowBearing != null || iconKey === "attack" || token.includes("attack_direction")) {
+    return { affiliation: "attack-arrow", label: "Attack arrow", bearing: arrowBearing ?? 0 };
   }
   if (token.includes("moskow_cruiser") || token.includes("mosk")) {
     return { affiliation: "hostile", label: "NAV" };
@@ -1390,6 +1412,15 @@ function milsymbolIcon(spec) {
 function markerIcon(properties) {
   const tacticalSpec = tacticalMarkerSpec(properties);
   if (tacticalSpec) {
+    if (tacticalSpec.affiliation === "attack-arrow") {
+      const bearing = Number.isFinite(tacticalSpec.bearing) ? tacticalSpec.bearing : 0;
+      return L.divIcon({
+        className: "",
+        html: `<span class="attack-arrow-marker" style="transform:rotate(${bearing}deg)" title="${escapeHtml(tacticalSpec.label)}"><svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M16 2 27 16h-6v12H11V16H5L16 2Z"></path></svg></span>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+    }
     const standardIcon = milsymbolIcon(tacticalSpec);
     if (standardIcon) return standardIcon;
     return L.divIcon({
@@ -1753,7 +1784,7 @@ function externalFeatureCategory(layerInfo, config, feature) {
   const token = geoJsonSemanticToken(properties);
   const geometryType = feature.geometry?.type || "";
 
-  if (token.includes("geojson.status.attack_direction") || iconKey === "attack") {
+  if (attackArrowNumber(properties) != null || token.includes("geojson.status.attack_direction") || iconKey === "attack") {
     return { id: "attack_arrows", label: "Attack arrows" };
   }
   if (

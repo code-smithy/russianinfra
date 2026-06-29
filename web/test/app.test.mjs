@@ -14,6 +14,7 @@ const appSource = fs.readFileSync("web/app.js", "utf8").replace(
   throw error;
 });
 globalThis.__api = {
+  attackArrowBearing,
   colorForLayer,
   state,
   els,
@@ -144,7 +145,7 @@ const fixtures = {
           geometry: { type: "Point", coordinates: [37.84, 48.54, 0] },
           properties: {
             name: "Direction of attack /// geoJSON.status.attack_direction",
-            icon: "images/icon-2.png",
+            icon: "images/arrows/arrow_2.png",
           },
         },
         {
@@ -152,7 +153,7 @@ const fixtures = {
           geometry: { type: "Point", coordinates: [37.85, 48.55, 0] },
           properties: {
             name: "Another direction /// geoJSON.status.attack_direction",
-            icon: "images/icon-2.png",
+            icon: "images/arrows/arrow_12.png",
           },
         },
       ],
@@ -488,6 +489,8 @@ test("loads DeepState-style live GeoJSON and applies country filters from featur
   const stored = api.state.features.get("deepstate_live_0");
   const enemy = api.state.features.get("deepstate_live_1");
   const airport = api.state.features.get("deepstate_live_2");
+  const arrow45 = api.state.features.get("deepstate_live_4");
+  const arrow270 = api.state.features.get("deepstate_live_5");
   assert.ok(stored);
   assert.ok(enemy);
   assert.ok(airport);
@@ -496,12 +499,26 @@ test("loads DeepState-style live GeoJSON and applies country filters from featur
   assert.equal(enemy.feature.properties.icon_key, "enemy");
   assert.match(enemy.layer.options.icon.html, /tactical-hostile/);
   assert.match(airport.layer.options.icon.html, /tactical-airport-hostile/);
+  assert.match(arrow45.layer.options.icon.html, /attack-arrow-marker/);
+  assert.match(arrow45.layer.options.icon.html, /rotate\(45deg\)/);
+  assert.match(arrow270.layer.options.icon.html, /rotate\(270deg\)/);
 
   api.state.countryControls.get("Ukraine").checked = false;
   api.state.countryControls.get("Ukraine").listeners.change[0]();
 
   assert.equal(api.state.layers.get("deepstate_live").features.length, 6);
   assert.equal(api.featurePassesActiveFilters(stored.feature), false);
+});
+
+test("maps DeepState attack arrow icons to equal compass bearings", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const bearing = app.__api.attackArrowBearing;
+  assert.equal(bearing({ icon: "images/arrows/arrow_16.png" }), 0);
+  assert.equal(bearing({ icon: "images/arrows/arrow_12.png" }), 270);
+  assert.equal(bearing({ icon: "images/arrows/arrow_2.png" }), 45);
+  assert.equal(bearing({ icon: "images/arrows/arrow_1.png" }), 22.5);
 });
 
 test("distance helpers handle points and geometry vertices", async () => {

@@ -1229,6 +1229,29 @@ input {
   clip-path: polygon(50% 0, 100% 100%, 50% 75%, 0 100%);
 }
 
+.attack-arrow-marker {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  transform-origin: 50% 50%;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+  transition: opacity 160ms ease;
+}
+
+.attack-arrow-marker svg {
+  display: block;
+  width: 32px;
+  height: 32px;
+}
+
+.attack-arrow-marker path {
+  fill: #d83a34;
+  stroke: #ffffff;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
 .tactical-airport-hostile {
   color: #d83a34;
   background: rgba(255, 230, 226, 0.96);
