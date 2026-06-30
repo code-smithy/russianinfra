@@ -625,6 +625,26 @@ input {
   overflow-wrap: anywhere;
 }
 
+.popup-references {
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.popup-references h4 {
+  margin: 0 0 4px;
+  font-size: 12px;
+}
+
+.popup-references ol {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.popup-references li {
+  margin: 2px 0;
+  overflow-wrap: anywhere;
+}
+
 .actions-row {
   display: flex;
   gap: 8px;

@@ -1,5 +1,5 @@
 const DATA_DIR = "data/";
-const APP_VERSION = "0.5.0";
+const APP_VERSION = "0.6.0";
 const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
@@ -119,10 +119,11 @@ const INFO_TOPICS = {
   app: {
     title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
     paragraphs: [
-      "Version 0.5.0 renders DeepState attack directions with local rotated arrow markers.",
-      "Highlights include DeepStateMap live categories, date-aware history selection, directional attack arrows, coordinate-aware country filtering, and APP-6 / MIL-STD-2525 style point symbols.",
+      "Version 0.6.0 adds provenance-aware source references, confidence dimensions, quality reports, review queues, and Python pipeline tests.",
+      "Highlights include reference-aware popups and radius exports, source coverage statistics, data package metadata, DeepState live categories, coordinate-aware country filtering, and APP-6 / MIL-STD-2525 style point symbols.",
     ],
     history: [
+      { version: "0.6.0", date: "2026-06-30", notes: ["Adds source_catalog, references, object_references, quality_report, review queue, and data package manifest outputs.", "Shows source references and confidence dimensions in object popups and radius CSV exports.", "Adds standard-library Python unit tests for pipeline provenance, review, and web data helpers."] },
       { version: "0.5.0", date: "2026-06-29", notes: ["Replaces generic attack markers with local SVG arrows rotated from DeepState arrow_1 through arrow_16 icon names.", "Maps the 16 arrow icons evenly around the compass at 22.5 degree intervals, with arrow_16 wrapping to 0 degrees."] },
       { version: "0.4.0", date: "2026-06-29", notes: ["Shows the DeepState API response date in a normalized Date: DD.MM.YYYY HH:mm format.", "Adds optional DeepState historyDate support by selecting the latest public history version for a configured day.", "Keeps the 0.3.x SHA-256 UID hardening and DeepState HQ subcategory refinement."] },
       { version: "0.3.2", date: "2026-06-29", notes: ["Uses SHA-256 for stable UID generation while preserving the infra_<16 hex chars> output format.", "Carries forward the previous pull request that split DeepState HQ features into a dedicated subcategory."] },
@@ -1455,9 +1456,16 @@ function styleFeature(feature) {
 function detailRows(properties) {
   const rows = [
     ["Type", [properties.asset_class, properties.asset_type].filter(Boolean).join(" / ")],
-    ["Source", properties.source_dataset],
+    ["Source", properties.source_name || properties.source_dataset],
     ["Layer", properties.source_layer],
     ["Category", properties.derived_subcategory_label],
+    ["Confidence", properties.confidence],
+    ["Source reliability", properties.source_reliability],
+    ["Coordinate precision", properties.coordinate_precision || properties.location_quality],
+    ["Entity confidence", properties.entity_confidence],
+    ["Freshness", properties.freshness],
+    ["Cross-source support", properties.cross_source_support],
+    ["Review", properties.review_status],
     ["Translated", properties.name_translated],
     ["Description", properties.description],
     ["Description EN", properties.description_translated],
@@ -1474,6 +1482,41 @@ function detailRows(properties) {
   return rows.map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd>`).join("");
 }
 
+function featureReferences(properties) {
+  if (Array.isArray(properties.references)) return properties.references;
+  if (typeof properties.references_json === "string" && properties.references_json.trim()) {
+    try {
+      const parsed = JSON.parse(properties.references_json);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function referencesHtml(properties) {
+  const references = featureReferences(properties);
+  if (!references.length) return "";
+  const items = references.slice(0, 6).map((reference) => {
+    const label = reference.source_name || reference.source_id || "Source";
+    const retrieved = reference.retrieved_at ? `, retrieved ${reference.retrieved_at}` : "";
+    const record = reference.source_record_id ? `, record ${reference.source_record_id}` : "";
+    const text = `${label}${retrieved}${record}`;
+    const url = reference.url || reference.archive_url;
+    const content = url
+      ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(text)}</a>`
+      : escapeHtml(text);
+    return `<li>${content}</li>`;
+  }).join("");
+  return `
+    <section class="popup-references">
+      <h4>References</h4>
+      <ol>${items}</ol>
+    </section>
+  `;
+}
+
 function popupHtml(feature) {
   const p = feature.properties || {};
   const source = p.source_url
@@ -1482,6 +1525,7 @@ function popupHtml(feature) {
   return `
     <h3 class="popup-title">${escapeHtml(p.display_label || p.name || "Unnamed feature")}</h3>
     <dl class="popup-table">${detailRows(p)}</dl>
+    ${referencesHtml(p)}
     ${source ? `<div style="margin-top:8px;font-size:12px">${source}</div>` : ""}
   `;
 }
@@ -3261,8 +3305,18 @@ function exportRadiusCsv() {
     "name",
     "asset_class",
     "asset_type",
+    "confidence",
+    "coordinate_precision",
+    "entity_confidence",
+    "source_reliability",
+    "freshness",
+    "cross_source_support",
+    "review_status",
     "source_dataset",
+    "source_id",
+    "source_name",
     "source_layer",
+    "source_record_id",
     "operator",
     "product",
     "inn",
@@ -3271,18 +3325,32 @@ function exportRadiusCsv() {
     "map_longitude",
     "location_quality",
     "source_url",
+    "source_urls",
+    "retrieved_at",
+    "references",
   ];
   const lines = [fields.join(",")];
   for (const item of state.radiusResults) {
     const p = item.stored.feature.properties || {};
+    const refs = featureReferences(p);
     const row = {
       distance_km: item.distance.toFixed(6),
       uid: p.uid || item.stored.feature.id,
       name: p.display_label || p.name || "",
       asset_class: p.asset_class || "",
       asset_type: p.asset_type || "",
+      confidence: p.confidence || "",
+      coordinate_precision: p.coordinate_precision || "",
+      entity_confidence: p.entity_confidence || "",
+      source_reliability: p.source_reliability || "",
+      freshness: p.freshness || "",
+      cross_source_support: p.cross_source_support || "",
+      review_status: p.review_status || "",
       source_dataset: p.source_dataset || "",
+      source_id: p.source_id || "",
+      source_name: p.source_name || "",
       source_layer: p.source_layer || "",
+      source_record_id: p.source_record_id || "",
       operator: p.operator || "",
       product: p.product || "",
       inn: p.inn || "",
@@ -3291,6 +3359,9 @@ function exportRadiusCsv() {
       map_longitude: p.map_longitude || "",
       location_quality: p.location_quality || "",
       source_url: p.source_url || "",
+      source_urls: refs.map((ref) => ref.url || ref.archive_url || "").filter(Boolean).join("; "),
+      retrieved_at: refs.map((ref) => ref.retrieved_at || "").filter(Boolean).join("; "),
+      references: refs.map((ref) => [ref.source_name || ref.source_id || "Source", ref.source_record_id].filter(Boolean).join(" record ")).join("; "),
     };
     lines.push(fields.map((field) => csvEscape(row[field])).join(","));
   }

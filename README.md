@@ -89,21 +89,42 @@ The pipeline produces normalized outputs under `data/`, including:
 - `data/normalized_infrastructure.csv`
 - `data/normalized_infrastructure.geojson`
 - `data/normalization_report.json`
+- `data/source_catalog.csv`
+- `data/references.csv`
+- `data/object_references.csv`
+- `data/quality_report.json`
+- `data/review/review_queue.csv`
+- `data/review/duplicate_candidates.csv`
+- `data/review/possible_aliases.csv`
+- `data/review/conflicts.csv`
+- `data_package/manifest.json`
 
 `prepare_web_data.py` writes browser-ready files to `web/data/`. Large layers are split into numbered parts so individual static files stay below the web data size threshold used by the app.
 
+## Provenance and Quality
+
+Normalization keeps source provenance as first-class data. Each normalized object has confidence fields for source reliability, coordinate precision, entity confidence, evidence freshness, cross-source support, review status, and a derived A-E confidence grade. Source references are written into `references.csv` and linked to objects through `object_references.csv`; the GeoJSON also carries a compact `references` property for the web popup and radius CSV export.
+
+Manual corrections should be added as overlays rather than by editing generated files:
+
+- `data/manual/object_overrides.csv` with `object_id,field,old_value,new_value,reason,reviewer,reviewed_at`
+- `data/manual/source_overrides.csv` with `source_id,reliability,reason,reviewed_at`
+
+The pipeline applies these overlays during normalization and records applied object overrides in the build report. Review queues under `data/review/` identify low-confidence records, approximate or missing coordinates, duplicate candidates, possible aliases, and coordinate/category conflicts.
+
 ## Tests
 
-Run the Node test suite with:
+Run the test suite with:
 
 ```powershell
 npm test
 ```
 
-This runs `scripts/test.ps1`, which looks for a local Node.js install and then executes:
+This runs `scripts/test.ps1`, which looks for local Node.js and Python installs, falling back to the Codex bundled runtimes when available. It executes:
 
 ```powershell
 node --test "web/test/*.test.mjs"
+python -m unittest discover -s tests -p "test_*.py"
 ```
 
 ## Web App Notes

@@ -26,10 +26,16 @@ def read_rows(path: Path, source_dataset: str) -> list[dict[str, str]]:
     with path.open("r", newline="", encoding="utf-8-sig") as handle:
         reader = csv.DictReader(handle)
         rows = []
-        for row in reader:
+        for row_index, row in enumerate(reader, start=2):
             row.setdefault("source_dataset", source_dataset)
             if not row["source_dataset"]:
                 row["source_dataset"] = source_dataset
+            row.setdefault("source_file", str(path))
+            if not row["source_file"]:
+                row["source_file"] = str(path)
+            row.setdefault("source_line_or_record_id", str(row_index))
+            if not row["source_line_or_record_id"]:
+                row["source_line_or_record_id"] = str(row_index)
             rows.append(row)
         return rows
 
@@ -68,6 +74,8 @@ def main() -> int:
         "is_mass_founder",
         "is_disqualified_persons",
         "source_url",
+        "source_file",
+        "source_line_or_record_id",
         "archive_timestamp",
         "kml_type",
         "kml_folder",

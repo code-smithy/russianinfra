@@ -18,10 +18,16 @@ MAX_WEB_DATA_FILE_BYTES = 48_000_000
 APP_PROPERTY_KEYS = [
     "uid",
     "source_dataset",
+    "source_id",
     "source_record_id",
     "source_url",
     "source_capture_date",
     "source_layer",
+    "source_reference_id",
+    "source_name",
+    "source_type",
+    "source_reliability",
+    "license_or_terms",
     "name",
     "description",
     "name_translated",
@@ -59,6 +65,13 @@ APP_PROPERTY_KEYS = [
     "length_km",
     "has_point_location",
     "location_quality",
+    "coordinate_precision",
+    "entity_confidence",
+    "freshness",
+    "cross_source_support",
+    "review_status",
+    "confidence",
+    "confidence_score",
     "selectable",
     "map_layer",
     "map_color",
@@ -72,6 +85,7 @@ APP_PROPERTY_KEYS = [
     "derived_subcategory_reason",
     "possible_duplicate_group",
     "search_text",
+    "references_json",
 ]
 
 LAYER_LABELS = {
@@ -104,6 +118,9 @@ def compact_feature(feature: dict[str, Any]) -> dict[str, Any]:
     tags = props.get("tags")
     if isinstance(tags, dict) and tags:
         app_props["tags"] = tags
+    references = props.get("references")
+    if isinstance(references, list) and references:
+        app_props["references"] = references
     return {
         "type": "Feature",
         "id": feature.get("id") or app_props.get("uid"),
@@ -177,6 +194,9 @@ def main() -> int:
     class_counts = Counter()
     country_counts = Counter()
     country_point_counts = Counter()
+    source_counts = Counter()
+    confidence_counts = Counter()
+    coordinate_precision_counts = Counter()
     missing = 0
 
     for feature in data.get("features", []):
@@ -187,6 +207,9 @@ def main() -> int:
         props = compact.get("properties") or {}
         counts[layer] += 1
         class_counts[props.get("asset_class") or "unknown"] += 1
+        source_counts[props.get("source_id") or props.get("source_dataset") or "unknown"] += 1
+        confidence_counts[props.get("confidence") or "unknown"] += 1
+        coordinate_precision_counts[props.get("coordinate_precision") or props.get("location_quality") or "unknown"] += 1
         countries = props.get("countries")
         if not isinstance(countries, list) or not countries:
             countries = [(props.get("country") or "Unknown").strip() or "Unknown"]
@@ -243,6 +266,9 @@ def main() -> int:
         "missing_geometry_count": missing,
         "geometry_counts": dict(sorted(geometry_counts.items())),
         "asset_class_counts": dict(sorted(class_counts.items())),
+        "source_counts": dict(sorted(source_counts.items())),
+        "confidence_counts": dict(sorted(confidence_counts.items())),
+        "coordinate_precision_counts": dict(sorted(coordinate_precision_counts.items())),
         "countries": [
             {
                 "id": country,
