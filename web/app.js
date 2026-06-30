@@ -1,5 +1,5 @@
 const DATA_DIR = "data/";
-const APP_VERSION = "0.7.0";
+const APP_VERSION = "0.8.0";
 const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
@@ -134,10 +134,11 @@ const INFO_TOPICS = {
   app: {
     title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
     paragraphs: [
-      "Version 0.7.0 adds build-to-build change reporting, temporal object metadata, and map filters for latest-build changes.",
-      "Highlights include new, removed, moved, category, name, confidence, and source changes, plus first-seen, last-seen, and source-date filtering.",
+      "Version 0.8.0 hardens the data collection pipeline for GitHub Actions and replaces the local military KML archive with public Nightwatch map extraction.",
+      "Highlights include Nightwatch military map scraping, resilient OSINT Varta archive capture selection, automatic country-boundary bootstrapping, and a durable compressed comparison baseline for scheduled builds.",
     ],
     history: [
+      { version: "0.8.0", date: "2026-06-30", notes: ["Replaces the local Military KML archive with public Nightwatch map placemark extraction.", "Retries OSINT Varta archive captures from newest to oldest and falls back to committed compact web data when Archive.org is unavailable.", "Downloads missing Natural Earth country boundaries in clean GitHub runners and stores the build comparison baseline under data_package/build_history.", "Updates the daily collection workflow to commit tracked data_package and web/data outputs without trying to add ignored data/ caches."] },
       { version: "0.7.0", date: "2026-06-30", notes: ["Generates data/change_report.json and web/data/diff_report.json from the previous build snapshot.", "Adds first_seen_build, last_seen_build, change_status, changed_since_previous_build, and new_in_latest_build metadata to current objects.", "Adds Build comparison and Timeline filters to the web app."] },
       { version: "0.6.0", date: "2026-06-30", notes: ["Adds source_catalog, references, object_references, quality_report, review queue, and data package manifest outputs.", "Shows source references and confidence dimensions in object popups and radius CSV exports.", "Adds standard-library Python unit tests for pipeline provenance, review, and web data helpers."] },
       { version: "0.5.0", date: "2026-06-29", notes: ["Replaces generic attack markers with local SVG arrows rotated from DeepState arrow_1 through arrow_16 icon names.", "Maps the 16 arrow icons evenly around the compass at 22.5 degree intervals, with arrow_16 wrapping to 0 degrees."] },

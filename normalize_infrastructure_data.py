@@ -1089,7 +1089,7 @@ def write_data_package_manifest(rows: list[dict[str, str]], build_id: str) -> No
     manifest = {
         "dataset_name": "Russian Infrastructure Explorer Dataset",
         "build_id": build_id,
-        "pipeline_version": "0.6.0",
+        "pipeline_version": "0.8.0",
         "record_count": len(rows),
         "source_count": len({row["source_id"] for row in rows if row["source_id"]}),
         "generated_at": build_id,
