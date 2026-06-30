@@ -1,0 +1,46 @@
+name: Daily data collection
+
+on:
+  schedule:
+    # Run once a day at 03:00 UTC.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-data-collection
+  cancel-in-progress: false
+
+jobs:
+  collect-data:
+    name: Refresh and commit generated data
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run data collection pipeline
+        run: python build_data_pipeline.py --refresh-remote
+
+      - name: Commit refreshed data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data data_package web/data
+          if git diff --cached --quiet; then
+            echo "No data changes to commit."
+            exit 0
+          fi
+          git commit -m "Update generated infrastructure data"
+          git push origin HEAD:main
