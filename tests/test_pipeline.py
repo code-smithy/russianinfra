@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import build_data_pipeline as build
 import combine_infrastructure_sources as combine
+import extract_nightwatch_map as nightwatch
 import generate_change_report as changes
 import normalize_infrastructure_data as normalize
 import prepare_web_data as prepare
@@ -50,6 +51,45 @@ class BuildPipelineTests(unittest.TestCase):
                 "--write",
             ],
         )
+
+
+class NightwatchExtractorTests(unittest.TestCase):
+    def test_convert_emits_points_and_referenced_paths(self):
+        payload = {
+            "retrieved_at": "2026-06-30T12:00:00Z",
+            "text_references": {
+                "$16": "37.0,55.0,0 37.1,55.1,0 37.2,55.2,0",
+            },
+            "placemarks": [
+                {
+                    "id": "point-id",
+                    "sidc": "10062000001101000000",
+                    "name": ["Alpha Base"],
+                    "description": ["military unit 12345"],
+                    "parentName": "Ministry of Defense",
+                    "nodeId": "000000.000000",
+                    "Point": [{"coordinates": ["37.264,55.603,0"]}],
+                },
+                {
+                    "id": "path-id",
+                    "name": ["Alpha Boundary"],
+                    "parentName": "Training Territory",
+                    "LineString": [{"coordinates": ["$16"]}],
+                },
+            ],
+        }
+
+        rows = nightwatch.convert(payload)
+
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["source_dataset"], "Nightwatch map")
+        self.assertEqual(rows[0]["layer"], "nightwatch_points")
+        self.assertEqual(rows[0]["military_unit"], "12345")
+        self.assertEqual(rows[0]["geometry_type"], "Point")
+        self.assertEqual(rows[1]["layer"], "nightwatch_paths")
+        self.assertEqual(rows[1]["geometry_type"], "LineString")
+        self.assertEqual(rows[1]["coordinate_count"], "3")
+        self.assertEqual(rows[1]["category"], "military_facility_boundary")
 
 
 class ChangeReportTests(unittest.TestCase):

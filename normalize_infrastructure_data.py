@@ -108,7 +108,7 @@ CSV_FIELDS = [
 
 SOURCE_RUSSIA = "Russia Oil & Power Infrastructure Map"
 SOURCE_VARTA = "OSINT Varta"
-SOURCE_MILITARY_KML = "Military KML text archive"
+SOURCE_NIGHTWATCH = "Nightwatch map"
 
 SOURCE_CATALOG = {
     SOURCE_RUSSIA: {
@@ -153,19 +153,19 @@ SOURCE_CATALOG = {
         "source_reliability": "C",
         "notes": "Archived map point extraction.",
     },
-    SOURCE_MILITARY_KML: {
-        "source_id": "military_kml_text_archive",
-        "source_name": "Military KML text archive",
-        "source_type": "kml_archive",
-        "source_url": "",
-        "retrieval_method": "local_archive_extractor",
+    SOURCE_NIGHTWATCH: {
+        "source_id": "nightwatch_map",
+        "source_name": "Nightwatch map",
+        "source_type": "public_embedded_map",
+        "source_url": "https://nightwatch.services/map",
+        "retrieval_method": "public_nextjs_embedded_data",
         "license_or_terms": "unknown",
         "terms_url": "",
         "can_redistribute_raw": "unknown",
         "can_redistribute_derived": "unknown",
         "attribution_required": "unknown",
         "source_reliability": "C",
-        "notes": "Local KML text archive extraction.",
+        "notes": "Extracted from public server-rendered Nightwatch map placemarks.",
     },
 }
 
@@ -533,8 +533,8 @@ def classify(row: dict[str, str]) -> tuple[str, str, str, str]:
 
     if source_info(value(row, "source_dataset"))["source_id"] == "osint_varta_archive":
         return "military_industrial", "company", "defense_industrial_company", "military"
-    if value(row, "source_dataset") == SOURCE_MILITARY_KML:
-        if layer == "military_kml_paths":
+    if value(row, "source_dataset") == SOURCE_NIGHTWATCH:
+        if layer == "nightwatch_paths":
             if "boundary" in category:
                 return "military", "military_boundary", category, "military"
             return "military", "military_path", category, "military"

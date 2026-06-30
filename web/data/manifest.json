@@ -1,49 +1,67 @@
 {
   "generated_from": "data\\normalized_infrastructure.geojson",
   "change_report_file": "diff_report.json",
-  "total_features": 122885,
+  "total_features": 125357,
   "missing_geometry_count": 340,
   "geometry_counts": {
-    "LineString": 112277,
+    "LineString": 112162,
     "MultiLineString": 145,
-    "Point": 10123,
+    "Point": 12710,
     "missing": 340
   },
   "asset_class_counts": {
     "energy": 9170,
-    "military": 2748,
+    "military": 5220,
     "military_industrial": 6419,
     "other_infrastructure": 2,
     "power": 44619,
     "transport": 59927
   },
   "source_counts": {
-    "military_kml_text_archive": 2748,
+    "nightwatch_map": 5220,
     "osint_varta_archive": 6419,
     "russia_oil_power_map": 113718
   },
   "confidence_counts": {
     "A": 113718,
-    "B": 8827,
+    "B": 11299,
     "C": 340
   },
   "coordinate_precision_counts": {
-    "centroid": 112422,
-    "exact": 10123,
+    "centroid": 112307,
+    "exact": 12710,
     "missing": 340
   },
   "countries": [
     {
       "id": "Russia",
       "label": "Russia",
-      "count": 122491,
-      "point_count": 9886
+      "count": 122954,
+      "point_count": 10456
+    },
+    {
+      "id": "Iran",
+      "label": "Iran",
+      "count": 1759,
+      "point_count": 1759
     },
     {
       "id": "Belarus",
       "label": "Belarus",
       "count": 212,
-      "point_count": 203
+      "point_count": 204
+    },
+    {
+      "id": "Pakistan",
+      "label": "Pakistan",
+      "count": 106,
+      "point_count": 106
+    },
+    {
+      "id": "Afghanistan",
+      "label": "Afghanistan",
+      "count": 87,
+      "point_count": 87
     },
     {
       "id": "Kazakhstan",
@@ -52,10 +70,22 @@
       "point_count": 4
     },
     {
+      "id": "Azerbaijan",
+      "label": "Azerbaijan",
+      "count": 37,
+      "point_count": 28
+    },
+    {
       "id": "Ukraine",
       "label": "Ukraine",
       "count": 28,
-      "point_count": 10
+      "point_count": 11
+    },
+    {
+      "id": "Georgia",
+      "label": "Georgia",
+      "count": 17,
+      "point_count": 6
     },
     {
       "id": "Poland",
@@ -64,10 +94,10 @@
       "point_count": 1
     },
     {
-      "id": "Georgia",
-      "label": "Georgia",
-      "count": 14,
-      "point_count": 1
+      "id": "Iraq",
+      "label": "Iraq",
+      "count": 15,
+      "point_count": 15
     },
     {
       "id": "Lithuania",
@@ -78,14 +108,8 @@
     {
       "id": "Armenia",
       "label": "Armenia",
-      "count": 11,
-      "point_count": 7
-    },
-    {
-      "id": "Azerbaijan",
-      "label": "Azerbaijan",
-      "count": 9,
-      "point_count": 0
+      "count": 8,
+      "point_count": 8
     },
     {
       "id": "Finland",
@@ -98,6 +122,18 @@
       "label": "Mongolia",
       "count": 6,
       "point_count": 0
+    },
+    {
+      "id": "Turkey",
+      "label": "Turkey",
+      "count": 5,
+      "point_count": 5
+    },
+    {
+      "id": "Turkmenistan",
+      "label": "Turkmenistan",
+      "count": 5,
+      "point_count": 5
     },
     {
       "id": "China",
@@ -120,6 +156,12 @@
     {
       "id": "Moldova",
       "label": "Moldova",
+      "count": 4,
+      "point_count": 4
+    },
+    {
+      "id": "Tajikistan",
+      "label": "Tajikistan",
       "count": 4,
       "point_count": 4
     },
@@ -210,7 +252,7 @@
       "file_details": [
         {
           "file": "energy_oil.geojson",
-          "size_bytes": 5025369,
+          "size_bytes": 5025366,
           "feature_count": 1192
         }
       ],
@@ -236,28 +278,28 @@
       "file_details": [
         {
           "file": "military_boundaries.geojson",
-          "size_bytes": 1557551,
-          "feature_count": 130
+          "size_bytes": 200643,
+          "feature_count": 15
         }
       ],
-      "count": 130,
+      "count": 15,
       "point_count": 0,
-      "line_count": 130,
+      "line_count": 15,
       "subcategories": [
-        {
-          "id": "facility_boundary",
-          "label": "Facility boundary",
-          "count": 120
-        },
         {
           "id": "district_boundary",
           "label": "District boundary",
-          "count": 7
+          "count": 8
         },
         {
           "id": "military_other",
           "label": "Military other",
-          "count": 3
+          "count": 6
+        },
+        {
+          "id": "facility_boundary",
+          "label": "Facility boundary",
+          "count": 1
         }
       ],
       "default_visible": false
@@ -358,78 +400,78 @@
       "file_details": [
         {
           "file": "military_sites.geojson",
-          "size_bytes": 9167758,
-          "feature_count": 2618
+          "size_bytes": 19122389,
+          "feature_count": 5205
         }
       ],
-      "count": 2618,
-      "point_count": 2618,
+      "count": 5205,
+      "point_count": 5205,
       "line_count": 0,
       "subcategories": [
         {
           "id": "military_other",
           "label": "Military other",
-          "count": 1047
+          "count": 2804
         },
         {
           "id": "communications_ew_radar",
           "label": "Communications, EW & radar",
-          "count": 355
+          "count": 578
         },
         {
           "id": "logistics_storage",
           "label": "Logistics & storage",
-          "count": 275
-        },
-        {
-          "id": "training_education",
-          "label": "Training & education",
-          "count": 199
+          "count": 411
         },
         {
           "id": "aviation_aerospace",
           "label": "Aviation & aerospace",
-          "count": 185
+          "count": 375
         },
         {
           "id": "missile_artillery_air_defense",
           "label": "Missile, artillery & air defense",
-          "count": 163
+          "count": 287
+        },
+        {
+          "id": "training_education",
+          "label": "Training & education",
+          "count": 237
         },
         {
           "id": "command_hq",
           "label": "Command & HQ",
-          "count": 147
+          "count": 219
         },
         {
           "id": "naval_fleet_coast_guard",
           "label": "Naval, fleet & coast guard",
-          "count": 95
+          "count": 115
         },
         {
           "id": "repair_maintenance",
           "label": "Repair & maintenance",
-          "count": 94
-        },
-        {
-          "id": "nbc_chemical",
-          "label": "NBC & chemical",
-          "count": 21
+          "count": 89
         },
         {
           "id": "vehicle_armor",
           "label": "Vehicles & armor",
-          "count": 18
+          "count": 47
+        },
+        {
+          "id": "nbc_chemical",
+          "label": "NBC & chemical",
+          "count": 22
         },
         {
           "id": "research_design",
           "label": "Research & design",
-          "count": 14
+          "count": 15
         },
         {
           "id": "weapons_ammunition",
           "label": "Weapons & ammunition",
-          "count": 5
+          "count": 6
         }
       ],
       "default_visible": true

@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 LOCAL_STEPS = [
-    ["extract_military_kml_text.py"],
+    ["extract_nightwatch_map.py"],
     ["combine_infrastructure_sources.py"],
     ["normalize_infrastructure_data.py"],
     ["enrich_translations_and_categories.py"],
@@ -22,6 +22,7 @@ LOCAL_STEPS = [
 REMOTE_STEPS = [
     ["extract_russia_oil_power_map.py"],
     ["extract_osint_varta_archive.py"],
+    ["extract_nightwatch_map.py", "--refresh"],
 ]
 
 

@@ -11,7 +11,7 @@ The current generated web dataset contains energy, power, transport, military, m
 |-- build_data_pipeline.py                  # Runs the local data build steps
 |-- extract_russia_oil_power_map.py         # Fetches Russia Oil & Power map layers
 |-- extract_osint_varta_archive.py          # Fetches archived OSINT Varta points
-|-- extract_military_kml_text.py            # Parses the local KML text archive export
+|-- extract_nightwatch_map.py               # Fetches/parses public Nightwatch map placemarks
 |-- combine_infrastructure_sources.py       # Combines extracted CSV sources
 |-- normalize_infrastructure_data.py        # Normalizes combined records
 |-- enrich_translations_and_categories.py   # Adds offline translations/categories
@@ -79,8 +79,9 @@ Remote refresh currently fetches from:
 
 - `russiaoilpowermap.com`
 - Internet Archive captures for OSINT Varta map data
+- Public server-rendered map data from `nightwatch.services/map`
 
-The military KML text archive is read from `data/raw/20260618052118-00000-data.txt`.
+Nightwatch map data is cached in `data/raw/nightwatch_map_placemarks.json` so local rebuilds do not require a network request.
 
 ## Generated Data
 
