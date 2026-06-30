@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import build_data_pipeline as build
 import combine_infrastructure_sources as combine
 import normalize_infrastructure_data as normalize
 import prepare_web_data as prepare
@@ -27,6 +28,25 @@ class CombineSourcesTests(unittest.TestCase):
         self.assertEqual(rows[0]["source_line_or_record_id"], "2")
         self.assertEqual(rows[1]["source_dataset"], "Existing source")
         self.assertEqual(rows[1]["source_line_or_record_id"], "3")
+
+
+class BuildPipelineTests(unittest.TestCase):
+    def test_country_derivation_runs_after_enrichment_before_web_prep(self):
+        steps = build.LOCAL_STEPS
+        step_names = [step[0] for step in steps]
+
+        derive_index = step_names.index("derive_countries_from_boundaries.py")
+        self.assertLess(step_names.index("enrich_translations_and_categories.py"), derive_index)
+        self.assertLess(derive_index, step_names.index("prepare_web_data.py"))
+        self.assertEqual(
+            steps[derive_index],
+            [
+                "derive_countries_from_boundaries.py",
+                "--input",
+                "data/normalized_infrastructure.geojson",
+                "--write",
+            ],
+        )
 
 
 class NormalizePipelineTests(unittest.TestCase):

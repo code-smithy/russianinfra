@@ -10,22 +10,24 @@ from pathlib import Path
 
 
 LOCAL_STEPS = [
-    "extract_military_kml_text.py",
-    "combine_infrastructure_sources.py",
-    "normalize_infrastructure_data.py",
-    "enrich_translations_and_categories.py",
-    "prepare_web_data.py",
+    ["extract_military_kml_text.py"],
+    ["combine_infrastructure_sources.py"],
+    ["normalize_infrastructure_data.py"],
+    ["enrich_translations_and_categories.py"],
+    ["derive_countries_from_boundaries.py", "--input", "data/normalized_infrastructure.geojson", "--write"],
+    ["prepare_web_data.py"],
 ]
 
 REMOTE_STEPS = [
-    "extract_russia_oil_power_map.py",
-    "extract_osint_varta_archive.py",
+    ["extract_russia_oil_power_map.py"],
+    ["extract_osint_varta_archive.py"],
 ]
 
 
-def run_step(script: str) -> None:
-    print(f"\n==> {script}", flush=True)
-    subprocess.run([sys.executable, script], check=True)
+def run_step(step: list[str]) -> None:
+    script, *args = step
+    print(f"\n==> {' '.join(step)}", flush=True)
+    subprocess.run([sys.executable, script, *args], check=True)
 
 
 def main() -> int:
@@ -37,16 +39,16 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    missing = [script for script in [*REMOTE_STEPS, *LOCAL_STEPS] if not Path(script).exists()]
+    missing = [step[0] for step in [*REMOTE_STEPS, *LOCAL_STEPS] if not Path(step[0]).exists()]
     if missing:
         raise FileNotFoundError(f"Missing pipeline scripts: {', '.join(missing)}")
 
     if args.refresh_remote:
-        for script in REMOTE_STEPS:
-            run_step(script)
+        for step in REMOTE_STEPS:
+            run_step(step)
 
-    for script in LOCAL_STEPS:
-        run_step(script)
+    for step in LOCAL_STEPS:
+        run_step(step)
 
     print("\nPipeline complete.")
     return 0

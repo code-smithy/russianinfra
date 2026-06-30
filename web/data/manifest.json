@@ -35,8 +35,110 @@
     {
       "id": "Russia",
       "label": "Russia",
-      "count": 122885,
-      "point_count": 10123
+      "count": 122491,
+      "point_count": 9886
+    },
+    {
+      "id": "Belarus",
+      "label": "Belarus",
+      "count": 212,
+      "point_count": 203
+    },
+    {
+      "id": "Kazakhstan",
+      "label": "Kazakhstan",
+      "count": 58,
+      "point_count": 4
+    },
+    {
+      "id": "Ukraine",
+      "label": "Ukraine",
+      "count": 28,
+      "point_count": 10
+    },
+    {
+      "id": "Poland",
+      "label": "Poland",
+      "count": 16,
+      "point_count": 1
+    },
+    {
+      "id": "Georgia",
+      "label": "Georgia",
+      "count": 14,
+      "point_count": 1
+    },
+    {
+      "id": "Lithuania",
+      "label": "Lithuania",
+      "count": 13,
+      "point_count": 0
+    },
+    {
+      "id": "Armenia",
+      "label": "Armenia",
+      "count": 11,
+      "point_count": 7
+    },
+    {
+      "id": "Azerbaijan",
+      "label": "Azerbaijan",
+      "count": 9,
+      "point_count": 0
+    },
+    {
+      "id": "Finland",
+      "label": "Finland",
+      "count": 8,
+      "point_count": 1
+    },
+    {
+      "id": "Mongolia",
+      "label": "Mongolia",
+      "count": 6,
+      "point_count": 0
+    },
+    {
+      "id": "China",
+      "label": "China",
+      "count": 4,
+      "point_count": 0
+    },
+    {
+      "id": "Estonia",
+      "label": "Estonia",
+      "count": 4,
+      "point_count": 1
+    },
+    {
+      "id": "Kyrgyzstan",
+      "label": "Kyrgyzstan",
+      "count": 4,
+      "point_count": 4
+    },
+    {
+      "id": "Moldova",
+      "label": "Moldova",
+      "count": 4,
+      "point_count": 4
+    },
+    {
+      "id": "Latvia",
+      "label": "Latvia",
+      "count": 1,
+      "point_count": 0
+    },
+    {
+      "id": "Norway",
+      "label": "Norway",
+      "count": 1,
+      "point_count": 0
+    },
+    {
+      "id": "Syria",
+      "label": "Syria",
+      "count": 1,
+      "point_count": 1
     }
   ],
   "layers": [
@@ -50,7 +152,7 @@
       "file_details": [
         {
           "file": "energy_facilities.geojson",
-          "size_bytes": 1064559,
+          "size_bytes": 1074462,
           "feature_count": 319
         }
       ],
@@ -81,7 +183,7 @@
       "file_details": [
         {
           "file": "energy_gas.geojson",
-          "size_bytes": 28920334,
+          "size_bytes": 29271676,
           "feature_count": 7659
         }
       ],
@@ -107,7 +209,7 @@
       "file_details": [
         {
           "file": "energy_oil.geojson",
-          "size_bytes": 4639114,
+          "size_bytes": 4692843,
           "feature_count": 1192
         }
       ],
@@ -133,7 +235,7 @@
       "file_details": [
         {
           "file": "military_boundaries.geojson",
-          "size_bytes": 1515375,
+          "size_bytes": 1521281,
           "feature_count": 130
         }
       ],
@@ -169,7 +271,7 @@
       "file_details": [
         {
           "file": "military_industrial.geojson",
-          "size_bytes": 43227594,
+          "size_bytes": 43426267,
           "feature_count": 6419
         }
       ],
@@ -255,7 +357,7 @@
       "file_details": [
         {
           "file": "military_sites.geojson",
-          "size_bytes": 8355704,
+          "size_bytes": 8437336,
           "feature_count": 2618
         }
       ],
@@ -341,7 +443,7 @@
       "file_details": [
         {
           "file": "other_infrastructure.geojson",
-          "size_bytes": 6696,
+          "size_bytes": 6758,
           "feature_count": 2
         }
       ],
@@ -367,7 +469,7 @@
       "file_details": [
         {
           "file": "power_facilities.geojson",
-          "size_bytes": 3425532,
+          "size_bytes": 3457838,
           "feature_count": 1042
         }
       ],
@@ -401,23 +503,23 @@
       "file_details": [
         {
           "file": "power_lines_part001.geojson",
-          "size_bytes": 47997865,
-          "feature_count": 13422
+          "size_bytes": 47998108,
+          "feature_count": 13248
         },
         {
           "file": "power_lines_part002.geojson",
-          "size_bytes": 47997448,
-          "feature_count": 13574
+          "size_bytes": 47998190,
+          "feature_count": 13398
         },
         {
           "file": "power_lines_part003.geojson",
-          "size_bytes": 47999264,
-          "feature_count": 13580
+          "size_bytes": 47998949,
+          "feature_count": 13419
         },
         {
           "file": "power_lines_part004.geojson",
-          "size_bytes": 10644411,
-          "feature_count": 3001
+          "size_bytes": 12648045,
+          "feature_count": 3512
         }
       ],
       "count": 43577,
@@ -442,7 +544,7 @@
       "file_details": [
         {
           "file": "transport_other.geojson",
-          "size_bytes": 204712,
+          "size_bytes": 206665,
           "feature_count": 63
         }
       ],
@@ -472,28 +574,28 @@
       "file_details": [
         {
           "file": "transport_rail_part001.geojson",
-          "size_bytes": 47996105,
-          "feature_count": 13204
+          "size_bytes": 47996624,
+          "feature_count": 13038
         },
         {
           "file": "transport_rail_part002.geojson",
-          "size_bytes": 47997920,
-          "feature_count": 13186
+          "size_bytes": 47996472,
+          "feature_count": 13034
         },
         {
           "file": "transport_rail_part003.geojson",
-          "size_bytes": 47996616,
-          "feature_count": 12969
+          "size_bytes": 47996968,
+          "feature_count": 12802
         },
         {
           "file": "transport_rail_part004.geojson",
-          "size_bytes": 47996246,
-          "feature_count": 12661
+          "size_bytes": 47997284,
+          "feature_count": 12555
         },
         {
           "file": "transport_rail_part005.geojson",
-          "size_bytes": 30517430,
-          "feature_count": 7844
+          "size_bytes": 33268136,
+          "feature_count": 8435
         }
       ],
       "count": 59864,
