@@ -11,12 +11,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+import time
+import urllib.request
+from urllib.error import URLError
 from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
 
 
 BOUNDARY_PATH = Path("data/boundaries/ne_50m_admin_0_countries.geojson")
+BOUNDARY_URLS = [
+    "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson",
+]
 DEFAULT_INPUTS = ["web/data/*.geojson"]
 REPORT_PATH = Path("data/country_derivation_report.json")
 
@@ -67,7 +74,47 @@ def country_name(properties: dict[str, Any]) -> str:
     return "Unknown"
 
 
+def fetch_bytes(url: str, attempts: int = 3) -> bytes:
+    request = urllib.request.Request(url, headers={"User-Agent": "russianinfra-data-pipeline/1.0"})
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=90) as response:
+                return response.read()
+        except URLError as exc:
+            last_error = exc
+            if attempt == attempts:
+                break
+            wait_seconds = 2**attempt
+            print(f"Boundary fetch failed ({exc}); retrying in {wait_seconds}s...", file=sys.stderr)
+            time.sleep(wait_seconds)
+    raise RuntimeError(f"Failed to fetch {url} after {attempts} attempts") from last_error
+
+
+def ensure_boundary_file(path: Path) -> None:
+    if path.exists():
+        return
+
+    errors: list[str] = []
+    for url in BOUNDARY_URLS:
+        try:
+            data = fetch_bytes(url)
+            parsed = json.loads(data.decode("utf-8-sig"))
+            if parsed.get("type") != "FeatureCollection" or not isinstance(parsed.get("features"), list):
+                raise RuntimeError("downloaded boundary data is not a GeoJSON FeatureCollection")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+            print(f"Downloaded country boundaries to {path}")
+            return
+        except Exception as exc:
+            errors.append(f"{url}: {exc}")
+
+    detail = "; ".join(errors)
+    raise FileNotFoundError(f"Missing country boundary file {path} and automatic download failed. {detail}")
+
+
 def load_boundaries(path: Path) -> list[dict[str, Any]]:
+    ensure_boundary_file(path)
     data = json.loads(path.read_text(encoding="utf-8"))
     countries = []
     for feature in data.get("features", []):

@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import build_data_pipeline as build
 import combine_infrastructure_sources as combine
+import derive_countries_from_boundaries as countries
 import extract_nightwatch_map as nightwatch
 import extract_osint_varta_archive as varta
 import generate_change_report as changes
@@ -52,6 +53,38 @@ class BuildPipelineTests(unittest.TestCase):
                 "--write",
             ],
         )
+
+
+class CountryBoundaryTests(unittest.TestCase):
+    def test_load_boundaries_downloads_missing_default_cache_file(self):
+        boundary_payload = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"ADMIN": "Testland"},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[
+                            [0.0, 0.0],
+                            [2.0, 0.0],
+                            [2.0, 2.0],
+                            [0.0, 2.0],
+                            [0.0, 0.0],
+                        ]],
+                    },
+                },
+            ],
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "data" / "boundaries" / "countries.geojson"
+            with patch.object(countries, "fetch_bytes", return_value=json.dumps(boundary_payload).encode("utf-8")):
+                boundaries = countries.load_boundaries(path)
+
+            self.assertTrue(path.exists())
+            self.assertEqual(boundaries[0]["name"], "Testland")
+            self.assertEqual(countries.matching_countries((1.0, 1.0), boundaries), ["Testland"])
 
 
 class NightwatchExtractorTests(unittest.TestCase):
