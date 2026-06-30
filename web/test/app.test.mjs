@@ -19,6 +19,7 @@ globalThis.__api = {
   state,
   els,
   clearAllCountries,
+  clearTemporalFilters,
   buildEstimatorCsv,
   buildEstimatorAggregates,
   currentPreferences,
@@ -27,6 +28,7 @@ globalThis.__api = {
   estimateUnits,
   featureDistanceToPointKm,
   featurePassesActiveFilters,
+  featurePassesTemporalFilters,
   groupedLayerInfos,
   handleSubcategoryChange,
   importEstimatorAssumptionsFromText,
@@ -40,8 +42,10 @@ globalThis.__api = {
   resetEstimatorAssumptions,
   savePreferencesNow,
   setCountriesPanelCollapsed,
+  setChangeReportPanelCollapsed,
   setEstimatorBlockCollapsed,
   setLayersPanelCollapsed,
+  setTemporalPanelCollapsed,
   setMenuWidth,
   summarizeEstimatorResults,
   validateEstimatorAggregates,
@@ -49,6 +53,7 @@ globalThis.__api = {
 );
 
 const manifest = {
+  change_report_file: "diff_report.json",
   total_features: 3,
   countries: [
     { id: "Russia", label: "Russia", count: 2, point_count: 2 },
@@ -81,6 +86,26 @@ const manifest = {
 
 const fixtures = {
   "data/manifest.json": manifest,
+  "data/diff_report.json": {
+    schema_version: 1,
+    summary: {
+      compare_available: true,
+      previous_build_id: "2026-06-18T00:00:00Z",
+      current_build_id: "2026-06-30T00:00:00Z",
+      new_objects: 1,
+      removed_objects: 1,
+      changed_objects: 1,
+      moved_objects: 1,
+      suspicious_coordinate_shifts: 1,
+    },
+    new_objects: [{ uid: "fixture_energy_1", name: "Alpha Refinery", map_layer: "energy_facilities", asset_type: "energy_oil_facility", country: "Russia" }],
+    removed_objects: [{ uid: "old_1", name: "Removed object", map_layer: "power_facilities", asset_type: "substation", country: "Russia" }],
+    moved_objects: [{ uid: "fixture_energy_2", name: "Charlie Terminal", map_layer: "energy_facilities", asset_type: "energy_oil_facility", distance_km: 24.5 }],
+    category_changes: [],
+    name_changes: [],
+    confidence_changes: [],
+    source_changes: [],
+  },
   "deepstate-layer-config.json": {
     enabled: true,
     type: "geojson",
@@ -290,6 +315,36 @@ test("saves and restores the collapsed Countries panel", async () => {
   assert.equal(second.__api.els.countriesPanelToggle.getAttribute("aria-expanded"), "false");
 });
 
+test("saves and restores collapsed Timeline and Build comparison panels", async () => {
+  const first = createAppContext();
+  await first.__initPromise;
+
+  first.__api.setTemporalPanelCollapsed(true);
+  first.__api.setChangeReportPanelCollapsed(true);
+  first.__api.savePreferencesNow();
+
+  const savedRaw = first.localStorage.getItem(STORAGE_KEY);
+  const saved = JSON.parse(savedRaw);
+  assert.equal(saved.temporalPanelCollapsed, true);
+  assert.equal(saved.changeReportPanelCollapsed, true);
+
+  const second = createAppContext({ [STORAGE_KEY]: savedRaw });
+  await second.__initPromise;
+
+  assert.equal(second.__api.els.temporalPanelBody.hidden, true);
+  assert.equal(second.__api.els.temporalPanel.classList.contains("collapsed"), true);
+  assert.equal(second.__api.els.temporalPanelToggle.getAttribute("aria-expanded"), "false");
+  assert.equal(second.__api.els.changeReportPanelBody.hidden, true);
+  assert.equal(second.__api.els.changeReportPanel.classList.contains("collapsed"), true);
+  assert.equal(second.__api.els.changeReportPanelToggle.getAttribute("aria-expanded"), "false");
+});
+
+test("places Timeline and Build comparison at the bottom of their sidebars", () => {
+  const html = fs.readFileSync("web/index.html", "utf8");
+  assert.ok(html.indexOf('id="temporalPanel"') > html.indexOf('id="radiusPanel"'));
+  assert.ok(html.indexOf('id="changeReportPanel"') > html.indexOf('id="estimatorPanel"'));
+});
+
 test("saves and restores resized menu widths", async () => {
   const first = createAppContext();
   await first.__initPromise;
@@ -367,6 +422,40 @@ test("clears all country filters from the Countries panel button", async () => {
   assert.equal(app.__api.state.countryControls.get("Ukraine").checked, false);
   assert.equal(app.__api.featurePassesActiveFilters(fixtures["data/energy_facilities.geojson"].features[0]), false);
   assert.equal(app.__api.featurePassesActiveFilters(fixtures["data/military_sites.geojson"].features[0]), false);
+});
+
+test("loads build comparison report and renders summary counts", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  assert.equal(app.__api.els.changeReportBuilds.textContent, "2026-06-18 -> 2026-06-30");
+  assert.match(app.__api.els.changeReportSummary.innerHTML, /new objects/);
+  assert.match(app.__api.els.changeReportSummary.innerHTML, /suspicious shifts/);
+  assert.match(app.__api.els.changeReportDetails.innerHTML, /Alpha Refinery/);
+  assert.match(app.__api.els.changeReportDetails.innerHTML, /Removed object/);
+});
+
+test("timeline filters apply status and date constraints to active features", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  const first = fixtures["data/energy_facilities.geojson"].features[0];
+  const second = fixtures["data/energy_facilities.geojson"].features[1];
+
+  api.els.showNewOnlyInput.checked = true;
+  api.els.showNewOnlyInput.listeners.change[0]();
+  assert.equal(api.featurePassesActiveFilters(first), true);
+  assert.equal(api.featurePassesActiveFilters(second), false);
+  assert.equal(api.els.temporalSummary.textContent, "new");
+
+  api.clearTemporalFilters();
+  api.els.timeFieldSelect.value = "source";
+  api.els.timeAfterInput.value = "2026-06-29";
+  api.els.timeAfterInput.listeners.change[0]();
+  assert.equal(api.featurePassesTemporalFilters(first), true);
+  assert.equal(api.featurePassesTemporalFilters(second), false);
+  assert.equal(api.els.temporalSummary.textContent, "after 2026-06-29");
 });
 
 test("groups layers by domain and puts line layers last inside each group", async () => {
@@ -937,6 +1026,34 @@ test("range band edits update one band without adding extra bands", async () => 
 });
 
 function feature(id, label, layerId, subcategory, lat, lng, country = "Russia") {
+  const temporal = {
+    fixture_energy_1: {
+      source_archive_date: "2026-06-30T00:00:00Z",
+      first_seen_build: "2026-06-30T00:00:00Z",
+      last_seen_build: "2026-06-30T00:00:00Z",
+      change_status: "new",
+      change_types: ["new"],
+      new_in_latest_build: "true",
+      changed_since_previous_build: "false",
+    },
+    fixture_energy_2: {
+      source_archive_date: "2026-06-18T00:00:00Z",
+      first_seen_build: "2026-06-18T00:00:00Z",
+      last_seen_build: "2026-06-30T00:00:00Z",
+      change_status: "changed",
+      change_types: ["moved"],
+      new_in_latest_build: "false",
+      changed_since_previous_build: "true",
+    },
+  }[id] || {
+    source_archive_date: "2026-06-18T00:00:00Z",
+    first_seen_build: "2026-06-18T00:00:00Z",
+    last_seen_build: "2026-06-30T00:00:00Z",
+    change_status: "unchanged",
+    change_types: [],
+    new_in_latest_build: "false",
+    changed_since_previous_build: "false",
+  };
   return {
     type: "Feature",
     id,
@@ -956,6 +1073,7 @@ function feature(id, label, layerId, subcategory, lat, lng, country = "Russia") 
       derived_subcategory_label: subcategory,
       search_text: `${label} ${subcategory}`,
       map_color: "#d4472f",
+      ...temporal,
     },
   };
 }

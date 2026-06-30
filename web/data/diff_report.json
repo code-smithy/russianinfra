@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-30T08:02:52Z",
+  "comparison": {
+    "previous": "",
+    "current": "2026-06-30T06:50:59Z"
+  },
+  "summary": {
+    "compare_available": false,
+    "previous_build_id": "",
+    "current_build_id": "2026-06-30T06:50:59Z",
+    "current_object_count": 122885,
+    "previous_object_count": 0,
+    "new_objects": 0,
+    "removed_objects": 0,
+    "changed_objects": 0,
+    "moved_objects": 0,
+    "category_changes": 0,
+    "name_changes": 0,
+    "confidence_changes": 0,
+    "source_changes": 0,
+    "suspicious_coordinate_shifts": 0
+  },
+  "change_type_counts": {},
+  "new_objects": [],
+  "removed_objects": [],
+  "moved_objects": [],
+  "category_changes": [],
+  "name_changes": [],
+  "confidence_changes": [],
+  "source_changes": [],
+  "suspicious_coordinate_shifts": [],
+  "limits": {
+    "max_items_per_section": 250,
+    "move_threshold_km": 1.0,
+    "suspicious_move_threshold_km": 20.0
+  }
+}

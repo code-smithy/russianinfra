@@ -15,6 +15,7 @@ LOCAL_STEPS = [
     ["normalize_infrastructure_data.py"],
     ["enrich_translations_and_categories.py"],
     ["derive_countries_from_boundaries.py", "--input", "data/normalized_infrastructure.geojson", "--write"],
+    ["generate_change_report.py"],
     ["prepare_web_data.py"],
 ]
 

@@ -11,6 +11,7 @@ from typing import Any
 
 
 NORMALIZED_GEOJSON = Path("data/normalized_infrastructure.geojson")
+CHANGE_REPORT_JSON = Path("data/change_report.json")
 WEB_DATA_DIR = Path("web/data")
 MAX_WEB_DATA_FILE_BYTES = 48_000_000
 
@@ -86,6 +87,14 @@ APP_PROPERTY_KEYS = [
     "possible_duplicate_group",
     "search_text",
     "references_json",
+    "first_seen_build",
+    "last_seen_build",
+    "change_status",
+    "change_types",
+    "changed_since_previous_build",
+    "new_in_latest_build",
+    "removed_from_latest_build",
+    "source_archive_date",
 ]
 
 LAYER_LABELS = {
@@ -133,6 +142,9 @@ def clean_web_data_dir() -> None:
     for pattern in ("*.geojson", "radius_index.tsv"):
         for path in WEB_DATA_DIR.glob(pattern):
             path.unlink()
+    diff_report = WEB_DATA_DIR / "diff_report.json"
+    if diff_report.exists():
+        diff_report.unlink()
 
 
 def feature_json(feature: dict[str, Any]) -> str:
@@ -179,6 +191,14 @@ def write_layer_files(layer: str, features: list[dict[str, Any]]) -> list[dict[s
         size = write_geojson_items(WEB_DATA_DIR / filename, chunk)
         files.append({"file": filename, "size_bytes": size, "feature_count": len(chunk)})
     return files
+
+
+def copy_change_report() -> str:
+    if not CHANGE_REPORT_JSON.exists():
+        return ""
+    target = WEB_DATA_DIR / "diff_report.json"
+    target.write_text(CHANGE_REPORT_JSON.read_text(encoding="utf-8"), encoding="utf-8")
+    return target.name
 
 
 def main() -> int:
@@ -262,6 +282,7 @@ def main() -> int:
 
     manifest = {
         "generated_from": str(NORMALIZED_GEOJSON),
+        "change_report_file": copy_change_report(),
         "total_features": sum(counts.values()),
         "missing_geometry_count": missing,
         "geometry_counts": dict(sorted(geometry_counts.items())),

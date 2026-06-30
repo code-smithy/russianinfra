@@ -1,5 +1,5 @@
 const DATA_DIR = "data/";
-const APP_VERSION = "0.6.0";
+const APP_VERSION = "0.7.0";
 const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
@@ -110,6 +110,11 @@ const SUMMARY_DISPLAY_OPTIONS = [
   { key: "compactTotals", label: "Totals" },
   { key: "rangeBandMatrix", label: "Range matrix" },
 ];
+const TEMPORAL_DATE_FIELDS = [
+  { id: "source", label: "Source/archive date" },
+  { id: "first_seen", label: "First seen" },
+  { id: "last_seen", label: "Last seen" },
+];
 const ESTIMATOR_BLOCKS = [
   { key: "rangeBands", label: "Range bands" },
   { key: "resourceTypes", label: "Resource types" },
@@ -119,10 +124,11 @@ const INFO_TOPICS = {
   app: {
     title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
     paragraphs: [
-      "Version 0.6.0 adds provenance-aware source references, confidence dimensions, quality reports, review queues, and Python pipeline tests.",
-      "Highlights include reference-aware popups and radius exports, source coverage statistics, data package metadata, DeepState live categories, coordinate-aware country filtering, and APP-6 / MIL-STD-2525 style point symbols.",
+      "Version 0.7.0 adds build-to-build change reporting, temporal object metadata, and map filters for latest-build changes.",
+      "Highlights include new, removed, moved, category, name, confidence, and source changes, plus first-seen, last-seen, and source-date filtering.",
     ],
     history: [
+      { version: "0.7.0", date: "2026-06-30", notes: ["Generates data/change_report.json and web/data/diff_report.json from the previous build snapshot.", "Adds first_seen_build, last_seen_build, change_status, changed_since_previous_build, and new_in_latest_build metadata to current objects.", "Adds Build comparison and Timeline filters to the web app."] },
       { version: "0.6.0", date: "2026-06-30", notes: ["Adds source_catalog, references, object_references, quality_report, review queue, and data package manifest outputs.", "Shows source references and confidence dimensions in object popups and radius CSV exports.", "Adds standard-library Python unit tests for pipeline provenance, review, and web data helpers."] },
       { version: "0.5.0", date: "2026-06-29", notes: ["Replaces generic attack markers with local SVG arrows rotated from DeepState arrow_1 through arrow_16 icon names.", "Maps the 16 arrow icons evenly around the compass at 22.5 degree intervals, with arrow_16 wrapping to 0 degrees."] },
       { version: "0.4.0", date: "2026-06-29", notes: ["Shows the DeepState API response date in a normalized Date: DD.MM.YYYY HH:mm format.", "Adds optional DeepState historyDate support by selecting the latest public history version for a configured day.", "Keeps the 0.3.x SHA-256 UID hardening and DeepState HQ subcategory refinement."] },
@@ -208,6 +214,7 @@ const INFO_TOPICS = {
 
 const state = {
   manifest: null,
+  changeReport: null,
   layers: new Map(),
   features: new Map(),
   subcategoryFilters: new Map(),
@@ -235,6 +242,7 @@ const state = {
     left: MENU_WIDTH_LIMITS.left.defaultValue,
     right: MENU_WIDTH_LIMITS.right.defaultValue,
   },
+  temporalFilters: normalizeTemporalFilters(loadSavedPreferences()?.temporalFilters),
   activeMenuResize: null,
   estimator: normalizeEstimatorAssumptions(loadSavedPreferences()?.estimator),
 };
@@ -283,8 +291,24 @@ const els = {
   layersPanel: document.getElementById("layersPanel"),
   layersPanelBody: document.getElementById("layersPanelBody"),
   layersPanelToggle: document.getElementById("layersPanelToggle"),
+  temporalPanel: document.getElementById("temporalPanel"),
+  temporalPanelBody: document.getElementById("temporalPanelBody"),
+  temporalPanelToggle: document.getElementById("temporalPanelToggle"),
   clearCountriesBtn: document.getElementById("clearCountriesBtn"),
   clearLayersBtn: document.getElementById("clearLayersBtn"),
+  temporalSummary: document.getElementById("temporalSummary"),
+  timeFieldSelect: document.getElementById("timeFieldSelect"),
+  timeAfterInput: document.getElementById("timeAfterInput"),
+  timeBeforeInput: document.getElementById("timeBeforeInput"),
+  showNewOnlyInput: document.getElementById("showNewOnlyInput"),
+  showChangedOnlyInput: document.getElementById("showChangedOnlyInput"),
+  clearTemporalBtn: document.getElementById("clearTemporalBtn"),
+  changeReportPanel: document.getElementById("changeReportPanel"),
+  changeReportPanelBody: document.getElementById("changeReportPanelBody"),
+  changeReportPanelToggle: document.getElementById("changeReportPanelToggle"),
+  changeReportBuilds: document.getElementById("changeReportBuilds"),
+  changeReportSummary: document.getElementById("changeReportSummary"),
+  changeReportDetails: document.getElementById("changeReportDetails"),
   fitLoadedBtn: document.getElementById("fitLoadedBtn"),
   radiusModeBtn: document.getElementById("radiusModeBtn"),
   radiusPanel: document.getElementById("radiusPanel"),
@@ -638,6 +662,200 @@ function savedCountrySet() {
   return new Set(countries.map((country) => country.id));
 }
 
+function normalizeTemporalFilters(value = {}) {
+  const validFieldIds = new Set(TEMPORAL_DATE_FIELDS.map((field) => field.id));
+  const dateField = validFieldIds.has(value?.dateField) ? value.dateField : "source";
+  return {
+    dateField,
+    after: typeof value?.after === "string" ? value.after : "",
+    before: typeof value?.before === "string" ? value.before : "",
+    newOnly: value?.newOnly === true,
+    changedOnly: value?.changedOnly === true,
+  };
+}
+
+function temporalDateValue(feature, fieldId = state.temporalFilters.dateField) {
+  const p = feature?.properties || {};
+  if (fieldId === "first_seen") return p.first_seen_build || "";
+  if (fieldId === "last_seen") return p.last_seen_build || "";
+  return p.source_archive_date || p.source_capture_date || "";
+}
+
+function parseTemporalDate(value, endOfDay = false) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  const compact = text.match(/^(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?/);
+  if (compact) {
+    const [, year, month, day, hour = "00", minute = "00", second = "00"] = compact;
+    const timestamp = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second));
+    return Number.isFinite(timestamp) ? timestamp : null;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    const suffix = endOfDay ? "T23:59:59.999Z" : "T00:00:00.000Z";
+    const timestamp = Date.parse(`${text}${suffix}`);
+    return Number.isFinite(timestamp) ? timestamp : null;
+  }
+  const timestamp = Date.parse(text);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function featurePassesTemporalFilters(feature) {
+  const filters = state.temporalFilters;
+  const p = feature?.properties || {};
+  const wantsNew = filters.newOnly;
+  const wantsChanged = filters.changedOnly;
+  if (wantsNew || wantsChanged) {
+    const isNew = p.new_in_latest_build === true || p.new_in_latest_build === "true";
+    const isChanged = p.changed_since_previous_build === true || p.changed_since_previous_build === "true";
+    if (wantsNew && wantsChanged) {
+      if (!isNew && !isChanged) return false;
+    } else if (wantsNew && !isNew) {
+      return false;
+    } else if (wantsChanged && !isChanged) {
+      return false;
+    }
+  }
+
+  const after = parseTemporalDate(filters.after);
+  const before = parseTemporalDate(filters.before, true);
+  if (after === null && before === null) return true;
+  const value = parseTemporalDate(temporalDateValue(feature), true);
+  if (value === null) return false;
+  if (after !== null && value < after) return false;
+  if (before !== null && value > before) return false;
+  return true;
+}
+
+function temporalFiltersActive() {
+  const filters = state.temporalFilters;
+  return Boolean(filters.after || filters.before || filters.newOnly || filters.changedOnly);
+}
+
+function syncTemporalControlsFromState() {
+  const filters = state.temporalFilters;
+  if (els.timeFieldSelect) els.timeFieldSelect.value = filters.dateField;
+  if (els.timeAfterInput) els.timeAfterInput.value = filters.after;
+  if (els.timeBeforeInput) els.timeBeforeInput.value = filters.before;
+  if (els.showNewOnlyInput) els.showNewOnlyInput.checked = filters.newOnly;
+  if (els.showChangedOnlyInput) els.showChangedOnlyInput.checked = filters.changedOnly;
+  renderTemporalSummary();
+}
+
+function updateTemporalFiltersFromControls() {
+  state.temporalFilters = normalizeTemporalFilters({
+    dateField: els.timeFieldSelect?.value,
+    after: els.timeAfterInput?.value,
+    before: els.timeBeforeInput?.value,
+    newOnly: els.showNewOnlyInput?.checked,
+    changedOnly: els.showChangedOnlyInput?.checked,
+  });
+  renderTemporalSummary();
+  refreshAllLayerFilters();
+  queueSavePreferences();
+}
+
+function clearTemporalFilters() {
+  state.temporalFilters = normalizeTemporalFilters();
+  syncTemporalControlsFromState();
+  refreshAllLayerFilters();
+  queueSavePreferences();
+}
+
+function renderTemporalSummary() {
+  if (!els.temporalSummary) return;
+  const filters = state.temporalFilters;
+  const parts = [];
+  if (filters.after) parts.push(`after ${filters.after}`);
+  if (filters.before) parts.push(`before ${filters.before}`);
+  if (filters.newOnly) parts.push("new");
+  if (filters.changedOnly) parts.push("changed");
+  els.temporalSummary.textContent = parts.length ? parts.join(" / ") : "All builds";
+}
+
+function shortBuildLabel(value) {
+  const text = String(value || "").trim();
+  if (!text) return "n/a";
+  const parsed = parseTemporalDate(text);
+  if (parsed !== null) return new Date(parsed).toISOString().slice(0, 10);
+  return text.slice(0, 16);
+}
+
+async function loadChangeReport(manifest) {
+  const file = manifest?.change_report_file;
+  if (!file) return null;
+  try {
+    const response = await fetch(DATA_DIR + file, { cache: "no-store" });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.warn("Could not load change report.", error);
+    return null;
+  }
+}
+
+function changeStat(label, value, className = "") {
+  return `
+    <div class="change-stat ${className}">
+      <strong>${Number(value || 0).toLocaleString()}</strong>
+      <span>${escapeHtml(label)}</span>
+    </div>
+  `;
+}
+
+function changeList(title, items, formatter = null) {
+  if (!Array.isArray(items) || !items.length) return "";
+  const rows = items.slice(0, 5).map((item) => {
+    const detail = formatter ? formatter(item) : [item.map_layer, item.asset_type, item.country].filter(Boolean).join(" / ");
+    return `
+      <li>
+        <strong>${escapeHtml(item.name || item.uid || "Unnamed")}</strong>
+        <span>${escapeHtml(detail)}</span>
+      </li>
+    `;
+  }).join("");
+  return `
+    <section class="change-list">
+      <h3>${escapeHtml(title)}</h3>
+      <ul>${rows}</ul>
+    </section>
+  `;
+}
+
+function renderChangeReport() {
+  if (!els.changeReportSummary || !els.changeReportDetails || !els.changeReportBuilds) return;
+  const report = state.changeReport;
+  if (!report?.summary) {
+    els.changeReportBuilds.textContent = "No report";
+    els.changeReportSummary.innerHTML = `<div class="muted">Run the pipeline to generate a build comparison.</div>`;
+    els.changeReportDetails.innerHTML = "";
+    return;
+  }
+
+  const summary = report.summary;
+  els.changeReportBuilds.textContent = `${shortBuildLabel(summary.previous_build_id)} -> ${shortBuildLabel(summary.current_build_id)}`;
+  els.changeReportSummary.innerHTML = `
+    ${changeStat("new objects", summary.new_objects, "positive")}
+    ${changeStat("removed", summary.removed_objects, "negative")}
+    ${changeStat("changed", summary.changed_objects, "changed")}
+    ${changeStat("suspicious shifts", summary.suspicious_coordinate_shifts, "warning")}
+  `;
+
+  if (!summary.compare_available) {
+    els.changeReportDetails.innerHTML = `<div class="muted">Baseline snapshot initialized. The next build will show object changes.</div>`;
+    return;
+  }
+
+  els.changeReportDetails.innerHTML = [
+    changeList("New objects", report.new_objects),
+    changeList("Removed objects", report.removed_objects),
+    changeList("Moved objects", report.moved_objects, (item) => `${numberFmt(item.distance_km, 1)} km shift / ${item.map_layer || ""}`),
+    changeList("Category changes", report.category_changes, (item) => `${(item.changed_fields || []).join(", ")} / ${item.map_layer || ""}`),
+    changeList("Name changes", report.name_changes, (item) => (item.changed_fields || []).join(", ")),
+    changeList("Confidence changes", report.confidence_changes, (item) => (item.changed_fields || []).join(", ")),
+    changeList("Source changes", report.source_changes, (item) => (item.changed_fields || []).join(", ")),
+  ].filter(Boolean).join("") || `<div class="muted">No object-level differences detected.</div>`;
+}
+
 function savedEstimatorBlockSet() {
   const validKeys = new Set(ESTIMATOR_BLOCKS.map((block) => block.key));
   const saved = state.savedPreferences?.collapsedEstimatorBlocks;
@@ -675,12 +893,15 @@ function currentPreferences() {
     layers,
     layersPanelCollapsed: els.layersPanelBody.hidden,
     countriesPanelCollapsed: els.countriesPanelBody.hidden,
+    temporalPanelCollapsed: els.temporalPanelBody.hidden,
+    changeReportPanelCollapsed: els.changeReportPanelBody.hidden,
     collapsedLayers,
     collapsedEstimatorBlocks: ESTIMATOR_BLOCKS
       .filter((block) => els[`${block.key}Body`]?.hidden)
       .map((block) => block.key),
     countries: [...state.countryFilters],
     subcategories,
+    temporalFilters: { ...state.temporalFilters },
     search: els.searchInput.value,
     radius: serializeRadius(),
     estimator: serializeEstimatorAssumptions(),
@@ -1466,6 +1687,11 @@ function detailRows(properties) {
     ["Freshness", properties.freshness],
     ["Cross-source support", properties.cross_source_support],
     ["Review", properties.review_status],
+    ["Change status", properties.change_status],
+    ["Change types", Array.isArray(properties.change_types) ? properties.change_types.join(", ") : properties.change_types],
+    ["First seen", properties.first_seen_build],
+    ["Last seen", properties.last_seen_build],
+    ["Source/archive date", properties.source_archive_date || properties.source_capture_date],
     ["Translated", properties.name_translated],
     ["Description", properties.description],
     ["Description EN", properties.description_translated],
@@ -1617,7 +1843,9 @@ function featurePassesCountryFilter(feature) {
 
 function featurePassesActiveFilters(feature) {
   const p = feature?.properties || {};
-  return featurePassesCountryFilter(feature) && isSubcategoryEnabled(p.map_layer, featureSubcategory(feature));
+  return featurePassesCountryFilter(feature)
+    && isSubcategoryEnabled(p.map_layer, featureSubcategory(feature))
+    && featurePassesTemporalFilters(feature);
 }
 
 function createFilteredLayer(record) {
@@ -2556,11 +2784,15 @@ function applySavedInterfaceState() {
   if (!prefs) {
     setLayersPanelCollapsed(false, false);
     setCountriesPanelCollapsed(false, false);
+    setTemporalPanelCollapsed(false, false);
+    setChangeReportPanelCollapsed(false, false);
     return;
   }
 
   setLayersPanelCollapsed(prefs.layersPanelCollapsed === true, false);
   setCountriesPanelCollapsed(savedCountriesPanelCollapsed(), false);
+  setTemporalPanelCollapsed(prefs.temporalPanelCollapsed === true, false);
+  setChangeReportPanelCollapsed(prefs.changeReportPanelCollapsed === true, false);
   if (typeof prefs.search === "string") els.searchInput.value = prefs.search;
 
   const center = storedPoint(prefs.mapView);
@@ -2583,6 +2815,22 @@ function setCountriesPanelCollapsed(collapsed, persist = true) {
   els.countriesPanelBody.hidden = collapsed;
   els.countriesPanelToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
   els.countriesPanelToggle.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} Countries`);
+  if (persist) queueSavePreferences();
+}
+
+function setTemporalPanelCollapsed(collapsed, persist = true) {
+  els.temporalPanel.classList.toggle("collapsed", collapsed);
+  els.temporalPanelBody.hidden = collapsed;
+  els.temporalPanelToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  els.temporalPanelToggle.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} Timeline`);
+  if (persist) queueSavePreferences();
+}
+
+function setChangeReportPanelCollapsed(collapsed, persist = true) {
+  els.changeReportPanel.classList.toggle("collapsed", collapsed);
+  els.changeReportPanelBody.hidden = collapsed;
+  els.changeReportPanelToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  els.changeReportPanelToggle.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} Build comparison`);
   if (persist) queueSavePreferences();
 }
 
@@ -3456,9 +3704,12 @@ async function init() {
   if (els.appVersion) els.appVersion.textContent = APP_VERSION_LABEL;
   const manifestResponse = await fetch(DATA_DIR + "manifest.json");
   state.manifest = mergeExternalLayerDefinitions(await manifestResponse.json());
+  state.changeReport = await loadChangeReport(state.manifest);
   await prepareExternalLayers(state.manifest);
   els.datasetSummary.textContent = `${state.manifest.total_features.toLocaleString()} normalized records across ${state.manifest.layers.length} layers`;
   applySavedInterfaceState();
+  syncTemporalControlsFromState();
+  renderChangeReport();
   renderCountries();
   await renderLayers();
   restoreSavedRadius();
@@ -3480,6 +3731,12 @@ els.layersPanelToggle.addEventListener("click", () => {
 });
 els.countriesPanelToggle.addEventListener("click", () => {
   setCountriesPanelCollapsed(!els.countriesPanelBody.hidden);
+});
+els.temporalPanelToggle.addEventListener("click", () => {
+  setTemporalPanelCollapsed(!els.temporalPanelBody.hidden);
+});
+els.changeReportPanelToggle.addEventListener("click", () => {
+  setChangeReportPanelCollapsed(!els.changeReportPanelBody.hidden);
 });
 els.radiusModeBtn.addEventListener("click", () => setRadiusMode(!state.radiusMode));
 els.resetRadiusBtn.addEventListener("click", () => {
@@ -3538,6 +3795,12 @@ for (const block of ESTIMATOR_BLOCKS) {
 }
 els.clearCountriesBtn.addEventListener("click", clearAllCountries);
 els.clearLayersBtn.addEventListener("click", clearAllLayers);
+els.timeFieldSelect.addEventListener("change", updateTemporalFiltersFromControls);
+els.timeAfterInput.addEventListener("change", updateTemporalFiltersFromControls);
+els.timeBeforeInput.addEventListener("change", updateTemporalFiltersFromControls);
+els.showNewOnlyInput.addEventListener("change", updateTemporalFiltersFromControls);
+els.showChangedOnlyInput.addEventListener("change", updateTemporalFiltersFromControls);
+els.clearTemporalBtn.addEventListener("click", clearTemporalFilters);
 
 map.on("mousedown", onRadiusMouseDown);
 map.on("mousemove", onRadiusMouseMove);

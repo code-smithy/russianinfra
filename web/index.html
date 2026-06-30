@@ -28,7 +28,7 @@
           <div>
             <div class="app-title-row">
               <h1>Infrastructure Explorer</h1>
-              <span id="appVersion" class="app-version" aria-label="Application version">v0.5.0</span>
+              <span id="appVersion" class="app-version" aria-label="Application version">v0.7.0</span>
               <button id="appInfoBtn" class="info-btn" type="button" data-info-topic="app" aria-label="Version history" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
             </div>
             <p id="datasetSummary">Loading manifest...</p>
@@ -119,6 +119,51 @@
               <button id="resetRadiusBtn" class="text-btn" type="button">Reset radius</button>
             </div>
             <div id="radiusResults" class="result-list"></div>
+          </div>
+        </section>
+
+        <section id="temporalPanel" class="panel">
+          <div class="panel-title">
+            <div class="heading-with-info">
+              <button id="temporalPanelToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="temporalPanelBody" aria-label="Collapse Timeline">
+                <span aria-hidden="true"></span>
+                <h2>Timeline</h2>
+              </button>
+            </div>
+            <span id="temporalSummary" class="muted">All builds</span>
+          </div>
+          <div id="temporalPanelBody">
+            <div class="temporal-controls">
+              <label class="temporal-field-row">
+                <span>Date field</span>
+                <select id="timeFieldSelect" aria-label="Timeline date field">
+                  <option value="source">Source/archive date</option>
+                  <option value="first_seen">First seen</option>
+                  <option value="last_seen">Last seen</option>
+                </select>
+              </label>
+              <div class="temporal-date-grid">
+                <label>
+                  <span>After</span>
+                  <input id="timeAfterInput" type="date" />
+                </label>
+                <label>
+                  <span>Before</span>
+                  <input id="timeBeforeInput" type="date" />
+                </label>
+              </div>
+              <label class="temporal-check">
+                <input id="showNewOnlyInput" type="checkbox" />
+                <span>New in latest build</span>
+              </label>
+              <label class="temporal-check">
+                <input id="showChangedOnlyInput" type="checkbox" />
+                <span>Changed since previous build</span>
+              </label>
+            </div>
+            <div class="actions-row">
+              <button id="clearTemporalBtn" class="text-btn" type="button">Clear timeline</button>
+            </div>
           </div>
         </section>
       </aside>
@@ -227,6 +272,22 @@
             <div id="estimatorSummaryResults" class="estimator-summary-results"></div>
             <div id="estimatorResults" class="estimator-results"></div>
           </section>
+        </section>
+
+        <section id="changeReportPanel" class="panel change-report-panel">
+          <div class="panel-title">
+            <div class="heading-with-info">
+              <button id="changeReportPanelToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="changeReportPanelBody" aria-label="Collapse Build comparison">
+                <span aria-hidden="true"></span>
+                <h2>Build comparison</h2>
+              </button>
+            </div>
+            <span id="changeReportBuilds" class="muted">No report</span>
+          </div>
+          <div id="changeReportPanelBody">
+            <div id="changeReportSummary" class="change-report-summary"></div>
+            <div id="changeReportDetails" class="change-report-details"></div>
+          </div>
         </section>
       </aside>
     </main>

@@ -15,6 +15,7 @@ The current generated web dataset contains energy, power, transport, military, m
 |-- combine_infrastructure_sources.py       # Combines extracted CSV sources
 |-- normalize_infrastructure_data.py        # Normalizes combined records
 |-- enrich_translations_and_categories.py   # Adds offline translations/categories
+|-- generate_change_report.py               # Compares the current build to the previous snapshot
 |-- prepare_web_data.py                     # Splits normalized GeoJSON for the web app
 |-- derive_countries_from_boundaries.py     # Optional country derivation helper
 |-- data/                                   # Raw, intermediate, and normalized data
@@ -93,13 +94,17 @@ The pipeline produces normalized outputs under `data/`, including:
 - `data/references.csv`
 - `data/object_references.csv`
 - `data/quality_report.json`
+- `data/change_report.json`
+- `data/build_history/latest_normalized_infrastructure.geojson`
 - `data/review/review_queue.csv`
 - `data/review/duplicate_candidates.csv`
 - `data/review/possible_aliases.csv`
 - `data/review/conflicts.csv`
 - `data_package/manifest.json`
 
-`prepare_web_data.py` writes browser-ready files to `web/data/`. Large layers are split into numbered parts so individual static files stay below the web data size threshold used by the app.
+`generate_change_report.py` compares `data/normalized_infrastructure.geojson` with the previous snapshot under `data/build_history/`, annotates current objects with first/last-seen and latest-build status fields, writes `data/change_report.json`, and then updates the latest snapshot for the next build.
+
+`prepare_web_data.py` writes browser-ready files to `web/data/`. Large layers are split into numbered parts so individual static files stay below the web data size threshold used by the app. When available, the change report is copied to `web/data/diff_report.json` for the Build comparison panel.
 
 ## Provenance and Quality
 
@@ -134,6 +139,8 @@ The viewer includes:
 - Layer and subcategory selection.
 - Country filtering.
 - Search across loaded records.
+- Timeline filters for source/archive date, first seen, last seen, new objects, and changed objects.
+- Build comparison summaries from `web/data/diff_report.json`.
 - Radius drawing and CSV export.
 - Scenario estimator profiles and assumptions.
 - A beta live DeepState overlay configured by `web/deepstate-layer-config.json`.

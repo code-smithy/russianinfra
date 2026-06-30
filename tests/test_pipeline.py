@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import build_data_pipeline as build
 import combine_infrastructure_sources as combine
+import generate_change_report as changes
 import normalize_infrastructure_data as normalize
 import prepare_web_data as prepare
 
@@ -36,8 +37,10 @@ class BuildPipelineTests(unittest.TestCase):
         step_names = [step[0] for step in steps]
 
         derive_index = step_names.index("derive_countries_from_boundaries.py")
+        change_index = step_names.index("generate_change_report.py")
         self.assertLess(step_names.index("enrich_translations_and_categories.py"), derive_index)
-        self.assertLess(derive_index, step_names.index("prepare_web_data.py"))
+        self.assertLess(derive_index, change_index)
+        self.assertLess(change_index, step_names.index("prepare_web_data.py"))
         self.assertEqual(
             steps[derive_index],
             [
@@ -47,6 +50,40 @@ class BuildPipelineTests(unittest.TestCase):
                 "--write",
             ],
         )
+
+
+class ChangeReportTests(unittest.TestCase):
+    def test_compare_builds_reports_new_removed_changed_and_moved_objects(self):
+        previous = {
+            "type": "FeatureCollection",
+            "features": [
+                test_feature("same", "Alpha", "power_facilities", "substation", 55.0, 37.0, confidence="B"),
+                test_feature("removed", "Removed", "energy_facilities", "refinery", 56.0, 38.0),
+                test_feature("moved", "Mover", "energy_facilities", "terminal", 55.0, 37.0),
+            ],
+        }
+        current = {
+            "type": "FeatureCollection",
+            "features": [
+                test_feature("same", "Alpha renamed", "power_facilities", "substation", 55.0, 37.0, confidence="A"),
+                test_feature("new", "New", "military_sites", "military_other", 54.0, 36.0),
+                test_feature("moved", "Mover", "energy_facilities", "terminal", 55.5, 37.5),
+            ],
+        }
+
+        report = changes.compare_builds(previous, current, "2026-06-18T00:00:00Z", "2026-06-30T00:00:00Z")
+        summary = report["summary"]
+        current_by_uid = {feature["properties"]["uid"]: feature for feature in current["features"]}
+
+        self.assertEqual(summary["new_objects"], 1)
+        self.assertEqual(summary["removed_objects"], 1)
+        self.assertEqual(summary["changed_objects"], 2)
+        self.assertEqual(summary["moved_objects"], 1)
+        self.assertEqual(summary["name_changes"], 1)
+        self.assertEqual(summary["confidence_changes"], 1)
+        self.assertEqual(current_by_uid["new"]["properties"]["new_in_latest_build"], "true")
+        self.assertEqual(current_by_uid["same"]["properties"]["changed_since_previous_build"], "true")
+        self.assertEqual(current_by_uid["moved"]["properties"]["change_status"], "changed")
 
 
 class NormalizePipelineTests(unittest.TestCase):
@@ -186,6 +223,33 @@ class PrepareWebDataTests(unittest.TestCase):
         self.assertEqual(props["references"][0]["reference_id"], "ref_1")
         self.assertEqual(props["tags"], {"power": "substation"})
         self.assertNotIn("raw", props)
+        self.assertIn("first_seen_build", props)
+
+
+def test_feature(uid, name, layer, asset_type, lat, lon, confidence="A"):
+    return {
+        "type": "Feature",
+        "id": uid,
+        "geometry": {"type": "Point", "coordinates": [lon, lat]},
+        "properties": {
+            "uid": uid,
+            "display_label": name,
+            "name": name,
+            "asset_class": "test",
+            "asset_type": asset_type,
+            "map_layer": layer,
+            "derived_subcategory": asset_type,
+            "country": "Russia",
+            "confidence": confidence,
+            "confidence_score": "0.80",
+            "source_id": "source_a",
+            "source_dataset": "Source A",
+            "source_record_id": uid,
+            "source_capture_date": "2026-06-18T00:00:00Z",
+            "map_latitude": str(lat),
+            "map_longitude": str(lon),
+        },
+    }
 
 
 if __name__ == "__main__":
