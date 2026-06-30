@@ -182,6 +182,37 @@ class OsintVartaExtractorTests(unittest.TestCase):
 
 
 class ChangeReportTests(unittest.TestCase):
+    def test_baseline_snapshot_keeps_only_change_detection_fields(self):
+        full = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "id": "obj_1",
+                    "geometry": {"type": "Point", "coordinates": [37.2, 55.1]},
+                    "properties": {
+                        "uid": "obj_1",
+                        "display_label": "Alpha",
+                        "map_latitude": "55.1",
+                        "map_longitude": "37.2",
+                        "source_id": "source_a",
+                        "raw_json": "{\"large\":\"payload\"}",
+                        "references_json": "[{\"large\":\"payload\"}]",
+                    },
+                },
+            ],
+        }
+
+        baseline = changes.baseline_snapshot(full)
+        feature = baseline["features"][0]
+
+        self.assertEqual(feature["id"], "obj_1")
+        self.assertIsNone(feature["geometry"])
+        self.assertEqual(feature["properties"]["display_label"], "Alpha")
+        self.assertEqual(feature["properties"]["map_latitude"], "55.1")
+        self.assertNotIn("raw_json", feature["properties"])
+        self.assertNotIn("references_json", feature["properties"])
+
     def test_compare_builds_reports_new_removed_changed_and_moved_objects(self):
         previous = {
             "type": "FeatureCollection",

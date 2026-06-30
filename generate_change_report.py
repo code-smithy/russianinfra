@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import math
-import shutil
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,8 +16,8 @@ from typing import Any
 CURRENT_GEOJSON = Path("data/normalized_infrastructure.geojson")
 NORMALIZATION_REPORT = Path("data/normalization_report.json")
 CHANGE_REPORT_JSON = Path("data/change_report.json")
-BUILD_HISTORY_DIR = Path("data/build_history")
-LATEST_GEOJSON = BUILD_HISTORY_DIR / "latest_normalized_infrastructure.geojson"
+BUILD_HISTORY_DIR = Path("data_package/build_history")
+LATEST_GEOJSON = BUILD_HISTORY_DIR / "latest_change_baseline.geojson.gz"
 LATEST_METADATA = BUILD_HISTORY_DIR / "latest_manifest.json"
 MOVE_THRESHOLD_KM = 1.0
 SUSPICIOUS_MOVE_THRESHOLD_KM = 20.0
@@ -39,8 +39,50 @@ CHANGE_FIELDS = {
     "source": ["source_id", "source_dataset", "source_record_id", "source_url", "source_layer", "source_reference_id"],
 }
 
+BASELINE_PROPERTY_FIELDS = sorted(
+    {
+        "asset_class",
+        "asset_type",
+        "change_status",
+        "changed_since_previous_build",
+        "confidence",
+        "confidence_score",
+        "coordinate_precision",
+        "country",
+        "cross_source_support",
+        "derived_subcategory",
+        "display_label",
+        "domain",
+        "entity_confidence",
+        "first_seen_build",
+        "freshness",
+        "last_seen_build",
+        "map_latitude",
+        "map_layer",
+        "map_longitude",
+        "name",
+        "name_translated",
+        "new_in_latest_build",
+        "removed_from_latest_build",
+        "review_status",
+        "source_archive_date",
+        "source_capture_date",
+        "source_dataset",
+        "source_id",
+        "source_layer",
+        "source_record_id",
+        "source_reference_id",
+        "source_reliability",
+        "source_url",
+        "uid",
+    }
+)
+
 
 def read_json(path: Path) -> dict[str, Any]:
+    if path.suffix == ".gz":
+        with gzip.open(path, "rt", encoding="utf-8") as handle:
+            return json.load(handle)
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -51,7 +93,36 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
 
 def write_compact_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.suffix == ".gz":
+        with gzip.open(path, "wt", encoding="utf-8", compresslevel=9) as handle:
+            json.dump(payload, handle, ensure_ascii=False, separators=(",", ":"))
+        return
     path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+
+def baseline_feature(feature: dict[str, Any]) -> dict[str, Any]:
+    props = feature.get("properties") or {}
+    baseline_props = {key: props.get(key, "") for key in BASELINE_PROPERTY_FIELDS if key in props}
+    uid = feature_uid(feature)
+    if uid and "uid" not in baseline_props:
+        baseline_props["uid"] = uid
+    return {
+        "type": "Feature",
+        "id": uid or feature.get("id", ""),
+        "geometry": None,
+        "properties": baseline_props,
+    }
+
+
+def baseline_snapshot(data: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            baseline_feature(feature)
+            for feature in data.get("features", [])
+            if isinstance(feature, dict) and feature_uid(feature)
+        ],
+    }
 
 
 def utc_now_id() -> str:
@@ -334,14 +405,17 @@ def compare_builds(
     }
 
 
-def update_latest_snapshot(current_geojson: Path, current_build_id: str) -> None:
+def update_latest_snapshot(current_data: dict[str, Any], current_build_id: str) -> None:
     BUILD_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(current_geojson, LATEST_GEOJSON)
+    baseline = baseline_snapshot(current_data)
+    write_compact_json(LATEST_GEOJSON, baseline)
     write_json(
         LATEST_METADATA,
         {
             "build_id": current_build_id,
             "snapshot": str(LATEST_GEOJSON),
+            "snapshot_type": "compact_change_baseline",
+            "object_count": len(baseline["features"]),
             "updated_at": utc_now_id(),
         },
     )
@@ -374,7 +448,7 @@ def main() -> int:
     write_json(output_path, report)
     write_compact_json(current_path, current_data)
     if not args.no_update_snapshot:
-        update_latest_snapshot(current_path, current_build_id)
+        update_latest_snapshot(current_data, current_build_id)
 
     summary = report["summary"]
     if summary["compare_available"]:
