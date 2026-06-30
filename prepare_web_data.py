@@ -121,12 +121,21 @@ DEFAULT_VISIBLE = {
 }
 
 
+def is_placeholder_name(raw: Any) -> bool:
+    text = " ".join(str(raw or "").casefold().split())
+    return text == "name todo" or text.endswith("; name todo")
+
+
 def compact_feature(feature: dict[str, Any]) -> dict[str, Any]:
     props = feature.get("properties") or {}
     app_props = {key: props.get(key, "") for key in APP_PROPERTY_KEYS}
     tags = props.get("tags")
     if isinstance(tags, dict) and tags:
-        app_props["tags"] = tags
+        app_tags = dict(tags)
+        if is_placeholder_name(app_tags.get("name")):
+            app_tags.pop("name", None)
+        if app_tags:
+            app_props["tags"] = app_tags
     references = props.get("references")
     if isinstance(references, list) and references:
         app_props["references"] = references

@@ -1,32 +1,63 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-30T08:02:52Z",
+  "generated_at": "2026-06-30T08:26:01Z",
   "comparison": {
-    "previous": "",
-    "current": "2026-06-30T06:50:59Z"
+    "previous": "2026-06-30T06:50:59Z",
+    "current": "2026-06-30T08:22:51Z"
   },
   "summary": {
-    "compare_available": false,
-    "previous_build_id": "",
-    "current_build_id": "2026-06-30T06:50:59Z",
+    "compare_available": true,
+    "previous_build_id": "2026-06-30T06:50:59Z",
+    "current_build_id": "2026-06-30T08:22:51Z",
     "current_object_count": 122885,
-    "previous_object_count": 0,
+    "previous_object_count": 122885,
     "new_objects": 0,
     "removed_objects": 0,
-    "changed_objects": 0,
+    "changed_objects": 1,
     "moved_objects": 0,
     "category_changes": 0,
-    "name_changes": 0,
+    "name_changes": 1,
     "confidence_changes": 0,
     "source_changes": 0,
     "suspicious_coordinate_shifts": 0
   },
-  "change_type_counts": {},
+  "change_type_counts": {
+    "name": 1
+  },
   "new_objects": [],
   "removed_objects": [],
   "moved_objects": [],
   "category_changes": [],
-  "name_changes": [],
+  "name_changes": [
+    {
+      "uid": "infra_a50c5c11886cd7ba",
+      "name": "oil_pipeline:pipelines:1190",
+      "map_layer": "energy_oil",
+      "asset_type": "oil_pipeline",
+      "derived_subcategory": "energy_oil_pipeline",
+      "country": "Russia",
+      "confidence": "A",
+      "source_id": "russia_oil_power_map",
+      "source_record_id": "pipelines:1190",
+      "source_date": "2026-06-30T08:22:51Z",
+      "map_latitude": 48.43980479,
+      "map_longitude": 40.10529345,
+      "changed_fields": [
+        "name",
+        "display_label"
+      ],
+      "changes": {
+        "name": {
+          "previous": "Oil pipeline; name todo",
+          "current": "oil_pipeline:pipelines:1190"
+        },
+        "display_label": {
+          "previous": "Oil pipeline; name todo",
+          "current": "oil_pipeline:pipelines:1190"
+        }
+      }
+    }
+  ],
   "confidence_changes": [],
   "source_changes": [],
   "suspicious_coordinate_shifts": [],

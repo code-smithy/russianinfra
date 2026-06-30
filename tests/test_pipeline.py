@@ -119,6 +119,41 @@ class NormalizePipelineTests(unittest.TestCase):
         self.assertEqual(object_reference["object_id"], normalized["uid"])
         self.assertEqual(feature["properties"]["references"][0]["reference_id"], reference["reference_id"])
 
+    def test_normalize_row_treats_name_todo_as_missing_name(self):
+        row = {
+            "source_dataset": normalize.SOURCE_RUSSIA,
+            "layer": "pipelines",
+            "feature_index": "42",
+            "name": "Oil pipeline; name todo",
+            "product": "oil",
+            "raw_properties_json": json.dumps({
+                "tags": {
+                    "name": "Oil pipeline; name todo",
+                    "man_made": "pipeline",
+                    "substance": "oil",
+                },
+            }),
+            "geometry_json": json.dumps({
+                "type": "LineString",
+                "coordinates": [[37.0, 55.0], [37.2, 55.1]],
+            }),
+            "source_url": "https://example.test/source",
+            "source_file": "data/source.csv",
+            "source_line_or_record_id": "42",
+        }
+
+        normalized, feature, _reference, _object_reference = normalize.normalize_row(
+            row,
+            "2026-06-30T00:00:00Z",
+            {},
+        )
+
+        self.assertEqual(normalized["name_original"], "")
+        self.assertEqual(normalized["name"], "oil_pipeline:pipelines:42")
+        self.assertEqual(normalized["display_label"], "oil_pipeline:pipelines:42")
+        self.assertNotIn("name", feature["properties"]["tags"])
+        self.assertNotIn("todo", normalized["search_text"].casefold())
+
     def test_duplicate_groups_update_cross_source_support_and_confidence(self):
         base = {
             "dedupe_key": "substation|alpha|55.1000|37.2000",
@@ -224,6 +259,25 @@ class PrepareWebDataTests(unittest.TestCase):
         self.assertEqual(props["tags"], {"power": "substation"})
         self.assertNotIn("raw", props)
         self.assertIn("first_seen_build", props)
+
+    def test_compact_feature_removes_placeholder_name_tags(self):
+        feature = {
+            "type": "Feature",
+            "id": "obj_1",
+            "geometry": {"type": "LineString", "coordinates": [[37.0, 55.0], [37.2, 55.1]]},
+            "properties": {
+                "uid": "obj_1",
+                "map_layer": "energy_oil",
+                "tags": {
+                    "name": "Oil pipeline; name todo",
+                    "substance": "oil",
+                },
+            },
+        }
+
+        compact = prepare.compact_feature(feature)
+
+        self.assertEqual(compact["properties"]["tags"], {"substance": "oil"})
 
 
 def test_feature(uid, name, layer, asset_type, lat, lon, confidence="A"):

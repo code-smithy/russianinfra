@@ -279,6 +279,16 @@ def stable_reference_id(parts: list[str]) -> str:
     return f"ref_{digest[:16]}"
 
 
+def is_placeholder_name(raw: str) -> bool:
+    text = " ".join(str(raw or "").casefold().split())
+    return text == "name todo" or text.endswith("; name todo")
+
+
+def clean_name(raw: str) -> str:
+    text = value({"value": raw}, "value")
+    return "" if is_placeholder_name(text) else text
+
+
 def source_info(source_dataset: str) -> dict[str, str]:
     if source_dataset in SOURCE_CATALOG:
         return dict(SOURCE_CATALOG[source_dataset])
@@ -652,12 +662,17 @@ def derive_location(row: dict[str, str], geometry: dict[str, Any] | None) -> dic
 def extract_tags(row: dict[str, str]) -> dict[str, str]:
     raw_props = json_loads_maybe(value(row, "raw_properties_json"))
     if isinstance(raw_props, dict) and isinstance(raw_props.get("tags"), dict):
-        return raw_props["tags"]
+        tags = dict(raw_props["tags"])
+        if is_placeholder_name(tags.get("name", "")):
+            tags.pop("name", None)
+        return tags
 
     tags = {}
     for key, val in row.items():
         if key.startswith("properties_tags_") and val not in ("", None):
             tags[key.removeprefix("properties_tags_")] = val
+    if is_placeholder_name(tags.get("name", "")):
+        tags.pop("name", None)
     return tags
 
 
@@ -698,7 +713,7 @@ def normalize_row(
     tags = extract_tags(row)
     precision = coordinate_precision(location["location_quality"])
 
-    name_original = value(row, "name")
+    name_original = clean_name(value(row, "name"))
     description = value(row, "description")
     operator = value(row, "operator")
     product = value(row, "product")

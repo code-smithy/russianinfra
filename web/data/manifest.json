@@ -153,7 +153,7 @@
       "file_details": [
         {
           "file": "energy_facilities.geojson",
-          "size_bytes": 1163144,
+          "size_bytes": 1163463,
           "feature_count": 319
         }
       ],
@@ -184,7 +184,7 @@
       "file_details": [
         {
           "file": "energy_gas.geojson",
-          "size_bytes": 31400878,
+          "size_bytes": 31408537,
           "feature_count": 7659
         }
       ],
@@ -210,7 +210,7 @@
       "file_details": [
         {
           "file": "energy_oil.geojson",
-          "size_bytes": 5024219,
+          "size_bytes": 5025369,
           "feature_count": 1192
         }
       ],
@@ -236,7 +236,7 @@
       "file_details": [
         {
           "file": "military_boundaries.geojson",
-          "size_bytes": 1557421,
+          "size_bytes": 1557551,
           "feature_count": 130
         }
       ],
@@ -272,7 +272,7 @@
       "file_details": [
         {
           "file": "military_industrial.geojson",
-          "size_bytes": 45172235,
+          "size_bytes": 45178654,
           "feature_count": 6419
         }
       ],
@@ -358,7 +358,7 @@
       "file_details": [
         {
           "file": "military_sites.geojson",
-          "size_bytes": 9165140,
+          "size_bytes": 9167758,
           "feature_count": 2618
         }
       ],
@@ -444,7 +444,7 @@
       "file_details": [
         {
           "file": "other_infrastructure.geojson",
-          "size_bytes": 7314,
+          "size_bytes": 7316,
           "feature_count": 2
         }
       ],
@@ -470,7 +470,7 @@
       "file_details": [
         {
           "file": "power_facilities.geojson",
-          "size_bytes": 3747514,
+          "size_bytes": 3748556,
           "feature_count": 1042
         }
       ],
@@ -504,23 +504,23 @@
       "file_details": [
         {
           "file": "power_lines_part001.geojson",
-          "size_bytes": 47996988,
-          "feature_count": 12295
+          "size_bytes": 47997333,
+          "feature_count": 12292
         },
         {
           "file": "power_lines_part002.geojson",
-          "size_bytes": 47999378,
-          "feature_count": 12432
+          "size_bytes": 47997669,
+          "feature_count": 12429
         },
         {
           "file": "power_lines_part003.geojson",
-          "size_bytes": 47998835,
-          "feature_count": 12433
+          "size_bytes": 47999617,
+          "feature_count": 12429
         },
         {
           "file": "power_lines_part004.geojson",
-          "size_bytes": 24762497,
-          "feature_count": 6417
+          "size_bytes": 24806656,
+          "feature_count": 6427
         }
       ],
       "count": 43577,
@@ -545,7 +545,7 @@
       "file_details": [
         {
           "file": "transport_other.geojson",
-          "size_bytes": 224179,
+          "size_bytes": 224242,
           "feature_count": 63
         }
       ],
@@ -576,33 +576,33 @@
       "file_details": [
         {
           "file": "transport_rail_part001.geojson",
-          "size_bytes": 47998456,
-          "feature_count": 12115
+          "size_bytes": 47999251,
+          "feature_count": 12112
         },
         {
           "file": "transport_rail_part002.geojson",
-          "size_bytes": 47997504,
-          "feature_count": 12149
+          "size_bytes": 47997265,
+          "feature_count": 12146
         },
         {
           "file": "transport_rail_part003.geojson",
-          "size_bytes": 47996966,
-          "feature_count": 11935
+          "size_bytes": 47997755,
+          "feature_count": 11933
         },
         {
           "file": "transport_rail_part004.geojson",
-          "size_bytes": 47999719,
-          "feature_count": 11860
+          "size_bytes": 47998262,
+          "feature_count": 11856
         },
         {
           "file": "transport_rail_part005.geojson",
-          "size_bytes": 47997544,
-          "feature_count": 11315
+          "size_bytes": 47997826,
+          "feature_count": 11312
         },
         {
           "file": "transport_rail_part006.geojson",
-          "size_bytes": 1907528,
-          "feature_count": 490
+          "size_bytes": 1967222,
+          "feature_count": 505
         }
       ],
       "count": 59864,
