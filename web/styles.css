@@ -911,8 +911,17 @@ input {
   margin-bottom: 0;
 }
 
+.estimator-block.collapsed .panel-collapse-btn span {
+  transform: rotate(135deg);
+}
+
 .estimator-collapse-btn {
   flex: 1;
+}
+
+.estimator-panel-body {
+  display: grid;
+  gap: 14px;
 }
 
 .estimator-heading-with-info {

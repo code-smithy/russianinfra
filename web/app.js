@@ -119,6 +119,16 @@ const ESTIMATOR_BLOCKS = [
   { key: "rangeBands", label: "Range bands" },
   { key: "resourceTypes", label: "Resource types" },
   { key: "categoryAssumptions", label: "Category assumptions" },
+  { key: "estimate", label: "Estimate" },
+];
+const COLLAPSIBLE_PANELS = [
+  { key: "layers", label: "Layers", preferenceKey: "layersPanelCollapsed" },
+  { key: "countries", label: "Countries", preferenceKey: "countriesPanelCollapsed" },
+  { key: "search", label: "Search Loaded", preferenceKey: "searchPanelCollapsed" },
+  { key: "radiusMenu", label: "Radius", preferenceKey: "radiusMenuPanelCollapsed" },
+  { key: "temporal", label: "Timeline", preferenceKey: "temporalPanelCollapsed" },
+  { key: "estimator", label: "Scenario Estimator", preferenceKey: "estimatorPanelCollapsed" },
+  { key: "changeReport", label: "Build comparison", preferenceKey: "changeReportPanelCollapsed" },
 ];
 const INFO_TOPICS = {
   app: {
@@ -291,9 +301,18 @@ const els = {
   layersPanel: document.getElementById("layersPanel"),
   layersPanelBody: document.getElementById("layersPanelBody"),
   layersPanelToggle: document.getElementById("layersPanelToggle"),
+  searchPanel: document.getElementById("searchPanel"),
+  searchPanelBody: document.getElementById("searchPanelBody"),
+  searchPanelToggle: document.getElementById("searchPanelToggle"),
+  radiusMenuPanel: document.getElementById("radiusMenuPanel"),
+  radiusMenuPanelBody: document.getElementById("radiusMenuPanelBody"),
+  radiusMenuPanelToggle: document.getElementById("radiusMenuPanelToggle"),
   temporalPanel: document.getElementById("temporalPanel"),
   temporalPanelBody: document.getElementById("temporalPanelBody"),
   temporalPanelToggle: document.getElementById("temporalPanelToggle"),
+  estimatorPanel: document.getElementById("estimatorPanel"),
+  estimatorPanelBody: document.getElementById("estimatorPanelBody"),
+  estimatorPanelToggle: document.getElementById("estimatorPanelToggle"),
   clearCountriesBtn: document.getElementById("clearCountriesBtn"),
   clearLayersBtn: document.getElementById("clearLayersBtn"),
   temporalSummary: document.getElementById("temporalSummary"),
@@ -333,6 +352,9 @@ const els = {
   categoryAssumptionsBody: document.getElementById("categoryAssumptionsBody"),
   categoryAssumptionsToggle: document.getElementById("categoryAssumptionsToggle"),
   categoryAssumptionsList: document.getElementById("categoryAssumptionsList"),
+  estimateBlock: document.getElementById("estimateBlock"),
+  estimateBody: document.getElementById("estimateBody"),
+  estimateToggle: document.getElementById("estimateToggle"),
   summaryDisplayControls: document.getElementById("summaryDisplayControls"),
   estimatorSummaryResults: document.getElementById("estimatorSummaryResults"),
   estimatorResults: document.getElementById("estimatorResults"),
@@ -648,10 +670,6 @@ function savedLayerCollapsed(layerId) {
   return Array.isArray(collapsedLayers) && collapsedLayers.includes(layerId);
 }
 
-function savedCountriesPanelCollapsed() {
-  return state.savedPreferences?.countriesPanelCollapsed === true;
-}
-
 function savedCountrySet() {
   const countries = Array.isArray(state.manifest?.countries) ? state.manifest.countries : [];
   const validIds = new Set(countries.map((country) => country.id));
@@ -891,10 +909,10 @@ function currentPreferences() {
     mapView: { lat: center.lat, lng: center.lng, zoom: map.getZoom() },
     menuWidths: { ...state.menuWidths },
     layers,
-    layersPanelCollapsed: els.layersPanelBody.hidden,
-    countriesPanelCollapsed: els.countriesPanelBody.hidden,
-    temporalPanelCollapsed: els.temporalPanelBody.hidden,
-    changeReportPanelCollapsed: els.changeReportPanelBody.hidden,
+    ...Object.fromEntries(COLLAPSIBLE_PANELS.map((panel) => [
+      panel.preferenceKey,
+      els[`${panel.key}PanelBody`]?.hidden === true,
+    ])),
     collapsedLayers,
     collapsedEstimatorBlocks: ESTIMATOR_BLOCKS
       .filter((block) => els[`${block.key}Body`]?.hidden)
@@ -2781,18 +2799,11 @@ function applySavedInterfaceState() {
   for (const block of ESTIMATOR_BLOCKS) {
     setEstimatorBlockCollapsed(block.key, collapsedEstimatorBlocks.has(block.key), false);
   }
-  if (!prefs) {
-    setLayersPanelCollapsed(false, false);
-    setCountriesPanelCollapsed(false, false);
-    setTemporalPanelCollapsed(false, false);
-    setChangeReportPanelCollapsed(false, false);
-    return;
+  for (const panel of COLLAPSIBLE_PANELS) {
+    setCollapsiblePanelCollapsed(panel.key, prefs?.[panel.preferenceKey] === true, false);
   }
+  if (!prefs) return;
 
-  setLayersPanelCollapsed(prefs.layersPanelCollapsed === true, false);
-  setCountriesPanelCollapsed(savedCountriesPanelCollapsed(), false);
-  setTemporalPanelCollapsed(prefs.temporalPanelCollapsed === true, false);
-  setChangeReportPanelCollapsed(prefs.changeReportPanelCollapsed === true, false);
   if (typeof prefs.search === "string") els.searchInput.value = prefs.search;
 
   const center = storedPoint(prefs.mapView);
@@ -2802,36 +2813,45 @@ function applySavedInterfaceState() {
   }
 }
 
-function setLayersPanelCollapsed(collapsed, persist = true) {
-  els.layersPanel.classList.toggle("collapsed", collapsed);
-  els.layersPanelBody.hidden = collapsed;
-  els.layersPanelToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
-  els.layersPanelToggle.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} Layers`);
+function setCollapsiblePanelCollapsed(key, collapsed, persist = true) {
+  const panel = COLLAPSIBLE_PANELS.find((item) => item.key === key);
+  if (!panel) return;
+  const panelElement = els[`${key}Panel`];
+  const body = els[`${key}PanelBody`];
+  const toggle = els[`${key}PanelToggle`];
+  panelElement?.classList.toggle("collapsed", collapsed);
+  if (body) body.hidden = collapsed;
+  toggle?.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  toggle?.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} ${panel.label}`);
   if (persist) queueSavePreferences();
+}
+
+function setLayersPanelCollapsed(collapsed, persist = true) {
+  setCollapsiblePanelCollapsed("layers", collapsed, persist);
 }
 
 function setCountriesPanelCollapsed(collapsed, persist = true) {
-  els.countriesPanel.classList.toggle("collapsed", collapsed);
-  els.countriesPanelBody.hidden = collapsed;
-  els.countriesPanelToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
-  els.countriesPanelToggle.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} Countries`);
-  if (persist) queueSavePreferences();
+  setCollapsiblePanelCollapsed("countries", collapsed, persist);
+}
+
+function setSearchPanelCollapsed(collapsed, persist = true) {
+  setCollapsiblePanelCollapsed("search", collapsed, persist);
+}
+
+function setRadiusMenuPanelCollapsed(collapsed, persist = true) {
+  setCollapsiblePanelCollapsed("radiusMenu", collapsed, persist);
 }
 
 function setTemporalPanelCollapsed(collapsed, persist = true) {
-  els.temporalPanel.classList.toggle("collapsed", collapsed);
-  els.temporalPanelBody.hidden = collapsed;
-  els.temporalPanelToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
-  els.temporalPanelToggle.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} Timeline`);
-  if (persist) queueSavePreferences();
+  setCollapsiblePanelCollapsed("temporal", collapsed, persist);
+}
+
+function setEstimatorPanelCollapsed(collapsed, persist = true) {
+  setCollapsiblePanelCollapsed("estimator", collapsed, persist);
 }
 
 function setChangeReportPanelCollapsed(collapsed, persist = true) {
-  els.changeReportPanel.classList.toggle("collapsed", collapsed);
-  els.changeReportPanelBody.hidden = collapsed;
-  els.changeReportPanelToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
-  els.changeReportPanelToggle.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} Build comparison`);
-  if (persist) queueSavePreferences();
+  setCollapsiblePanelCollapsed("changeReport", collapsed, persist);
 }
 
 function setEstimatorBlockCollapsed(key, collapsed, persist = true) {
@@ -3726,18 +3746,11 @@ els.searchInput.addEventListener("input", () => {
   queueSavePreferences();
 });
 els.fitLoadedBtn.addEventListener("click", fitLoadedLayers);
-els.layersPanelToggle.addEventListener("click", () => {
-  setLayersPanelCollapsed(!els.layersPanelBody.hidden);
-});
-els.countriesPanelToggle.addEventListener("click", () => {
-  setCountriesPanelCollapsed(!els.countriesPanelBody.hidden);
-});
-els.temporalPanelToggle.addEventListener("click", () => {
-  setTemporalPanelCollapsed(!els.temporalPanelBody.hidden);
-});
-els.changeReportPanelToggle.addEventListener("click", () => {
-  setChangeReportPanelCollapsed(!els.changeReportPanelBody.hidden);
-});
+for (const panel of COLLAPSIBLE_PANELS) {
+  els[`${panel.key}PanelToggle`]?.addEventListener("click", () => {
+    setCollapsiblePanelCollapsed(panel.key, !els[`${panel.key}PanelBody`]?.hidden);
+  });
+}
 els.radiusModeBtn.addEventListener("click", () => setRadiusMode(!state.radiusMode));
 els.resetRadiusBtn.addEventListener("click", () => {
   resetRadius();

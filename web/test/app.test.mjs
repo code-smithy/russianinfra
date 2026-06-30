@@ -44,7 +44,10 @@ globalThis.__api = {
   setCountriesPanelCollapsed,
   setChangeReportPanelCollapsed,
   setEstimatorBlockCollapsed,
+  setEstimatorPanelCollapsed,
   setLayersPanelCollapsed,
+  setRadiusMenuPanelCollapsed,
+  setSearchPanelCollapsed,
   setTemporalPanelCollapsed,
   setMenuWidth,
   summarizeEstimatorResults,
@@ -337,6 +340,36 @@ test("saves and restores collapsed Timeline and Build comparison panels", async 
   assert.equal(second.__api.els.changeReportPanelBody.hidden, true);
   assert.equal(second.__api.els.changeReportPanel.classList.contains("collapsed"), true);
   assert.equal(second.__api.els.changeReportPanelToggle.getAttribute("aria-expanded"), "false");
+});
+
+test("saves and restores collapsed Search, Radius, Estimator, and Estimate menus", async () => {
+  const first = createAppContext();
+  await first.__initPromise;
+
+  first.__api.setSearchPanelCollapsed(true);
+  first.__api.setRadiusMenuPanelCollapsed(true);
+  first.__api.setEstimatorPanelCollapsed(true);
+  first.__api.setEstimatorBlockCollapsed("estimate", true);
+  first.__api.savePreferencesNow();
+
+  const savedRaw = first.localStorage.getItem(STORAGE_KEY);
+  const saved = JSON.parse(savedRaw);
+  assert.equal(saved.searchPanelCollapsed, true);
+  assert.equal(saved.radiusMenuPanelCollapsed, true);
+  assert.equal(saved.estimatorPanelCollapsed, true);
+  assert.deepEqual(saved.collapsedEstimatorBlocks, ["estimate"]);
+
+  const second = createAppContext({ [STORAGE_KEY]: savedRaw });
+  await second.__initPromise;
+
+  assert.equal(second.__api.els.searchPanelBody.hidden, true);
+  assert.equal(second.__api.els.searchPanel.classList.contains("collapsed"), true);
+  assert.equal(second.__api.els.radiusMenuPanelBody.hidden, true);
+  assert.equal(second.__api.els.radiusMenuPanelToggle.getAttribute("aria-expanded"), "false");
+  assert.equal(second.__api.els.estimatorPanelBody.hidden, true);
+  assert.equal(second.__api.els.estimatorPanel.classList.contains("collapsed"), true);
+  assert.equal(second.__api.els.estimateBody.hidden, true);
+  assert.equal(second.__api.els.estimateToggle.getAttribute("aria-expanded"), "false");
 });
 
 test("places Timeline and Build comparison at the bottom of their sidebars", () => {
