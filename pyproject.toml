@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "russianinfra"
+version = "0.8.0"
+description = "Local OSINT infrastructure data pipeline and static web map data builder."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+russianinfra-build = "russianinfra.build_data_pipeline:main"
+russianinfra-extract-nightwatch = "russianinfra.extract_nightwatch_map:main"
+russianinfra-extract-osint-varta = "russianinfra.extract_osint_varta_archive:main"
+russianinfra-extract-russia-oil-power = "russianinfra.extract_russia_oil_power_map:main"
+russianinfra-combine-sources = "russianinfra.combine_infrastructure_sources:main"
+russianinfra-normalize = "russianinfra.normalize_infrastructure_data:main"
+russianinfra-enrich = "russianinfra.enrich_translations_and_categories:main"
+russianinfra-derive-countries = "russianinfra.derive_countries_from_boundaries:main"
+russianinfra-change-report = "russianinfra.generate_change_report:main"
+russianinfra-prepare-web-data = "russianinfra.prepare_web_data:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

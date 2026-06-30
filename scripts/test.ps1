@@ -20,4 +20,10 @@ if (-not (Test-Path $python)) {
   throw "Python was not found. Install Python 3.10+ or run from the Codex desktop environment."
 }
 
+$env:PYTHONPATH = if ($env:PYTHONPATH) {
+  "src$([System.IO.Path]::PathSeparator)$env:PYTHONPATH"
+} else {
+  "src"
+}
+
 & $python -m unittest discover -s tests -p "test_*.py"

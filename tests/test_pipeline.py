@@ -1,19 +1,25 @@
 import csv
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import build_data_pipeline as build
-import combine_infrastructure_sources as combine
-import derive_countries_from_boundaries as countries
-import extract_nightwatch_map as nightwatch
-import extract_osint_varta_archive as varta
-import extract_russia_oil_power_map as oil_power
-import generate_change_report as changes
-import normalize_infrastructure_data as normalize
-import prepare_web_data as prepare
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from russianinfra import build_data_pipeline as build
+from russianinfra import combine_infrastructure_sources as combine
+from russianinfra import derive_countries_from_boundaries as countries
+from russianinfra import extract_nightwatch_map as nightwatch
+from russianinfra import extract_osint_varta_archive as varta
+from russianinfra import extract_russia_oil_power_map as oil_power
+from russianinfra import generate_change_report as changes
+from russianinfra import normalize_infrastructure_data as normalize
+from russianinfra import prepare_web_data as prepare
 
 
 class CombineSourcesTests(unittest.TestCase):
@@ -40,15 +46,15 @@ class BuildPipelineTests(unittest.TestCase):
         steps = build.LOCAL_STEPS
         step_names = [step[0] for step in steps]
 
-        derive_index = step_names.index("derive_countries_from_boundaries.py")
-        change_index = step_names.index("generate_change_report.py")
-        self.assertLess(step_names.index("enrich_translations_and_categories.py"), derive_index)
+        derive_index = step_names.index("russianinfra.derive_countries_from_boundaries")
+        change_index = step_names.index("russianinfra.generate_change_report")
+        self.assertLess(step_names.index("russianinfra.enrich_translations_and_categories"), derive_index)
         self.assertLess(derive_index, change_index)
-        self.assertLess(change_index, step_names.index("prepare_web_data.py"))
+        self.assertLess(change_index, step_names.index("russianinfra.prepare_web_data"))
         self.assertEqual(
             steps[derive_index],
             [
-                "derive_countries_from_boundaries.py",
+                "russianinfra.derive_countries_from_boundaries",
                 "--input",
                 "data/normalized_infrastructure.geojson",
                 "--write",

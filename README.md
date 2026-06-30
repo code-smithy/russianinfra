@@ -8,17 +8,21 @@ The current generated web dataset contains energy, power, transport, military, m
 
 ```text
 .
-|-- build_data_pipeline.py                  # Runs the local data build steps
-|-- extract_russia_oil_power_map.py         # Fetches Russia Oil & Power map layers
-|-- extract_osint_varta_archive.py          # Fetches archived OSINT Varta points
-|-- extract_nightwatch_map.py               # Fetches/parses public Nightwatch map placemarks
-|-- combine_infrastructure_sources.py       # Combines extracted CSV sources
-|-- normalize_infrastructure_data.py        # Normalizes combined records
-|-- enrich_translations_and_categories.py   # Adds offline translations/categories
-|-- generate_change_report.py               # Compares the current build to the previous snapshot
-|-- prepare_web_data.py                     # Splits normalized GeoJSON for the web app
-|-- derive_countries_from_boundaries.py     # Optional country derivation helper
+|-- pyproject.toml                          # Python package metadata and CLI entry points
+|-- src/russianinfra/                       # Python data pipeline package
+|   |-- build_data_pipeline.py              # Runs the local data build steps
+|   |-- extract_russia_oil_power_map.py     # Fetches Russia Oil & Power map layers
+|   |-- extract_osint_varta_archive.py      # Fetches archived OSINT Varta points
+|   |-- extract_nightwatch_map.py           # Fetches/parses public Nightwatch map placemarks
+|   |-- combine_infrastructure_sources.py   # Combines extracted CSV sources
+|   |-- normalize_infrastructure_data.py    # Normalizes combined records
+|   |-- enrich_translations_and_categories.py
+|   |                                      # Adds offline translations/categories
+|   |-- generate_change_report.py           # Compares the current build to the previous snapshot
+|   |-- prepare_web_data.py                 # Splits normalized GeoJSON for the web app
+|   `-- derive_countries_from_boundaries.py # Optional country derivation helper
 |-- data/                                   # Raw, intermediate, and normalized data
+|-- tests/                                  # Python pipeline tests
 |-- scripts/test.ps1                        # Node test runner wrapper
 `-- web/
     |-- index.html
@@ -40,10 +44,22 @@ The Python pipeline currently uses the standard library only. The checked-in `pa
 
 ## Quick Start
 
-Run the local pipeline from the repository root:
+Install the local Python package in editable mode from the repository root:
 
 ```powershell
-python build_data_pipeline.py
+python -m pip install -e .
+```
+
+Run the local pipeline:
+
+```powershell
+russianinfra-build
+```
+
+You can also run it without the console script after installation:
+
+```powershell
+python -m russianinfra.build_data_pipeline
 ```
 
 Start the static web server:
@@ -67,12 +83,12 @@ node web/server.mjs
 
 ## Refreshing Source Data
 
-By default, `build_data_pipeline.py` rebuilds from the local/cached source files already present under `data/`.
+By default, `russianinfra-build` rebuilds from the local/cached source files already present under `data/`.
 
 To re-fetch remote and archived sources before rebuilding:
 
 ```powershell
-python build_data_pipeline.py --refresh-remote
+russianinfra-build --refresh-remote
 ```
 
 Remote refresh currently fetches from:
@@ -103,9 +119,9 @@ The pipeline produces normalized outputs under `data/`, including:
 - `data/review/conflicts.csv`
 - `data_package/manifest.json`
 
-`generate_change_report.py` compares `data/normalized_infrastructure.geojson` with the previous snapshot under `data/build_history/`, annotates current objects with first/last-seen and latest-build status fields, writes `data/change_report.json`, and then updates the latest snapshot for the next build.
+`russianinfra.generate_change_report` compares `data/normalized_infrastructure.geojson` with the previous snapshot under `data/build_history/`, annotates current objects with first/last-seen and latest-build status fields, writes `data/change_report.json`, and then updates the latest snapshot for the next build.
 
-`prepare_web_data.py` writes browser-ready files to `web/data/`. Large layers are split into numbered parts so individual static files stay below the web data size threshold used by the app. When available, the change report is copied to `web/data/diff_report.json` for the Build comparison panel.
+`russianinfra.prepare_web_data` writes browser-ready files to `web/data/`. Large layers are split into numbered parts so individual static files stay below the web data size threshold used by the app. When available, the change report is copied to `web/data/diff_report.json` for the Build comparison panel.
 
 ## Provenance and Quality
 
@@ -131,6 +147,30 @@ This runs `scripts/test.ps1`, which looks for local Node.js and Python installs,
 ```powershell
 node --test "web/test/*.test.mjs"
 python -m unittest discover -s tests -p "test_*.py"
+```
+
+The test wrapper sets `PYTHONPATH=src` for local test discovery, so tests work even before an editable install. For normal pipeline use, prefer `python -m pip install -e .` and the `russianinfra-*` console scripts declared in `pyproject.toml`.
+
+## Python Commands
+
+The pipeline modules live under `src/russianinfra/` and can be run either through console scripts after editable install or with `python -m`:
+
+```powershell
+russianinfra-extract-russia-oil-power
+russianinfra-extract-osint-varta
+russianinfra-extract-nightwatch --refresh
+russianinfra-combine-sources
+russianinfra-normalize
+russianinfra-enrich
+russianinfra-derive-countries --input data/normalized_infrastructure.geojson --write
+russianinfra-change-report
+russianinfra-prepare-web-data
+```
+
+Equivalent module invocation:
+
+```powershell
+python -m russianinfra.prepare_web_data
 ```
 
 ## Web App Notes

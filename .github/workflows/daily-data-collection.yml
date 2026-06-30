@@ -31,7 +31,7 @@ jobs:
           python-version: "3.12"
 
       - name: Run data collection pipeline
-        run: python build_data_pipeline.py --refresh-remote
+        run: python -m pip install -e . && russianinfra-build --refresh-remote
 
       - name: Commit refreshed data
         run: |
