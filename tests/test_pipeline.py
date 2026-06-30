@@ -10,6 +10,7 @@ import combine_infrastructure_sources as combine
 import derive_countries_from_boundaries as countries
 import extract_nightwatch_map as nightwatch
 import extract_osint_varta_archive as varta
+import extract_russia_oil_power_map as oil_power
 import generate_change_report as changes
 import normalize_infrastructure_data as normalize
 import prepare_web_data as prepare
@@ -179,6 +180,81 @@ class OsintVartaExtractorTests(unittest.TestCase):
         self.assertEqual(row["latitude"], 55.1)
         self.assertEqual(row["archive_timestamp"], "2026-05-27T13:16:14Z")
         self.assertEqual(row["is_sanctioned"], "true")
+
+
+class RussiaOilPowerExtractorTests(unittest.TestCase):
+    def test_fallback_row_from_web_feature_preserves_geometry_and_tags(self):
+        feature = {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [59.19823, 55.18044]},
+            "properties": {
+                "source_id": "russia_oil_power_map",
+                "source_layer": "pump_stations",
+                "source_record_id": "pump_stations:1",
+                "source_url": "https://russiaoilpowermap.com/data/static/pump_stations.geojson",
+                "display_label": "Oil Pumping Station",
+                "asset_type": "pump_station",
+                "product": "oil",
+                "tags": {"man_made": "pumping_station", "substance": "oil"},
+            },
+        }
+
+        row = oil_power.fallback_row_from_feature(feature, 1)
+
+        self.assertIsNotNone(row)
+        assert row is not None
+        self.assertEqual(row["layer"], "pump_stations")
+        self.assertEqual(row["feature_id"], "pump_stations:1")
+        self.assertEqual(row["name"], "Oil Pumping Station")
+        self.assertEqual(row["geometry_type"], "Point")
+        self.assertEqual(row["longitude"], 59.19823)
+        self.assertEqual(row["latitude"], 55.18044)
+        self.assertEqual(row["properties_tags_man_made"], "pumping_station")
+
+    def test_fallback_rows_from_web_manifest_reads_russia_features(self):
+        manifest = {
+            "layers": [
+                {"files": ["energy_facilities.geojson"]},
+            ],
+        }
+        feature_collection = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [37.2, 55.1]},
+                    "properties": {
+                        "source_id": "russia_oil_power_map",
+                        "source_layer": "custom_pins",
+                        "source_record_id": "pin_1",
+                        "display_label": "Alpha Facility",
+                    },
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [38.2, 56.1]},
+                    "properties": {
+                        "source_id": "nightwatch_map",
+                        "source_record_id": "ignored",
+                    },
+                },
+            ],
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            web_data = root / "web" / "data"
+            web_data.mkdir(parents=True)
+            manifest_path = web_data / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            (web_data / "energy_facilities.geojson").write_text(json.dumps(feature_collection), encoding="utf-8")
+
+            with patch.object(oil_power, "FALLBACK_WEB_MANIFEST", manifest_path):
+                rows = oil_power.fallback_rows_from_web_data()
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["feature_id"], "pin_1")
+        self.assertEqual(rows[0]["name"], "Alpha Facility")
 
 
 class ChangeReportTests(unittest.TestCase):

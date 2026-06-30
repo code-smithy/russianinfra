@@ -7,7 +7,9 @@ import csv
 import json
 import math
 import sys
+import time
 import urllib.request
+from urllib.error import HTTPError, URLError
 from pathlib import Path
 from typing import Any
 
@@ -17,17 +19,33 @@ OUT_DIR = Path("data")
 RAW_DIR = OUT_DIR / "raw"
 CSV_PATH = OUT_DIR / "russia_oil_power_infrastructure.csv"
 MANIFEST_URL = f"{BASE_URL}/data/static/manifest.json"
+FALLBACK_WEB_MANIFEST = Path("web/data/manifest.json")
 CUSTOM_DATASETS = {
     "custom_pins": "data/custom_pins.json",
     "custom_lines": "data/custom_lines.json",
 }
 
 
+def fetch_bytes(url: str, attempts: int = 3) -> bytes:
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                return resp.read()
+        except (HTTPError, URLError) as exc:
+            last_error = exc
+            if attempt == attempts:
+                break
+            wait_seconds = 2**attempt
+            print(f"Fetch failed ({exc}); retrying in {wait_seconds}s...", file=sys.stderr)
+            time.sleep(wait_seconds)
+    raise RuntimeError(f"Failed to fetch {url} after {attempts} attempts") from last_error
+
+
 def fetch_json(url: str, target: Path) -> Any:
     target.parent.mkdir(parents=True, exist_ok=True)
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        data = resp.read()
+    data = fetch_bytes(url)
     target.write_bytes(data)
     return json.loads(data.decode("utf-8-sig"))
 
@@ -180,6 +198,83 @@ def load_datasets() -> list[tuple[str, str, dict[str, Any]]]:
     return datasets
 
 
+def web_manifest_layer_files(path: Path | None = None) -> list[Path]:
+    path = path or FALLBACK_WEB_MANIFEST
+    with path.open("r", encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    files: list[Path] = []
+    for layer in manifest.get("layers", []):
+        if not isinstance(layer, dict):
+            continue
+        for file_name in layer.get("files") or []:
+            file_path = path.parent / file_name
+            if file_path.exists():
+                files.append(file_path)
+    return files
+
+
+def fallback_layer_from_source_layer(source_layer: str, map_layer: str) -> str:
+    if source_layer:
+        return source_layer
+    fallback = {
+        "energy_facilities": "custom_pins",
+        "energy_gas": "gas_pipelines",
+        "energy_oil": "pipelines",
+        "power_facilities": "custom_pins",
+        "power_lines": "power_hv_lines",
+        "transport_other": "custom_pins",
+        "transport_rail": "railway_lines",
+        "other_infrastructure": "custom_pins",
+    }
+    return fallback.get(map_layer, map_layer)
+
+
+def fallback_row_from_feature(feature: dict[str, Any], index: int) -> dict[str, Any] | None:
+    props = feature.get("properties") if isinstance(feature.get("properties"), dict) else {}
+    if props.get("source_id") != "russia_oil_power_map":
+        return None
+    geometry = feature.get("geometry") if isinstance(feature.get("geometry"), dict) else None
+    tags = props.get("tags") if isinstance(props.get("tags"), dict) else {}
+    layer = fallback_layer_from_source_layer(str(props.get("source_layer") or ""), str(props.get("map_layer") or ""))
+    source_record_id = str(props.get("source_record_id") or "")
+    row: dict[str, Any] = {
+        "layer": layer,
+        "source_url": props.get("source_url") or "",
+        "feature_index": index,
+        "feature_id": source_record_id,
+        "feature_type": feature.get("type", ""),
+        "name": props.get("name") or props.get("display_label") or "",
+        "category": props.get("asset_type") or props.get("asset_subtype") or "",
+        "operator": props.get("operator") or "",
+        "product": props.get("product") or "",
+        "source": props.get("source_name") or "",
+        "osm_id": source_record_id,
+        "raw_properties_json": json.dumps({"tags": tags}, ensure_ascii=False, separators=(",", ":")) if tags else "",
+    }
+    row.update(geometry_summary(geometry))
+    if tags:
+        for key, value in tags.items():
+            row[f"properties_tags_{key}"] = value
+    return row
+
+
+def fallback_rows_from_web_data(path: Path | None = None) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    path = path or FALLBACK_WEB_MANIFEST
+    for file_path in web_manifest_layer_files(path):
+        with file_path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+        for feature in data.get("features", []):
+            if not isinstance(feature, dict):
+                continue
+            row = fallback_row_from_feature(feature, len(rows) + 1)
+            if row:
+                rows.append(row)
+    if not rows:
+        raise RuntimeError(f"No fallback Russia Oil & Power rows found in {path}")
+    return rows
+
+
 def feature_to_row(layer: str, source_url: str, index: int, feature: dict[str, Any]) -> dict[str, Any]:
     props = feature.get("properties") or {}
     tags = props.get("tags") if isinstance(props.get("tags"), dict) else {}
@@ -248,21 +343,34 @@ def write_csv(rows: list[dict[str, Any]]) -> None:
 
 
 def main() -> int:
-    datasets = load_datasets()
-    rows: list[dict[str, Any]] = []
-    counts: dict[str, int] = {}
-    for layer, source_url, geojson in datasets:
-        features = geojson.get("features") or []
-        counts[layer] = len(features)
-        for index, feature in enumerate(features, 1):
-            rows.append(feature_to_row(layer, source_url, index, feature))
+    try:
+        datasets = load_datasets()
+        rows: list[dict[str, Any]] = []
+        counts: dict[str, int] = {}
+        for layer, source_url, geojson in datasets:
+            features = geojson.get("features") or []
+            counts[layer] = len(features)
+            for index, feature in enumerate(features, 1):
+                rows.append(feature_to_row(layer, source_url, index, feature))
 
-    write_csv(rows)
+        write_csv(rows)
 
-    print(f"Wrote {len(rows):,} features to {CSV_PATH}")
-    print("Layer counts:")
-    for layer, count in sorted(counts.items()):
-        print(f"  {layer}: {count:,}")
+        print(f"Wrote {len(rows):,} features to {CSV_PATH}")
+        print("Layer counts:")
+        for layer, count in sorted(counts.items()):
+            print(f"  {layer}: {count:,}")
+    except Exception as exc:
+        print(f"WARNING: Russia Oil & Power remote refresh failed: {exc}", file=sys.stderr)
+        print(f"Using fallback rows from {FALLBACK_WEB_MANIFEST}", file=sys.stderr)
+        rows = fallback_rows_from_web_data()
+        write_csv(rows)
+        counts: dict[str, int] = {}
+        for row in rows:
+            counts[str(row.get("layer") or "unknown")] = counts.get(str(row.get("layer") or "unknown"), 0) + 1
+        print(f"Wrote {len(rows):,} fallback Russia Oil & Power features to {CSV_PATH}")
+        print("Fallback layer counts:")
+        for layer, count in sorted(counts.items()):
+            print(f"  {layer}: {count:,}")
     return 0
 
 
