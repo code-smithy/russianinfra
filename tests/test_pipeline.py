@@ -8,6 +8,7 @@ from unittest.mock import patch
 import build_data_pipeline as build
 import combine_infrastructure_sources as combine
 import extract_nightwatch_map as nightwatch
+import extract_osint_varta_archive as varta
 import generate_change_report as changes
 import normalize_infrastructure_data as normalize
 import prepare_web_data as prepare
@@ -90,6 +91,61 @@ class NightwatchExtractorTests(unittest.TestCase):
         self.assertEqual(rows[1]["geometry_type"], "LineString")
         self.assertEqual(rows[1]["coordinate_count"], "3")
         self.assertEqual(rows[1]["category"], "military_facility_boundary")
+
+
+class OsintVartaExtractorTests(unittest.TestCase):
+    def test_fetch_latest_available_map_points_skips_dead_capture(self):
+        payload = {
+            "data": {
+                "mapPoints": {
+                    "items": [{"id": "company_1", "nameShort": "Alpha"}],
+                    "pagination": {"totalCount": 1},
+                },
+            },
+        }
+
+        def fake_fetch_json(url, _target=None):
+            if "20260601" in url:
+                raise RuntimeError("archive replay missing")
+            return payload
+
+        with patch.object(varta, "map_points_captures", return_value=[
+            ("20260601", "https://map.osint-varta.com.ua/graphql?query=GetMapPoints"),
+            ("20260527", "https://map.osint-varta.com.ua/graphql?query=GetMapPoints"),
+        ]), patch.object(varta, "fetch_json", side_effect=fake_fetch_json):
+            items, pagination, timestamp, url = varta.fetch_latest_available_map_points()
+
+        self.assertEqual(items, payload["data"]["mapPoints"]["items"])
+        self.assertEqual(pagination["totalCount"], 1)
+        self.assertEqual(timestamp, "20260527")
+        self.assertIn("20260527if_", url)
+
+    def test_fallback_row_from_web_feature_preserves_core_fields(self):
+        feature = {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [37.2, 55.1]},
+            "properties": {
+                "uid": "obj_1",
+                "source_record_id": "company_1",
+                "source_capture_date": "2026-05-27T13:16:14Z",
+                "source_url": "https://web.archive.org/example",
+                "name": "Alpha Works",
+                "inn": "1234567890",
+                "region": "Moscow",
+                "is_sanctioned": "true",
+            },
+        }
+
+        row = varta.fallback_row_from_feature(feature, 1)
+
+        self.assertEqual(row["source_dataset"], "OSINT Varta")
+        self.assertEqual(row["layer"], "osint_varta_map_points")
+        self.assertEqual(row["feature_id"], "company_1")
+        self.assertEqual(row["name"], "Alpha Works")
+        self.assertEqual(row["longitude"], 37.2)
+        self.assertEqual(row["latitude"], 55.1)
+        self.assertEqual(row["archive_timestamp"], "2026-05-27T13:16:14Z")
+        self.assertEqual(row["is_sanctioned"], "true")
 
 
 class ChangeReportTests(unittest.TestCase):

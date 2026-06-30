@@ -226,7 +226,7 @@
       "file_details": [
         {
           "file": "energy_gas.geojson",
-          "size_bytes": 31408537,
+          "size_bytes": 31408505,
           "feature_count": 7659
         }
       ],
@@ -252,7 +252,7 @@
       "file_details": [
         {
           "file": "energy_oil.geojson",
-          "size_bytes": 5025366,
+          "size_bytes": 5025356,
           "feature_count": 1192
         }
       ],
@@ -278,7 +278,7 @@
       "file_details": [
         {
           "file": "military_boundaries.geojson",
-          "size_bytes": 200643,
+          "size_bytes": 200673,
           "feature_count": 15
         }
       ],
@@ -400,7 +400,7 @@
       "file_details": [
         {
           "file": "military_sites.geojson",
-          "size_bytes": 19122389,
+          "size_bytes": 19132799,
           "feature_count": 5205
         }
       ],
@@ -546,22 +546,22 @@
       "file_details": [
         {
           "file": "power_lines_part001.geojson",
-          "size_bytes": 47997333,
+          "size_bytes": 47997263,
           "feature_count": 12292
         },
         {
           "file": "power_lines_part002.geojson",
-          "size_bytes": 47997669,
+          "size_bytes": 47997635,
           "feature_count": 12429
         },
         {
           "file": "power_lines_part003.geojson",
-          "size_bytes": 47999617,
+          "size_bytes": 47999605,
           "feature_count": 12429
         },
         {
           "file": "power_lines_part004.geojson",
-          "size_bytes": 24806656,
+          "size_bytes": 24806650,
           "feature_count": 6427
         }
       ],
@@ -618,12 +618,12 @@
       "file_details": [
         {
           "file": "transport_rail_part001.geojson",
-          "size_bytes": 47999251,
+          "size_bytes": 47999239,
           "feature_count": 12112
         },
         {
           "file": "transport_rail_part002.geojson",
-          "size_bytes": 47997265,
+          "size_bytes": 47997263,
           "feature_count": 12146
         },
         {
@@ -633,17 +633,17 @@
         },
         {
           "file": "transport_rail_part004.geojson",
-          "size_bytes": 47998262,
+          "size_bytes": 47998260,
           "feature_count": 11856
         },
         {
           "file": "transport_rail_part005.geojson",
-          "size_bytes": 47997826,
+          "size_bytes": 47997822,
           "feature_count": 11312
         },
         {
           "file": "transport_rail_part006.geojson",
-          "size_bytes": 1967222,
+          "size_bytes": 1967220,
           "feature_count": 505
         }
       ],
