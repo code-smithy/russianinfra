@@ -243,6 +243,7 @@ const state = {
   radiusOrigin: null,
   radiusEdge: null,
   radiusKm: null,
+  radiusPointerId: null,
   radiusCircle: null,
   radiusBandCircles: [],
   radiusLine: null,
@@ -3528,6 +3529,39 @@ function onRadiusMouseMove(event) {
   }
 }
 
+function resetRadiusPointer(event) {
+  if (state.radiusPointerId === null) return;
+  event?.target?.releasePointerCapture?.(state.radiusPointerId);
+  state.radiusPointerId = null;
+}
+
+function radiusEventFromPointer(event) {
+  const latlng = typeof map.mouseEventToLatLng === "function"
+    ? map.mouseEventToLatLng(event)
+    : event.latlng;
+  if (!latlng) return null;
+  return { latlng, originalEvent: event };
+}
+
+function onRadiusPointerDown(event) {
+  if (!state.radiusMode || event.isPrimary === false || event.button !== 0) return;
+  const radiusEvent = radiusEventFromPointer(event);
+  if (!radiusEvent) return;
+  state.radiusPointerId = event.pointerId ?? null;
+  if (state.radiusPointerId !== null) {
+    event.target?.setPointerCapture?.(state.radiusPointerId);
+  }
+  onRadiusMouseDown(radiusEvent);
+}
+
+function onRadiusPointerMove(event) {
+  if (!state.radiusMode || event.isPrimary === false) return;
+  if (state.radiusPointerId !== null && event.pointerId !== state.radiusPointerId) return;
+  const radiusEvent = radiusEventFromPointer(event);
+  if (!radiusEvent) return;
+  onRadiusMouseMove(radiusEvent);
+}
+
 async function onRadiusMouseUp(event) {
   if (!state.radiusMode || !state.radiusStart || !state.radiusCircle) return;
   const radiusKm = metersKm(state.radiusStart, event.latlng);
@@ -3553,8 +3587,41 @@ async function onRadiusMouseUp(event) {
   } finally {
     map.dragging.enable();
     state.radiusStart = null;
+    resetRadiusPointer(event.originalEvent);
     setRadiusMode(false);
   }
+}
+
+function onRadiusPointerUp(event) {
+  if (state.radiusPointerId !== null && event.pointerId !== state.radiusPointerId) return;
+  const radiusEvent = radiusEventFromPointer(event);
+  if (!radiusEvent) {
+    resetRadiusPointer(event);
+    return;
+  }
+  return onRadiusMouseUp(radiusEvent);
+}
+
+function onRadiusPointerCancel(event) {
+  if (state.radiusPointerId !== null && event.pointerId !== state.radiusPointerId) return;
+  resetRadiusPointer(event);
+  map.dragging.enable();
+  state.radiusStart = null;
+  setRadiusMode(false);
+}
+
+function setupRadiusPointerEvents() {
+  const container = map.getContainer?.();
+  if (!container?.addEventListener || !window.PointerEvent) {
+    map.on("mousedown", onRadiusMouseDown);
+    map.on("mousemove", onRadiusMouseMove);
+    map.on("mouseup", onRadiusMouseUp);
+    return;
+  }
+  container.addEventListener("pointerdown", onRadiusPointerDown);
+  container.addEventListener("pointermove", onRadiusPointerMove);
+  container.addEventListener("pointerup", onRadiusPointerUp);
+  container.addEventListener("pointercancel", onRadiusPointerCancel);
 }
 
 function csvEscape(value) {
@@ -3816,9 +3883,7 @@ els.showNewOnlyInput.addEventListener("change", updateTemporalFiltersFromControl
 els.showChangedOnlyInput.addEventListener("change", updateTemporalFiltersFromControls);
 els.clearTemporalBtn.addEventListener("click", clearTemporalFilters);
 
-map.on("mousedown", onRadiusMouseDown);
-map.on("mousemove", onRadiusMouseMove);
-map.on("mouseup", onRadiusMouseUp);
+setupRadiusPointerEvents();
 map.on("baselayerchange", (event) => {
   activeBaseLayer = event.name === "Dark" ? "dark" : "light";
   queueSavePreferences();

@@ -754,6 +754,51 @@ test("starting a radius draw does not leave orphan measurement labels after rese
   assert.equal(api.map.layerCount(), before);
 });
 
+test("uses pointer events for radius drawing when the browser supports them", async () => {
+  const app = createAppContext({}, { pointerEvents: true });
+  await app.__initPromise;
+
+  const api = app.__api;
+  const mapElement = app.document.getElementById("map");
+  assert.equal(mapElement.listeners.pointerdown.length, 1);
+  assert.equal(mapElement.listeners.pointermove.length, 1);
+  assert.equal(mapElement.listeners.pointerup.length, 1);
+  assert.equal(mapElement.listeners.pointercancel.length, 1);
+  assert.equal(api.map._handlers.mousedown, undefined);
+  assert.equal(api.map._handlers.mousemove, undefined);
+  assert.equal(api.map._handlers.mouseup, undefined);
+
+  api.els.radiusModeBtn.listeners.click[0]();
+  mapElement.listeners.pointerdown[0]({
+    isPrimary: true,
+    button: 0,
+    pointerId: 42,
+    target: mapElement,
+    latlng: { lat: 58, lng: 58 },
+    preventDefault() {},
+  });
+  assert.equal(api.state.radiusPointerId, 42);
+  assert.deepEqual(api.state.radiusStart, { lat: 58, lng: 58 });
+
+  mapElement.listeners.pointermove[0]({
+    isPrimary: true,
+    pointerId: 42,
+    target: mapElement,
+    latlng: { lat: 58.25, lng: 58.25 },
+  });
+  assert.deepEqual(api.state.radiusEdge, { lat: 58.25, lng: 58.25 });
+
+  await mapElement.listeners.pointerup[0]({
+    isPrimary: true,
+    pointerId: 42,
+    target: mapElement,
+    latlng: { lat: 58.5, lng: 58.5 },
+  });
+  assert.equal(api.state.radiusPointerId, null);
+  assert.equal(api.state.radiusMode, false);
+  assert.equal(mapElement.capturedPointerId, null);
+});
+
 test("radius overlay draws colored range-band circles", async () => {
   const app = createAppContext();
   await app.__initPromise;
@@ -1122,7 +1167,7 @@ function layerInfo(id, label, pointCount, lineCount) {
   };
 }
 
-function createAppContext(savedStorage = {}) {
+function createAppContext(savedStorage = {}, options = {}) {
   const document = createDocument();
   const localStorage = createLocalStorage(savedStorage);
   const context = {
@@ -1143,6 +1188,9 @@ function createAppContext(savedStorage = {}) {
     localStorage,
     setTimeout,
   };
+  if (options.pointerEvents) {
+    context.PointerEvent = class PointerEvent {};
+  }
   context.window = Object.assign(context, { addEventListener() {} });
   context.L = createLeafletStub(document);
 
@@ -1235,6 +1283,14 @@ class FakeElement {
   addEventListener(name, callback) {
     if (!this.listeners[name]) this.listeners[name] = [];
     this.listeners[name].push(callback);
+  }
+
+  setPointerCapture(pointerId) {
+    this.capturedPointerId = pointerId;
+  }
+
+  releasePointerCapture(pointerId) {
+    if (this.capturedPointerId === pointerId) this.capturedPointerId = null;
   }
 
   append(...items) {
@@ -1350,6 +1406,7 @@ function createLeafletStub(document) {
     const handlers = {};
     const layers = new Set();
     return {
+      _handlers: handlers,
       center: { lat: 58.5, lng: 58 },
       zoom: 4,
       addLayer(item) {
@@ -1378,6 +1435,9 @@ function createLeafletStub(document) {
       },
       layerCount() {
         return layers.size;
+      },
+      mouseEventToLatLng(event) {
+        return event.latlng;
       },
       on(name, callback) {
         if (!handlers[name]) handlers[name] = [];
