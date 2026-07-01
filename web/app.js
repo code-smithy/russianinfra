@@ -1239,6 +1239,10 @@ function setCategoryRequirement(layerId, value) {
   state.estimator.categoryRequirements[layerId] = boundedNumber(value, 1, 0, 1000000);
 }
 
+function adjustCategoryRequirement(layerId, delta) {
+  setCategoryRequirement(layerId, categoryRequirement(layerId) + delta);
+}
+
 function summarizeEstimatorResults() {
   const groups = new Map();
   for (const item of state.radiusResults) {
@@ -3144,24 +3148,32 @@ function renderCategoryAssumptions() {
       state.estimator.categoryRequirements[layerInfo.id] = 1;
     }
     const row = document.createElement("div");
-    row.className = "estimator-row";
+    row.className = "estimator-row category-assumption-row";
     const label = document.createElement("span");
     label.className = "estimator-label";
     label.innerHTML = `<strong>${escapeHtml(layerInfo.label)}</strong><span>Units per item</span>`;
-    const input = document.createElement("input");
-    input.type = "number";
-    input.min = "0";
-    input.step = "0.1";
-    input.value = String(categoryRequirement(layerInfo.id));
-    input.setAttribute("aria-label", `${layerInfo.label} units per item`);
-    row.append(label, input);
+    const decreaseButton = document.createElement("button");
+    decreaseButton.type = "button";
+    decreaseButton.className = "text-btn";
+    decreaseButton.textContent = "Down";
+    decreaseButton.disabled = categoryRequirement(layerInfo.id) <= 0;
+    decreaseButton.setAttribute("aria-label", `Decrease ${layerInfo.label} units per item`);
+    const increaseButton = document.createElement("button");
+    increaseButton.type = "button";
+    increaseButton.className = "text-btn";
+    increaseButton.textContent = "Up";
+    increaseButton.setAttribute("aria-label", `Increase ${layerInfo.label} units per item`);
+    row.append(label, increaseButton, decreaseButton);
     els.categoryAssumptionsList.appendChild(row);
 
-    input.addEventListener("input", () => {
-      setCategoryRequirement(layerInfo.id, input.value);
+    const updateRequirement = (delta) => {
+      adjustCategoryRequirement(layerInfo.id, delta);
+      renderCategoryAssumptions();
       renderEstimatorResults();
       queueSavePreferences();
-    });
+    };
+    increaseButton.addEventListener("click", () => updateRequirement(1));
+    decreaseButton.addEventListener("click", () => updateRequirement(-1));
   }
 }
 
@@ -3800,7 +3812,14 @@ function layerInfoById(id) { return (state.manifest?.layers || []).find((layer) 
 function campaignLayerSummaries() {
   const counts = {};
   for (const item of campaignScopeEntries()) counts[item.stored.feature.properties.map_layer] = (counts[item.stored.feature.properties.map_layer] || 0) + 1;
-  return Object.entries(counts).map(([id,total]) => ({ id, label: layerInfoById(id).label || id, total }));
+  const order = state.campaign?.layerPriorityOrder || [];
+  return Object.entries(counts)
+    .map(([id,total]) => ({ id, label: layerInfoById(id).label || id, total }))
+    .sort((a, b) => {
+      const ai = order.includes(a.id) ? order.indexOf(a.id) : Number.MAX_SAFE_INTEGER;
+      const bi = order.includes(b.id) ? order.indexOf(b.id) : Number.MAX_SAFE_INTEGER;
+      return ai - bi || a.label.localeCompare(b.label);
+    });
 }
 function syncCampaignLayersFromScope() { state.campaign = normalizeCampaignSettings(state.campaign || state.savedPreferences?.campaign); state.campaignRun.stale = true; state.campaignRun.days = []; state.campaignRun.currentDayIndex = -1; renderCampaign(); }
 function categoryRequirement(layerId) { return boundedNumber(state.estimator.categoryRequirements?.[layerId], 1, 0, 1000000); }
@@ -3870,7 +3889,47 @@ function renderCampaignMapStatus(){ clearCampaignMapStatus(); const day=state.ca
 
 function updateCampaignSetting(path, value){ const [group,key]=path.split('.'); if(key) state.campaign[group][key]=value; else state.campaign[group]=value; state.campaign=normalizeCampaignSettings(state.campaign); state.campaignRun.stale=true; renderCampaign(); queueSavePreferences(); }
 function renderCampaignSettings(){ if(!els.campaignSettings) return; const s=state.campaign; els.campaignSettings.innerHTML=`<label>Start date <input id="campaignStartDate" type="date" value="${escapeHtml(s.startDate)}"></label><label>Max simulation days <input id="campaignMaxDays" type="number" min="1" max="10000" value="${s.maxSimulationDays}"></label><label>Allocation mode <select id="campaignAllocationMode"><option value="weighted">weighted</option><option value="sequential">sequential</option></select></label><label>Playback speed ms <input id="campaignPlaybackSpeed" type="number" min="100" max="5000" value="${s.playbackSpeedMs}"></label>`; document.getElementById('campaignAllocationMode').value=s.allocationMode; document.getElementById('campaignStartDate').onchange=e=>updateCampaignSetting('startDate',e.target.value); document.getElementById('campaignMaxDays').onchange=e=>updateCampaignSetting('maxSimulationDays',e.target.value); document.getElementById('campaignAllocationMode').onchange=e=>updateCampaignSetting('allocationMode',e.target.value); document.getElementById('campaignPlaybackSpeed').onchange=e=>updateCampaignSetting('playbackSpeedMs',e.target.value); }
-function renderCampaignLayerAllocation(){ if(!els.campaignLayerAllocation) return; const day=state.campaignRun.days[state.campaignRun.currentDayIndex]; const rows=campaignLayerSummaries().map((layer,idx)=>`<div class="campaign-row campaign-allocation-row"><div class="campaign-layer-meta"><strong>${escapeHtml(layer.label)}</strong><small>${escapeHtml(layer.id)}</small><span class="campaign-layer-summary"><span><b>${layer.total}</b> entries</span><span><b>${day?.cumulativeExecutedByLayer?.[layer.id]||0}</b> executed</span><span><b>${day?.remainingTargetsByLayer?.[layer.id]??layer.total}</b> remaining</span></span></div><input aria-label="Weight ${escapeHtml(layer.label)}" type="number" min="0" data-layer-weight="${escapeHtml(layer.id)}" value="${state.campaign.layerWeights[layer.id]??1}"><button data-layer-up="${escapeHtml(layer.id)}" ${idx===0?'disabled':''}>Up</button><button data-layer-down="${escapeHtml(layer.id)}" ${idx===campaignLayerSummaries().length-1?'disabled':''}>Down</button></div>`).join('') || '<div class="empty-state">Draw a radius on the map to define the campaign scope.</div>'; els.campaignLayerAllocation.innerHTML=rows; els.campaignLayerAllocation.querySelectorAll('[data-layer-weight]').forEach(i=>i.onchange=e=>{state.campaign.layerWeights[e.target.dataset.layerWeight]=boundedNumber(e.target.value,0,0); state.campaignRun.stale=true; queueSavePreferences(); renderCampaign();}); const move=(id,delta)=>{const a=state.campaign.layerPriorityOrder; const i=a.indexOf(id), j=i+delta; if(i>=0&&j>=0&&j<a.length){[a[i],a[j]]=[a[j],a[i]]; state.campaignRun.stale=true; queueSavePreferences(); renderCampaign();}}; els.campaignLayerAllocation.querySelectorAll('[data-layer-up]').forEach(b=>b.onclick=e=>move(e.target.dataset.layerUp,-1)); els.campaignLayerAllocation.querySelectorAll('[data-layer-down]').forEach(b=>b.onclick=e=>move(e.target.dataset.layerDown,1)); }
+function renderCampaignLayerAllocation(){
+  if(!els.campaignLayerAllocation) return;
+  els.campaignLayerAllocation.innerHTML = "";
+  const day=state.campaignRun.days[state.campaignRun.currentDayIndex];
+  const layers=campaignLayerSummaries();
+  if(!layers.length){
+    els.campaignLayerAllocation.innerHTML='<div class="empty-state">Draw a radius on the map to define the campaign scope.</div>';
+    return;
+  }
+  const move=(id,delta)=>{
+    const a=state.campaign.layerPriorityOrder;
+    const i=a.indexOf(id), j=i+delta;
+    if(i>=0&&j>=0&&j<a.length){
+      [a[i],a[j]]=[a[j],a[i]];
+      state.campaignRun.stale=true;
+      queueSavePreferences();
+      renderCampaign();
+    }
+  };
+  layers.forEach((layer,idx)=>{
+    const row=document.createElement("div");
+    row.className="campaign-row campaign-allocation-row";
+    const meta=document.createElement("div");
+    meta.className="campaign-layer-meta";
+    meta.innerHTML=`<strong>${escapeHtml(layer.label)}</strong><small>${escapeHtml(layer.id)}</small><span class="campaign-layer-summary"><span><b>${layer.total}</b> entries</span><span><b>${day?.cumulativeExecutedByLayer?.[layer.id]||0}</b> executed</span><span><b>${day?.remainingTargetsByLayer?.[layer.id]??layer.total}</b> remaining</span></span>`;
+    const up=document.createElement("button");
+    up.type="button";
+    up.textContent="Up";
+    up.disabled=idx===0;
+    up.setAttribute("aria-label", `Move ${layer.label} up`);
+    up.addEventListener("click",()=>move(layer.id,-1));
+    const down=document.createElement("button");
+    down.type="button";
+    down.textContent="Down";
+    down.disabled=idx===layers.length-1;
+    down.setAttribute("aria-label", `Move ${layer.label} down`);
+    down.addEventListener("click",()=>move(layer.id,1));
+    row.append(meta,up,down);
+    els.campaignLayerAllocation.appendChild(row);
+  });
+}
 function renderCampaignCapacity(){ if(!els.campaignCapacity) return; els.campaignCapacity.innerHTML=`<label>Command capacity per day <input id="campaignCommandCapacity" type="number" min="0" step="1" value="${state.campaign.commandCapacityPerDay}"></label>`+state.estimator.resources.map(r=>`<label>${escapeHtml(r.label)} fire capacity/day <input data-fire="${escapeHtml(r.id)}" type="number" min="0" step="1" value="${state.campaign.fireCapacityPerDay[r.id]||0}"></label>`).join(''); document.getElementById('campaignCommandCapacity').onchange=e=>updateCampaignSetting('commandCapacityPerDay',e.target.value); els.campaignCapacity.querySelectorAll('[data-fire]').forEach(i=>i.onchange=e=>updateCampaignSetting(`fireCapacityPerDay.${e.target.dataset.fire}`,e.target.value)); }
 function renderCampaignSupply(){ if(!els.campaignSupply) return; const day=state.campaignRun.days[state.campaignRun.currentDayIndex]; els.campaignSupply.innerHTML=state.estimator.resources.map(r=>`<div class="campaign-supply-row"><strong>${escapeHtml(r.label)}</strong><label>Initial <input data-stock="${escapeHtml(r.id)}" type="number" min="0" value="${state.campaign.initialStock[r.id]||0}"></label><label>Monthly production <input data-prod="${escapeHtml(r.id)}" type="number" min="0" value="${state.campaign.productionMonthly[r.id]||0}"></label><span>Daily: ${numberFmt(dailyProductionForDate(r.id,state.campaign.startDate),3)} • stock: ${numberFmt(day?.endingStockByResource?.[r.id]??state.campaign.initialStock[r.id],2)}</span></div>`).join(''); els.campaignSupply.querySelectorAll('[data-stock]').forEach(i=>i.onchange=e=>updateCampaignSetting(`initialStock.${e.target.dataset.stock}`,e.target.value)); els.campaignSupply.querySelectorAll('[data-prod]').forEach(i=>i.onchange=e=>updateCampaignSetting(`productionMonthly.${e.target.dataset.prod}`,e.target.value)); }
 function renderCampaignDashboard(){ if(!els.campaignDashboard) return; const day=campaignSelectedDay(); if(!state.campaignRun.days.length){ els.campaignDashboard.innerHTML='<div class="empty-state">Run simulation to see the campaign dashboard.</div>'; return; } const total=campaignScopeEntries().length; const executed=day?sumValues(day.cumulativeExecutedByLayer):0; const remaining=day?sumValues(day.remainingTargetsByLayer):total; const cumulativeProduction=day?campaignCumulativeProduction(day.dayIndex):Object.fromEntries(campaignResourceIds().map((id)=>[id,0])); const depleted=campaignLayerDepletedDays(); const completion=state.campaignRun.summary?.completionDate || "Not completed"; const resourceRows=state.estimator.resources.map((r)=>`<tr><td>${escapeHtml(r.label)}</td><td>${numberFmt(state.campaign.initialStock[r.id],2)}</td><td>${numberFmt(cumulativeProduction[r.id],2)}</td><td>${numberFmt(day?.cumulativeExpendedByResource?.[r.id]||0,2)}</td><td>${numberFmt(day?.endingStockByResource?.[r.id]??state.campaign.initialStock[r.id],2)}</td><td>${numberFmt(day?.requestedSupplyDeltaByResource?.[r.id]||0,2)}</td><td>${numberFmt((day?.fireCapacityByResource?.[r.id]||0)-(day?.fireCapacityRemainingByResource?.[r.id]||0),2)} / ${numberFmt(day?.fireCapacityByResource?.[r.id]||0,2)}</td></tr>`).join(""); const layerRows=campaignLayerSummaries().map((l,idx)=>`<tr><td>${escapeHtml(l.label)}<br><small>${escapeHtml(l.id)}</small></td><td>${l.total}</td><td>${day?.cumulativeExecutedByLayer?.[l.id]||0}</td><td>${day?.remainingTargetsByLayer?.[l.id]??l.total}</td><td>${numberFmt(state.campaign.layerWeights[l.id]??0,2)}</td><td>${idx+1}</td><td>${depleted[l.id]||""}</td></tr>`).join(""); els.campaignDashboard.innerHTML=`<div class="campaign-cards"><div><strong>${total}</strong><span>Total entries</span></div><div><strong>${executed}</strong><span>Executed</span></div><div><strong>${remaining}</strong><span>Remaining</span></div><div><strong>${campaignDayLabel(day)}</strong><span>Current day</span></div><div><strong>${state.campaignRun.summary?.elapsedDays||0}</strong><span>Elapsed days</span></div><div><strong>${escapeHtml(completion)}</strong><span>Completion date</span></div></div>${state.campaignRun.summary?.warning?`<p class="warning">${escapeHtml(state.campaignRun.summary.warning)}</p>`:''}<h4>Resources</h4><div class="campaign-table"><table><thead><tr><th>Resource</th><th>Initial</th><th>Production</th><th>Expended</th><th>Ending stock</th><th>Requested delta</th><th>Fire used</th></tr></thead><tbody>${resourceRows}</tbody></table></div><h4>Layers</h4><div class="campaign-table"><table><thead><tr><th>Layer</th><th>Total</th><th>Executed</th><th>Remaining</th><th>Weight</th><th>Priority</th><th>Depleted day</th></tr></thead><tbody>${layerRows}</tbody></table></div>`; }

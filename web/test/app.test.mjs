@@ -1103,6 +1103,28 @@ test("scenario estimator saves loads and deletes range/resource profiles", async
   assert.equal(api.els.estimatorProfileSelect.disabled, true);
 });
 
+test("category assumptions use up and down buttons instead of number inputs", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  const row = api.els.categoryAssumptionsList.children.find((child) => child.children[0].innerHTML.includes("Oil/Gas Facilities"));
+  assert.ok(row);
+  assert.equal(row.children.some((child) => child.id === "input"), false);
+
+  const upButton = row.children[1];
+  const downButton = row.children[2];
+  assert.equal(upButton.textContent, "Up");
+  assert.equal(downButton.textContent, "Down");
+
+  upButton.listeners.click[0]();
+  assert.equal(api.state.estimator.categoryRequirements.energy_facilities, 2);
+
+  const updatedRow = api.els.categoryAssumptionsList.children.find((child) => child.children[0].innerHTML.includes("Oil/Gas Facilities"));
+  updatedRow.children[2].listeners.click[0]();
+  assert.equal(api.state.estimator.categoryRequirements.energy_facilities, 1);
+});
+
 test("range band edits update one band without adding extra bands", async () => {
   const app = createAppContext();
   await app.__initPromise;
@@ -1540,6 +1562,30 @@ test("campaign scope comes only from radius results and demand reuses estimator 
   assert.equal(api.demandForLayerCount("energy_facilities", 3).resource_a, api.estimateUnits(3, 2, 50));
   api.state.estimator.resources[0].completionRate = 0;
   assert.equal(api.demandForLayerCount("energy_facilities", 1).resource_a, Infinity);
+});
+
+test("campaign layer allocation uses up and down buttons instead of number inputs", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+
+  const militaryControl = api.state.layerControls.get("military_sites");
+  militaryControl.checked = true;
+  await militaryControl.listeners.change[0]();
+  api.renderRadiusResults({ lat: 55.75, lng: 37.61 }, 5000);
+
+  const rows = api.els.campaignLayerAllocation.children;
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].children.length, 3);
+  assert.equal(rows[0].children.some((child) => child.type === "number"), false);
+  assert.deepEqual(JSON.parse(JSON.stringify(api.campaignLayerSummaries().map((layer) => layer.id))), ["energy_facilities", "military_sites"]);
+
+  const downButton = rows[0].children[2];
+  assert.equal(downButton.textContent, "Down");
+  downButton.listeners.click[0]();
+
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.campaign.layerPriorityOrder)), ["military_sites", "energy_facilities"]);
+  assert.deepEqual(JSON.parse(JSON.stringify(api.campaignLayerSummaries().map((layer) => layer.id))), ["military_sites", "energy_facilities"]);
 });
 
 test("campaign allocation, deferral, stock production and exports are deterministic", async () => {
