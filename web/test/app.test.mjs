@@ -28,6 +28,7 @@ globalThis.__api = {
   campaignLayerSummaries,
   campaignScopeEntries,
   buildEstimatorAggregates,
+  countryForPosition,
   currentPreferences,
   estimatorDetailRows,
   estimatorExportRows,
@@ -649,6 +650,17 @@ test("loads DeepState-style live GeoJSON and applies country filters from featur
 
   assert.equal(api.state.layers.get("deepstate_live").features.length, 6);
   assert.equal(api.featurePassesActiveFilters(stored.feature), false);
+});
+
+test("infers Crimea as Ukraine and does not put Black Sea points in Russia", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  assert.equal(api.countryForPosition({ lng: 34.1, lat: 44.95 }), "Ukraine");
+  assert.notEqual(api.countryForPosition({ lng: 37.0, lat: 44.8 }), "Russia");
+  assert.equal(api.countryForPosition({ lng: 34.0, lat: 43.8 }), null);
+  assert.equal(api.countryForPosition({ lng: 39.7, lat: 43.6 }), "Russia");
 });
 
 test("maps DeepState attack arrow icons to equal compass bearings", async () => {

@@ -93,6 +93,152 @@ class CountryBoundaryTests(unittest.TestCase):
             self.assertEqual(boundaries[0]["name"], "Testland")
             self.assertEqual(countries.matching_countries((1.0, 1.0), boundaries), ["Testland"])
 
+    def test_crimea_polygon_is_reassigned_to_ukraine(self):
+        boundary_payload = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"ADMIN": "Russia"},
+                    "geometry": {
+                        "type": "MultiPolygon",
+                        "coordinates": [
+                            [[
+                                [30.0, 58.0],
+                                [31.0, 58.0],
+                                [31.0, 59.0],
+                                [30.0, 59.0],
+                                [30.0, 58.0],
+                            ]],
+                            [[
+                                [32.5, 44.3],
+                                [36.7, 44.3],
+                                [36.7, 46.3],
+                                [32.5, 46.3],
+                                [32.5, 44.3],
+                            ]],
+                        ],
+                    },
+                },
+                {
+                    "type": "Feature",
+                    "properties": {"ADMIN": "Ukraine"},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[
+                            [22.0, 48.0],
+                            [23.0, 48.0],
+                            [23.0, 49.0],
+                            [22.0, 49.0],
+                            [22.0, 48.0],
+                        ]],
+                    },
+                },
+            ],
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "countries.geojson"
+            path.write_text(json.dumps(boundary_payload), encoding="utf-8")
+
+            boundaries = countries.load_boundaries(path)
+
+        self.assertEqual(countries.matching_countries((34.1, 44.95), boundaries), ["Ukraine"])
+        self.assertEqual(countries.matching_countries((30.5, 58.5), boundaries), ["Russia"])
+
+    def test_unmatched_features_are_unknown_not_source_country(self):
+        boundary_payload = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"ADMIN": "Testland"},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[
+                            [0.0, 0.0],
+                            [1.0, 0.0],
+                            [1.0, 1.0],
+                            [0.0, 1.0],
+                            [0.0, 0.0],
+                        ]],
+                    },
+                },
+            ],
+        }
+        feature_collection = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [10.0, 10.0]},
+                    "properties": {"country": "Russia"},
+                },
+            ],
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            boundary_path = Path(tmpdir) / "countries.geojson"
+            data_path = Path(tmpdir) / "data.geojson"
+            boundary_path.write_text(json.dumps(boundary_payload), encoding="utf-8")
+            data_path.write_text(json.dumps(feature_collection), encoding="utf-8")
+            boundaries = countries.load_boundaries(boundary_path)
+
+            report = countries.enrich_file(data_path, boundaries, write=True)
+            enriched = json.loads(data_path.read_text(encoding="utf-8"))
+
+        props = enriched["features"][0]["properties"]
+        self.assertEqual(props["country"], "Unknown")
+        self.assertEqual(props["countries"], ["Unknown"])
+        self.assertEqual(props["source_country"], "Russia")
+        self.assertEqual(props["country_match_method"], "no_boundary_match")
+        self.assertEqual(report["unmatched"], 1)
+
+    def test_sample_positions_limit_one_handles_multivertex_geometry(self):
+        geometry = {
+            "type": "LineString",
+            "coordinates": [
+                [30.0, 50.0],
+                [31.0, 51.0],
+                [32.0, 52.0],
+            ],
+        }
+
+        self.assertEqual(countries.sample_positions(geometry, limit=1), [(30.0, 50.0)])
+
+    def test_non_point_features_fall_back_to_geometry_samples(self):
+        boundaries = [
+            {
+                "name": "Testland",
+                "bbox": (0.0, 0.0, 2.0, 2.0),
+                "polygons": [
+                    {
+                        "bbox": (0.0, 0.0, 2.0, 2.0),
+                        "rings": [[
+                            [0.0, 0.0],
+                            [2.0, 0.0],
+                            [2.0, 2.0],
+                            [0.0, 2.0],
+                            [0.0, 0.0],
+                        ]],
+                    },
+                ],
+            },
+        ]
+        feature = {
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [1.0, 1.0],
+                    [3.0, 3.0],
+                ],
+            },
+            "properties": {"map_longitude": "3.0", "map_latitude": "3.0"},
+        }
+
+        self.assertEqual(countries.derive_feature_countries(feature, boundaries), (["Testland"], "geometry_sample_in_boundary"))
+
 
 class NightwatchExtractorTests(unittest.TestCase):
     def test_convert_emits_points_and_referenced_paths(self):

@@ -26,6 +26,13 @@ BOUNDARY_URLS = [
 ]
 DEFAULT_INPUTS = ["web/data/*.geojson"]
 REPORT_PATH = Path("data/country_derivation_report.json")
+TERRITORIAL_POLYGON_REASSIGNMENTS = [
+    {
+        "from_country": "Russia",
+        "to_country": "Ukraine",
+        "probes": [(34.1, 44.95), (33.5, 44.6), (36.2, 45.35)],
+    },
+]
 
 
 def ring_bbox(ring: list[list[float]]) -> tuple[float, float, float, float]:
@@ -72,6 +79,14 @@ def country_name(properties: dict[str, Any]) -> str:
         if value and value != "-99":
             return str(value)
     return "Unknown"
+
+
+def country_bbox(polygons: list[dict[str, Any]]) -> tuple[float, float, float, float]:
+    min_x = min(item["bbox"][0] for item in polygons)
+    min_y = min(item["bbox"][1] for item in polygons)
+    max_x = max(item["bbox"][2] for item in polygons)
+    max_y = max(item["bbox"][3] for item in polygons)
+    return min_x, min_y, max_x, max_y
 
 
 def fetch_bytes(url: str, attempts: int = 3) -> bytes:
@@ -133,18 +148,47 @@ def load_boundaries(path: Path) -> list[dict[str, Any]]:
             bbox = ring_bbox(polygon[0])
             polygons.append({"bbox": bbox, "rings": polygon})
         if polygons:
-            min_x = min(item["bbox"][0] for item in polygons)
-            min_y = min(item["bbox"][1] for item in polygons)
-            max_x = max(item["bbox"][2] for item in polygons)
-            max_y = max(item["bbox"][3] for item in polygons)
             countries.append(
                 {
                     "name": name,
-                    "bbox": (min_x, min_y, max_x, max_y),
+                    "bbox": country_bbox(polygons),
                     "polygons": polygons,
                 }
             )
+    apply_territorial_overrides(countries)
     return countries
+
+
+def polygon_contains_any_probe(polygon: dict[str, Any], probes: list[tuple[float, float]]) -> bool:
+    return any(
+        bbox_contains(polygon["bbox"], probe) and point_in_polygon(probe, polygon["rings"])
+        for probe in probes
+    )
+
+
+def apply_territorial_overrides(countries: list[dict[str, Any]]) -> None:
+    countries_by_name = {country["name"]: country for country in countries}
+    for reassignment in TERRITORIAL_POLYGON_REASSIGNMENTS:
+        source = countries_by_name.get(reassignment["from_country"])
+        target = countries_by_name.get(reassignment["to_country"])
+        if not source or not target:
+            continue
+
+        moved = []
+        retained = []
+        for polygon in source["polygons"]:
+            if polygon_contains_any_probe(polygon, reassignment["probes"]):
+                moved.append(polygon)
+            else:
+                retained.append(polygon)
+
+        if not moved:
+            continue
+        source["polygons"] = retained
+        target["polygons"].extend(moved)
+        if source["polygons"]:
+            source["bbox"] = country_bbox(source["polygons"])
+        target["bbox"] = country_bbox(target["polygons"])
 
 
 def iter_positions(node: Any) -> Iterable[tuple[float, float]]:
@@ -165,6 +209,8 @@ def sample_positions(geometry: dict[str, Any], limit: int = 25) -> list[tuple[fl
     positions = list(iter_positions(geometry.get("coordinates")))
     if not positions:
         return []
+    if limit <= 1:
+        return positions[:1]
     if len(positions) <= limit:
         return positions
     indexes = {0, len(positions) - 1, len(positions) // 2}
@@ -185,30 +231,42 @@ def matching_countries(point: tuple[float, float], boundaries: list[dict[str, An
     return matches
 
 
+def country_counts_for_points(points: list[tuple[float, float]], boundaries: list[dict[str, Any]]) -> Counter:
+    counts = Counter()
+    for point in points:
+        for name in matching_countries(point, boundaries):
+            counts[name] += 1
+    return counts
+
+
 def derive_feature_countries(feature: dict[str, Any], boundaries: list[dict[str, Any]]) -> tuple[list[str], str]:
     geometry = feature.get("geometry") or {}
     props = feature.get("properties") or {}
     if geometry.get("type") == "Point":
         points = sample_positions(geometry, limit=1)
-        method_name = "point_in_boundary"
-    else:
-        points = []
-        lon = props.get("map_longitude")
-        lat = props.get("map_latitude")
-        try:
-            points = [(float(lon), float(lat))]
-            method_name = "representative_point_in_boundary"
-        except (TypeError, ValueError):
-            points = sample_positions(geometry, limit=3)
-            method_name = "geometry_sample_in_boundary"
+        if not points:
+            return [], "missing_geometry"
+        counts = country_counts_for_points(points, boundaries)
+        if counts:
+            return [name for name, _ in counts.most_common()], "point_in_boundary"
+        return [], "no_boundary_match"
+
+    points = []
+    lon = props.get("map_longitude")
+    lat = props.get("map_latitude")
+    try:
+        points = [(float(lon), float(lat))]
+        counts = country_counts_for_points(points, boundaries)
+        if counts:
+            return [name for name, _ in counts.most_common()], "representative_point_in_boundary"
+    except (TypeError, ValueError):
+        pass
+
+    points = sample_positions(geometry, limit=3)
+    method_name = "geometry_sample_in_boundary"
     if not points:
         return [], "missing_geometry"
-
-    counts = Counter()
-    for point in points:
-        for name in matching_countries(point, boundaries):
-            counts[name] += 1
-
+    counts = country_counts_for_points(points, boundaries)
     if not counts:
         return [], "no_boundary_match"
     return [name for name, _ in counts.most_common()], method_name
@@ -241,7 +299,7 @@ def enrich_file(path: Path, boundaries: list[dict[str, Any]], write: bool) -> di
         method_counts[method] += 1
         if not countries:
             unmatched += 1
-            countries = [props.get("country") or "Unknown"]
+            countries = ["Unknown"]
         old_country = props.get("country")
         old_countries = props.get("countries")
         props["country"] = countries[0]

@@ -1,5 +1,5 @@
 {
-  "generated_from": "data/normalized_infrastructure.geojson",
+  "generated_from": "data\\normalized_infrastructure.geojson",
   "change_report_file": "diff_report.json",
   "total_features": 125357,
   "missing_geometry_count": 340,
@@ -36,14 +36,26 @@
     {
       "id": "Russia",
       "label": "Russia",
-      "count": 122954,
-      "point_count": 10456
+      "count": 121066,
+      "point_count": 10108
     },
     {
       "id": "Iran",
       "label": "Iran",
       "count": 1759,
       "point_count": 1759
+    },
+    {
+      "id": "Ukraine",
+      "label": "Ukraine",
+      "count": 1080,
+      "point_count": 176
+    },
+    {
+      "id": "Unknown",
+      "label": "Unknown",
+      "count": 836,
+      "point_count": 183
     },
     {
       "id": "Belarus",
@@ -74,12 +86,6 @@
       "label": "Azerbaijan",
       "count": 37,
       "point_count": 28
-    },
-    {
-      "id": "Ukraine",
-      "label": "Ukraine",
-      "count": 28,
-      "point_count": 11
     },
     {
       "id": "Georgia",
@@ -118,16 +124,16 @@
       "point_count": 1
     },
     {
+      "id": "Turkey",
+      "label": "Turkey",
+      "count": 7,
+      "point_count": 5
+    },
+    {
       "id": "Mongolia",
       "label": "Mongolia",
       "count": 6,
       "point_count": 0
-    },
-    {
-      "id": "Turkey",
-      "label": "Turkey",
-      "count": 5,
-      "point_count": 5
     },
     {
       "id": "Turkmenistan",
@@ -166,6 +172,12 @@
       "point_count": 4
     },
     {
+      "id": "Germany",
+      "label": "Germany",
+      "count": 1,
+      "point_count": 0
+    },
+    {
       "id": "Latvia",
       "label": "Latvia",
       "count": 1,
@@ -195,7 +207,7 @@
       "file_details": [
         {
           "file": "energy_facilities.geojson",
-          "size_bytes": 1162187,
+          "size_bytes": 1163467,
           "feature_count": 319
         }
       ],
@@ -226,7 +238,7 @@
       "file_details": [
         {
           "file": "energy_gas.geojson",
-          "size_bytes": 31377901,
+          "size_bytes": 31408941,
           "feature_count": 7659
         }
       ],
@@ -252,7 +264,7 @@
       "file_details": [
         {
           "file": "energy_oil.geojson",
-          "size_bytes": 5020598,
+          "size_bytes": 5025602,
           "feature_count": 1192
         }
       ],
@@ -278,7 +290,7 @@
       "file_details": [
         {
           "file": "military_boundaries.geojson",
-          "size_bytes": 200613,
+          "size_bytes": 200673,
           "feature_count": 15
         }
       ],
@@ -314,7 +326,7 @@
       "file_details": [
         {
           "file": "military_industrial.geojson",
-          "size_bytes": 45152978,
+          "size_bytes": 45179408,
           "feature_count": 6419
         }
       ],
@@ -400,7 +412,7 @@
       "file_details": [
         {
           "file": "military_sites.geojson",
-          "size_bytes": 19111979,
+          "size_bytes": 19133363,
           "feature_count": 5205
         }
       ],
@@ -486,7 +498,7 @@
       "file_details": [
         {
           "file": "other_infrastructure.geojson",
-          "size_bytes": 7308,
+          "size_bytes": 7316,
           "feature_count": 2
         }
       ],
@@ -512,7 +524,7 @@
       "file_details": [
         {
           "file": "power_facilities.geojson",
-          "size_bytes": 3744388,
+          "size_bytes": 3748610,
           "feature_count": 1042
         }
       ],
@@ -546,23 +558,23 @@
       "file_details": [
         {
           "file": "power_lines_part001.geojson",
-          "size_bytes": 47999151,
-          "feature_count": 12305
+          "size_bytes": 47997785,
+          "feature_count": 12292
         },
         {
           "file": "power_lines_part002.geojson",
-          "size_bytes": 47997251,
-          "feature_count": 12441
+          "size_bytes": 47997841,
+          "feature_count": 12429
         },
         {
           "file": "power_lines_part003.geojson",
-          "size_bytes": 47997955,
-          "feature_count": 12442
+          "size_bytes": 47996245,
+          "feature_count": 12428
         },
         {
           "file": "power_lines_part004.geojson",
-          "size_bytes": 24632610,
-          "feature_count": 6389
+          "size_bytes": 24810448,
+          "feature_count": 6428
         }
       ],
       "count": 43577,
@@ -587,7 +599,7 @@
       "file_details": [
         {
           "file": "transport_other.geojson",
-          "size_bytes": 223990,
+          "size_bytes": 224242,
           "feature_count": 63
         }
       ],
@@ -618,33 +630,33 @@
       "file_details": [
         {
           "file": "transport_rail_part001.geojson",
-          "size_bytes": 47997129,
-          "feature_count": 12124
+          "size_bytes": 47999731,
+          "feature_count": 12112
         },
         {
           "file": "transport_rail_part002.geojson",
-          "size_bytes": 47996515,
-          "feature_count": 12158
+          "size_bytes": 47997643,
+          "feature_count": 12146
         },
         {
           "file": "transport_rail_part003.geojson",
-          "size_bytes": 47996357,
-          "feature_count": 11941
+          "size_bytes": 47998115,
+          "feature_count": 11933
         },
         {
           "file": "transport_rail_part004.geojson",
-          "size_bytes": 47999363,
-          "feature_count": 11870
+          "size_bytes": 47998274,
+          "feature_count": 11856
         },
         {
           "file": "transport_rail_part005.geojson",
-          "size_bytes": 47996877,
-          "feature_count": 11326
+          "size_bytes": 47997850,
+          "feature_count": 11312
         },
         {
           "file": "transport_rail_part006.geojson",
-          "size_bytes": 1731884,
-          "feature_count": 445
+          "size_bytes": 1967302,
+          "feature_count": 505
         }
       ],
       "count": 59864,
