@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-30T15:31:29Z",
+  "generated_at": "2026-07-01T20:08:09Z",
   "comparison": {
-    "previous": "2026-06-30T14:09:19Z",
-    "current": "2026-06-30T15:28:25Z"
+    "previous": "2026-07-01T07:18:37Z",
+    "current": "2026-07-01T20:05:11Z"
   },
   "summary": {
     "compare_available": true,
-    "previous_build_id": "2026-06-30T14:09:19Z",
-    "current_build_id": "2026-06-30T15:28:25Z",
+    "previous_build_id": "2026-07-01T07:18:37Z",
+    "current_build_id": "2026-07-01T20:05:11Z",
     "current_object_count": 125357,
     "previous_object_count": 125357,
     "new_objects": 0,
