@@ -24,11 +24,12 @@
   <body>
     <main class="app-shell">
       <aside class="sidebar" aria-label="Map controls">
+        <nav class="app-tabs" aria-label="Application views"><button id="tabMapBtn" type="button">Map</button><button id="tabCampaignBtn" type="button">Campaign</button></nav>
         <header class="app-header">
           <div>
             <div class="app-title-row">
               <h1>Infrastructure Explorer</h1>
-              <span id="appVersion" class="app-version" aria-label="Application version">v0.8.0</span>
+              <span id="appVersion" class="app-version" aria-label="Application version">v0.9.0</span>
               <button id="appInfoBtn" class="info-btn" type="button" data-info-topic="app" aria-label="Version history" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
             </div>
             <p id="datasetSummary">Loading manifest...</p>
@@ -187,9 +188,30 @@
         tabindex="0"
       ></div>
 
-      <section class="map-wrap" aria-label="Interactive infrastructure map">
+      <section id="mapView" class="map-wrap" aria-label="Interactive infrastructure map">
         <div id="map"></div>
         <div id="loadingToast" class="loading-toast" hidden>Loading layer...</div>
+      </section>
+
+
+      <section id="campaignView" class="campaign-view" aria-label="Campaign Timeline Planner" hidden>
+        <div class="campaign-shell">
+          <header class="campaign-header"><h2>Campaign Timeline Planner</h2><p id="campaignScopeSummary" class="muted">0 entries from current radius</p><p id="campaignStatus" class="muted">Draw a radius on the map to define the campaign scope.</p></header>
+          <div class="campaign-grid">
+            <div class="campaign-column">
+              <section class="panel"><h3>Settings</h3><div id="campaignSettings" class="campaign-form"></div></section>
+              <section class="panel"><h3>Layer priority and allocation</h3><div id="campaignLayerAllocation"></div></section>
+              <section class="panel"><h3>Capacity</h3><div id="campaignCapacity" class="campaign-form"></div></section>
+              <section class="panel"><h3>Supply and production</h3><div id="campaignSupply"></div></section>
+              <section class="panel"><h3>Profiles</h3><div class="actions-row"><select id="campaignProfileSelect" aria-label="Campaign profile"></select><button id="saveCampaignProfileBtn" type="button" class="text-btn">Save profile</button><button id="loadCampaignProfileBtn" type="button" class="text-btn">Load</button><button id="deleteCampaignProfileBtn" type="button" class="text-btn">Delete</button><button id="exportCampaignProfileBtn" type="button" class="text-btn">Export profile JSON</button><button id="importCampaignProfileBtn" type="button" class="text-btn">Import profile JSON</button><input id="campaignImportInput" type="file" accept="application/json,.json" hidden></div></section>
+            </div>
+            <div class="campaign-column">
+              <section class="panel"><h3>Player</h3><div id="campaignPlayer"></div><div class="campaign-map-legend"><span class="campaign-status-executed">Executed</span><span class="campaign-status-current-day">Current day</span><span class="campaign-status-deferred">Deferred</span></div></section>
+              <section class="panel"><h3>Dashboard</h3><div id="campaignDashboard"></div><div class="actions-row"><button id="exportCampaignTimelineCsvBtn" type="button" class="text-btn">Export timeline CSV</button><button id="exportCampaignTimelineJsonBtn" type="button" class="text-btn">Export timeline JSON</button></div></section>
+              <section class="panel"><h3>Daily timeline</h3><div id="campaignDailyTable" class="campaign-table"></div></section>
+            </div>
+          </div>
+        </div>
       </section>
 
       <div

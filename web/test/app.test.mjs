@@ -21,26 +21,45 @@ globalThis.__api = {
   clearAllCountries,
   clearTemporalFilters,
   buildEstimatorCsv,
+  buildCampaignTimelineCsv,
+  buildCampaignTimelineJson,
+  buildSequentialLayerQuotas,
+  buildWeightedLayerQuotas,
+  campaignLayerSummaries,
+  campaignScopeEntries,
   buildEstimatorAggregates,
   currentPreferences,
   estimatorDetailRows,
   estimatorExportRows,
   estimateUnits,
+  demandForLayerCount,
+  dailyProductionForDate,
+  daysInMonth,
   featureDistanceToPointKm,
   featurePassesActiveFilters,
   featurePassesTemporalFilters,
   groupedLayerInfos,
   handleSubcategoryChange,
   importEstimatorAssumptionsFromText,
+  importCampaignProfileFromText,
   markerIcon,
   metersKm,
   map,
   onRadiusMouseDown,
   renderEstimatorResults,
   renderRadiusResults,
+  recalculateCampaign,
+  renderCampaignMapStatus,
   resetRadius,
   resetEstimatorAssumptions,
   savePreferencesNow,
+  setCampaignDay,
+  setSelectedTab,
+  simulateCampaign,
+  stepCampaign,
+  playCampaign,
+  pauseCampaign,
+  resetCampaignPlayback,
   setCountriesPanelCollapsed,
   setChangeReportPanelCollapsed,
   setEstimatorBlockCollapsed,
@@ -1471,10 +1490,11 @@ function createLeafletStub(document) {
     }),
     latLng: (lat, lng) => ({ lat, lng }),
     latLngBounds: bounds,
-    layerGroup: () => Object.assign(layer(), {
-      addLayer() {},
-      clearLayers() {},
-    }),
+    layerGroup: () => { const children = []; return Object.assign(layer(), {
+      addLayer(item) { children.push(item); return this; },
+      clearLayers() { children.length = 0; return this; },
+      getLayers() { return children.slice(); },
+    }); },
     map,
     marker: (latlng, options = {}) => layer({ latlng, options }),
     markerClusterGroup: () => Object.assign(layer(), { addLayer() {} }),
@@ -1482,3 +1502,127 @@ function createLeafletStub(document) {
     tileLayer: layer,
   };
 }
+
+test("campaign settings normalize persist and calendar production uses real month lengths", async () => {
+  const first = createAppContext();
+  await first.__initPromise;
+  const api = first.__api;
+  api.state.campaign.startDate = "2026-02-01";
+  api.state.campaign.allocationMode = "sequential";
+  api.state.campaign.commandCapacityPerDay = 7;
+  api.state.campaign.fireCapacityPerDay.resource_a = 11;
+  api.state.campaign.initialStock.resource_a = 22;
+  api.state.campaign.productionMonthly.resource_a = 280;
+  api.savePreferencesNow();
+  assert.equal(api.dailyProductionForDate("resource_a", "2026-02-01"), 10);
+  api.state.campaign.productionMonthly.resource_a = 290;
+  assert.equal(api.dailyProductionForDate("resource_a", "2028-02-01"), 10);
+  api.state.campaign.productionMonthly.resource_a = 310;
+  assert.equal(api.dailyProductionForDate("resource_a", "2026-07-01"), 10);
+
+  const saved = api.currentPreferences().campaign;
+  assert.equal(saved.startDate, "2026-02-01");
+  const second = createAppContext({ [STORAGE_KEY]: JSON.stringify(api.currentPreferences()) });
+  await second.__initPromise;
+  assert.equal(second.__api.state.campaign.startDate, "2026-02-01");
+});
+
+test("campaign scope comes only from radius results and demand reuses estimator formula", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  assert.equal(api.campaignScopeEntries().length, 0);
+  api.renderRadiusResults({ lat: 55.75, lng: 37.61 }, 5000);
+  assert.equal(api.campaignScopeEntries().length, api.state.radiusResults.length);
+  assert.deepEqual(api.campaignLayerSummaries().map((row) => row.total).reduce((a, b) => a + b, 0), api.state.radiusResults.length);
+  api.state.estimator.categoryRequirements.energy_facilities = 2;
+  api.state.estimator.resources[0].completionRate = 50;
+  assert.equal(api.demandForLayerCount("energy_facilities", 3).resource_a, api.estimateUnits(3, 2, 50));
+  api.state.estimator.resources[0].completionRate = 0;
+  assert.equal(api.demandForLayerCount("energy_facilities", 1).resource_a, Infinity);
+});
+
+test("campaign allocation, deferral, stock production and exports are deterministic", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  assert.equal(api.els.exportCampaignTimelineCsvBtn.disabled, true);
+  assert.equal(api.els.exportCampaignTimelineJsonBtn.disabled, true);
+  api.renderRadiusResults({ lat: 55.75, lng: 37.61 }, 5000);
+  api.state.campaign.layerPriorityOrder = ["energy_facilities", "military_sites"];
+  api.state.campaign.layerWeights = { energy_facilities: 75, military_sites: 25 };
+  api.state.campaign.commandCapacityPerDay = 4;
+  assert.deepEqual(JSON.parse(JSON.stringify(api.buildWeightedLayerQuotas({ energy_facilities: 10, military_sites: 10 }, api.state.campaign))), { energy_facilities: 3, military_sites: 1 });
+  assert.deepEqual(JSON.parse(JSON.stringify(api.buildSequentialLayerQuotas({ energy_facilities: 2, military_sites: 10 }, api.state.campaign))), { energy_facilities: 2, military_sites: 2 });
+
+  for (const resource of api.state.estimator.resources) {
+    resource.completionRate = 100;
+    api.state.campaign.fireCapacityPerDay[resource.id] = 1;
+    api.state.campaign.initialStock[resource.id] = 1;
+    api.state.campaign.productionMonthly[resource.id] = 31;
+  }
+  api.state.campaign.startDate = "2026-07-01";
+  api.state.campaign.maxSimulationDays = 5;
+  api.state.campaign.allocationMode = "sequential";
+  api.state.campaign.commandCapacityPerDay = 2;
+  const run = api.recalculateCampaign();
+  assert.ok(run.days.length >= 1);
+  assert.equal(api.els.exportCampaignTimelineCsvBtn.disabled, false);
+  assert.equal(api.els.exportCampaignTimelineJsonBtn.disabled, false);
+  assert.equal(run.days[0].startingStockByResource.resource_a, 1);
+  assert.equal(run.days[0].productionByResource.resource_a, 1);
+  assert.ok(run.days[0].endingStockByResource.resource_a >= 0);
+  assert.ok(Object.values(run.days[0].deferredTargetsByLayer).reduce((a, b) => a + b, 0) >= 1);
+  assert.ok(run.days[0].deferredFeatureIds.length >= 1);
+  assert.match(api.els.campaignDashboard.innerHTML, /Resources/);
+  assert.match(api.els.campaignDashboard.innerHTML, /Layers/);
+  assert.match(api.els.campaignDailyTable.innerHTML, /Requested delta/);
+  assert.match(api.buildCampaignTimelineCsv(), /day_index,date,layer_id,layer_label/);
+  assert.equal(api.buildCampaignTimelineJson().dailySnapshots.length, run.days.length);
+});
+
+test("campaign profile import validates payloads and accepts wrapped settings", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const originalStartDate = api.state.campaign.startDate;
+  assert.throws(() => api.importCampaignProfileFromText(JSON.stringify({ notCampaign: true })), /campaign settings/);
+  assert.equal(api.state.campaign.startDate, originalStartDate);
+  api.importCampaignProfileFromText(JSON.stringify({ campaign: { startDate: "2026-07-01", commandCapacityPerDay: 12 } }));
+  assert.equal(api.state.campaign.startDate, "2026-07-01");
+  assert.equal(api.state.campaign.commandCapacityPerDay, 12);
+});
+
+test("campaign player tab switching and map status overlay update run state", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  api.renderRadiusResults({ lat: 55.75, lng: 37.61 }, 5000);
+  for (const resource of api.state.estimator.resources) {
+    resource.completionRate = 100;
+    api.state.campaign.fireCapacityPerDay[resource.id] = 100;
+    api.state.campaign.initialStock[resource.id] = 100;
+  }
+  api.state.campaign.commandCapacityPerDay = 1;
+  api.recalculateCampaign();
+  api.stepCampaign(1);
+  assert.equal(api.state.campaignRun.currentDayIndex, Math.min(1, api.state.campaignRun.days.length - 1));
+  api.stepCampaign(-1);
+  assert.equal(api.state.campaignRun.currentDayIndex, 0);
+  api.playCampaign();
+  assert.equal(api.state.campaignRun.playing, true);
+  assert.match(api.els.campaignPlayer.innerHTML, />Pause<\/button>/);
+  api.setSelectedTab("map");
+  assert.equal(api.state.campaignRun.playing, false);
+  assert.match(api.els.campaignPlayer.innerHTML, />Play<\/button>/);
+  api.setCampaignDay(0);
+  assert.ok(api.state.campaignStatusGroup.getLayers().length > 0);
+  api.resetCampaignPlayback();
+  assert.equal(api.state.campaignRun.days.length, 0);
+  assert.equal(api.state.campaignRun.currentDayIndex, -1);
+  assert.match(api.els.campaignDailyTable.innerHTML, /Run simulation to build the daily timeline/);
+  assert.match(api.els.campaignDashboard.innerHTML, /Run simulation to see the campaign dashboard/);
+  assert.equal(api.els.exportCampaignTimelineCsvBtn.disabled, true);
+  api.renderCampaignMapStatus();
+  assert.equal(api.state.campaignStatusGroup.getLayers().length, 0);
+});

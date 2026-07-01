@@ -1,5 +1,5 @@
 const DATA_DIR = "data/";
-const APP_VERSION = "0.8.0";
+const APP_VERSION = "0.9.0";
 const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
@@ -121,6 +121,9 @@ const ESTIMATOR_BLOCKS = [
   { key: "categoryAssumptions", label: "Category assumptions" },
   { key: "estimate", label: "Estimate" },
 ];
+const CAMPAIGN_ALLOCATION_MODES = ["weighted", "sequential"];
+const DEFAULT_CAMPAIGN_SETTINGS = { startDate: "", maxSimulationDays: 365, allocationMode: "weighted", playbackSpeedMs: 700, commandCapacityPerDay: 25, layerPriorityOrder: [], layerWeights: {}, fireCapacityPerDay: {}, initialStock: {}, productionMonthly: {}, profiles: [] };
+
 const COLLAPSIBLE_PANELS = [
   { key: "layers", label: "Layers", preferenceKey: "layersPanelCollapsed" },
   { key: "countries", label: "Countries", preferenceKey: "countriesPanelCollapsed" },
@@ -134,10 +137,11 @@ const INFO_TOPICS = {
   app: {
     title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
     paragraphs: [
-      "Version 0.8.0 hardens the data collection pipeline for GitHub Actions and replaces the local military KML archive with public Nightwatch map extraction.",
+      "Version 0.9.0 adds a Campaign Timeline Planner over current radius results. Version 0.8.0 hardens the data collection pipeline for GitHub Actions and replaces the local military KML archive with public Nightwatch map extraction.",
       "Highlights include Nightwatch military map scraping, resilient OSINT Varta archive capture selection, automatic country-boundary bootstrapping, and a durable compressed comparison baseline for scheduled builds.",
     ],
     history: [
+      { version: "0.9.0", date: "2026-07-01", notes: ["Adds Campaign Timeline Planner tab.", "Supports weighted or strict layer allocation from current radius results.", "Adds daily command capacity, per-resource fire capacity, initial stock, monthly production, calendar-aware daily production, demand/supply deltas, playback, map status styling, and CSV/JSON export."] },
       { version: "0.8.0", date: "2026-06-30", notes: ["Replaces the local Military KML archive with public Nightwatch map placemark extraction.", "Retries OSINT Varta archive captures from newest to oldest and falls back to committed compact web data when Archive.org is unavailable.", "Downloads missing Natural Earth country boundaries in clean GitHub runners and stores the build comparison baseline under data_package/build_history.", "Updates the daily collection workflow to commit tracked data_package and web/data outputs without trying to add ignored data/ caches."] },
       { version: "0.7.0", date: "2026-06-30", notes: ["Generates data/change_report.json and web/data/diff_report.json from the previous build snapshot.", "Adds first_seen_build, last_seen_build, change_status, changed_since_previous_build, and new_in_latest_build metadata to current objects.", "Adds Build comparison and Timeline filters to the web app."] },
       { version: "0.6.0", date: "2026-06-30", notes: ["Adds source_catalog, references, object_references, quality_report, review queue, and data package manifest outputs.", "Shows source references and confidence dimensions in object popups and radius CSV exports.", "Adds standard-library Python unit tests for pipeline provenance, review, and web data helpers."] },
@@ -257,6 +261,10 @@ const state = {
   temporalFilters: normalizeTemporalFilters(loadSavedPreferences()?.temporalFilters),
   activeMenuResize: null,
   estimator: normalizeEstimatorAssumptions(loadSavedPreferences()?.estimator),
+  selectedTab: loadSavedPreferences()?.selectedTab === "campaign" ? "campaign" : "map",
+  campaign: null,
+  campaignRun: { stale: true, currentDayIndex: -1, playing: false, playbackTimer: null, days: [], summary: null },
+  campaignStatusGroup: null,
 };
 
 const map = L.map("map", {
@@ -280,6 +288,7 @@ let activeBaseLayer = state.savedPreferences?.baseLayer === "dark" ? "dark" : "l
 (activeBaseLayer === "dark" ? darkTiles : lightTiles).addTo(map);
 L.control.layers({ Light: lightTiles, Dark: darkTiles }, {}, { collapsed: true }).addTo(map);
 state.radiusHighlightGroup = L.layerGroup().addTo(map);
+state.campaignStatusGroup = L.layerGroup().addTo(map);
 
 const els = {
   appShell: document.querySelector?.(".app-shell"),
@@ -372,6 +381,28 @@ const els = {
   infoPopover: document.getElementById("infoPopover"),
   infoPopoverTitle: document.getElementById("infoPopoverTitle"),
   infoPopoverBody: document.getElementById("infoPopoverBody"),
+  mapView: document.getElementById("mapView"),
+  campaignView: document.getElementById("campaignView"),
+  tabMapBtn: document.getElementById("tabMapBtn"),
+  tabCampaignBtn: document.getElementById("tabCampaignBtn"),
+  campaignScopeSummary: document.getElementById("campaignScopeSummary"),
+  campaignStatus: document.getElementById("campaignStatus"),
+  campaignSettings: document.getElementById("campaignSettings"),
+  campaignLayerAllocation: document.getElementById("campaignLayerAllocation"),
+  campaignCapacity: document.getElementById("campaignCapacity"),
+  campaignSupply: document.getElementById("campaignSupply"),
+  campaignPlayer: document.getElementById("campaignPlayer"),
+  campaignDashboard: document.getElementById("campaignDashboard"),
+  campaignDailyTable: document.getElementById("campaignDailyTable"),
+  campaignProfileSelect: document.getElementById("campaignProfileSelect"),
+  campaignImportInput: document.getElementById("campaignImportInput"),
+  saveCampaignProfileBtn: document.getElementById("saveCampaignProfileBtn"),
+  loadCampaignProfileBtn: document.getElementById("loadCampaignProfileBtn"),
+  deleteCampaignProfileBtn: document.getElementById("deleteCampaignProfileBtn"),
+  exportCampaignProfileBtn: document.getElementById("exportCampaignProfileBtn"),
+  importCampaignProfileBtn: document.getElementById("importCampaignProfileBtn"),
+  exportCampaignTimelineCsvBtn: document.getElementById("exportCampaignTimelineCsvBtn"),
+  exportCampaignTimelineJsonBtn: document.getElementById("exportCampaignTimelineJsonBtn"),
 };
 
 let activeInfoButton = null;
@@ -925,6 +956,8 @@ function currentPreferences() {
     search: els.searchInput.value,
     radius: serializeRadius(),
     estimator: serializeEstimatorAssumptions(),
+    selectedTab: state.selectedTab,
+    campaign: serializeCampaignSettings(),
   };
 }
 
@@ -3443,6 +3476,7 @@ function resetRadius() {
   els.radiusSummary.textContent = "0 objects";
   updateRadiusPanelDetails(null, null);
   renderEstimatorResults();
+  syncCampaignLayersFromScope();
   queueSavePreferences();
 }
 
@@ -3489,6 +3523,7 @@ function renderRadiusResults(origin, radiusKm) {
     els.radiusResults.appendChild(note);
   }
   renderEstimatorResults();
+  syncCampaignLayersFromScope();
   queueSavePreferences();
 }
 
@@ -3724,11 +3759,152 @@ function downloadTextFile(filename, content, type) {
   URL.revokeObjectURL(url);
 }
 
+function todayDateString() {
+  const d = new Date();
+  return `${d.getFullYear()}-${padDatePart(d.getMonth() + 1)}-${padDatePart(d.getDate())}`;
+}
+function parseDateString(value) { return /^\d{4}-\d{2}-\d{2}$/.test(String(value||"")) ? String(value) : null; }
+function daysInMonth(year, month) { return new Date(Date.UTC(Number(year), Number(month), 0)).getUTCDate(); }
+function addDays(dateString, dayOffset) {
+  const [y,m,d] = (parseDateString(dateString) || todayDateString()).split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d + Number(dayOffset || 0)));
+  return `${date.getUTCFullYear()}-${padDatePart(date.getUTCMonth() + 1)}-${padDatePart(date.getUTCDate())}`;
+}
+function campaignResourceIds() { return state.estimator.resources.map((resource) => resource.id); }
+function campaignLayerIdsFromScope() { return [...new Set(state.radiusResults.map((item) => item.stored?.feature?.properties?.map_layer).filter(Boolean))]; }
+function normalizeCampaignSettings(saved = {}) {
+  const resourceIds = new Set(campaignResourceIds());
+  const layerIds = campaignLayerIdsFromScope();
+  const order = Array.isArray(saved?.layerPriorityOrder) ? saved.layerPriorityOrder.filter((id) => layerIds.includes(id)) : [];
+  for (const id of layerIds) if (!order.includes(id)) order.push(id);
+  const keepResources = (object, fallback = 0) => Object.fromEntries([...resourceIds].map((id) => [id, boundedNumber(object?.[id], fallback, 0, 1e12)]));
+  const layerWeights = {};
+  for (const id of order) layerWeights[id] = boundedNumber(saved?.layerWeights?.[id], 1, 0, 1e9);
+  return {
+    startDate: parseDateString(saved?.startDate) || todayDateString(),
+    maxSimulationDays: Math.round(boundedNumber(saved?.maxSimulationDays, DEFAULT_CAMPAIGN_SETTINGS.maxSimulationDays, 1, 10000)),
+    allocationMode: CAMPAIGN_ALLOCATION_MODES.includes(saved?.allocationMode) ? saved.allocationMode : "weighted",
+    playbackSpeedMs: Math.round(boundedNumber(saved?.playbackSpeedMs, 700, 100, 5000)),
+    commandCapacityPerDay: Math.floor(boundedNumber(saved?.commandCapacityPerDay, 25, 0, 1000000)),
+    layerPriorityOrder: order,
+    layerWeights,
+    fireCapacityPerDay: keepResources(saved?.fireCapacityPerDay),
+    initialStock: keepResources(saved?.initialStock),
+    productionMonthly: keepResources(saved?.productionMonthly),
+    profiles: Array.isArray(saved?.profiles) ? saved.profiles.slice(0, 50) : [],
+  };
+}
+function serializeCampaignSettings() { return { ...state.campaign, profiles: state.campaign?.profiles || [] }; }
+function campaignScopeEntries() { return state.radiusResults.slice(); }
+function layerInfoById(id) { return (state.manifest?.layers || []).find((layer) => layer.id === id) || { id, label: id }; }
+function campaignLayerSummaries() {
+  const counts = {};
+  for (const item of campaignScopeEntries()) counts[item.stored.feature.properties.map_layer] = (counts[item.stored.feature.properties.map_layer] || 0) + 1;
+  return Object.entries(counts).map(([id,total]) => ({ id, label: layerInfoById(id).label || id, total }));
+}
+function syncCampaignLayersFromScope() { state.campaign = normalizeCampaignSettings(state.campaign || state.savedPreferences?.campaign); state.campaignRun.stale = true; state.campaignRun.days = []; state.campaignRun.currentDayIndex = -1; renderCampaign(); }
+function categoryRequirement(layerId) { return boundedNumber(state.estimator.categoryRequirements?.[layerId], 1, 0, 1000000); }
+function dailyProductionForDate(resourceId, dateString, settings = state.campaign) { const [y,m] = dateString.split("-").map(Number); return boundedNumber(settings.productionMonthly?.[resourceId], 0, 0) / daysInMonth(y, m); }
+function demandForLayerCount(layerId, count) { return Object.fromEntries(state.estimator.resources.map((r) => [r.id, estimateUnits(count, categoryRequirement(layerId), r.completionRate)])); }
+function demandFitsConstraints(demand, stock, fireRemaining) { return Object.entries(demand).every(([id,v]) => Number.isFinite(v) && v <= (stock[id] || 0) + 1e-9 && v <= (fireRemaining[id] || 0) + 1e-9); }
+function maxExecutableCountForLayer(layerId, desiredCount, stock, fireRemaining) { let lo=0, hi=Math.floor(desiredCount); while(lo<hi){const mid=Math.ceil((lo+hi)/2); if(demandFitsConstraints(demandForLayerCount(layerId, mid), stock, fireRemaining)) lo=mid; else hi=mid-1;} return lo; }
+function buildSequentialLayerQuotas(remainingByLayer, settings = state.campaign) { const quotas={}; let slots=Math.floor(settings.commandCapacityPerDay); for(const id of settings.layerPriorityOrder){ const take=Math.min(slots, remainingByLayer[id]||0); if(take>0) quotas[id]=take; slots-=take; if(slots<=0) break;} return quotas; }
+function buildWeightedLayerQuotas(remainingByLayer, settings = state.campaign) { const active=settings.layerPriorityOrder.filter((id)=>(remainingByLayer[id]||0)>0); const total=active.reduce((s,id)=>s+boundedNumber(settings.layerWeights?.[id],0,0),0); if(total<=0) return buildSequentialLayerQuotas(remainingByLayer, settings); const cap=Math.floor(settings.commandCapacityPerDay); const quotas={}; const rows=active.map((id,priority)=>{const raw=cap*(settings.layerWeights[id]||0)/total; const base=Math.min(Math.floor(raw), remainingByLayer[id]||0); quotas[id]=base; return {id,priority,remainder:raw-Math.floor(raw)};}); let used=Object.values(quotas).reduce((a,b)=>a+b,0); while(used<cap){ let picked=null; for(const row of rows.slice().sort((a,b)=>b.remainder-a.remainder||a.priority-b.priority)){ if((quotas[row.id]||0)<(remainingByLayer[row.id]||0)){picked=row; break;} } if(!picked) break; quotas[picked.id]=(quotas[picked.id]||0)+1; used++; } return quotas; }
+function featureEntryId(item){ return item.stored.id || item.stored.feature.id; }
+function sumValues(object) { return Object.values(object || {}).reduce((total, value) => total + (Number(value) || 0), 0); }
+function campaignDayLabel(day) { return day ? `Day ${day.dayIndex + 1} - ${day.date}` : "Before campaign"; }
+function campaignSelectedDay() { return state.campaignRun.days[state.campaignRun.currentDayIndex] || null; }
+function campaignCumulativeProduction(dayIndex) {
+  const totals = Object.fromEntries(campaignResourceIds().map((id) => [id, 0]));
+  for (const day of state.campaignRun.days.slice(0, Math.max(0, dayIndex) + 1)) {
+    for (const id of campaignResourceIds()) totals[id] += day.productionByResource?.[id] || 0;
+  }
+  return totals;
+}
+function campaignLayerDepletedDays() {
+  const depleted = {};
+  for (const day of state.campaignRun.days) {
+    for (const [id, remaining] of Object.entries(day.remainingTargetsByLayer || {})) {
+      if (remaining === 0 && depleted[id] === undefined) depleted[id] = day.date;
+    }
+  }
+  return depleted;
+}
+function simulateCampaign(settings = state.campaign) {
+  settings = normalizeCampaignSettings(settings); const entriesByLayer={}; for(const item of campaignScopeEntries()){ const id=item.stored.feature.properties.map_layer; (entriesByLayer[id] ||= []).push(item); }
+  const totalEntries=campaignScopeEntries().length, remainingByLayer=Object.fromEntries(Object.entries(entriesByLayer).map(([id,a])=>[id,a.length])); const cursor=Object.fromEntries(Object.keys(entriesByLayer).map(id=>[id,0])); let stock={...settings.initialStock}; const cumLayer={}, cumRes=Object.fromEntries(campaignResourceIds().map(id=>[id,0])); let cumulativeIds=[]; const days=[]; let warning="";
+  for(let dayIndex=0; dayIndex<settings.maxSimulationDays && Object.values(remainingByLayer).some(v=>v>0); dayIndex++){
+    const date=addDays(settings.startDate, dayIndex), starting={...stock}, prod={}, available={}; for(const id of campaignResourceIds()){prod[id]=dailyProductionForDate(id,date,settings); available[id]=(stock[id]||0)+prod[id];} stock={...available}; const fire={...settings.fireCapacityPerDay}, fireRem={...fire}; const quotas=settings.allocationMode==="sequential"?buildSequentialLayerQuotas(remainingByLayer,settings):buildWeightedLayerQuotas(remainingByLayer,settings); const reqDemand=Object.fromEntries(campaignResourceIds().map(id=>[id,0])), exp=Object.fromEntries(campaignResourceIds().map(id=>[id,0])), executed={}, deferred={}, executedIds=[], deferredIds=[];
+    for(const [lid,requested] of Object.entries(quotas)){ const d=demandForLayerCount(lid, requested); for(const rid of campaignResourceIds()) reqDemand[rid]+=d[rid]||0; const can=maxExecutableCountForLayer(lid, requested, stock, fireRem); const list=entriesByLayer[lid]||[], start=cursor[lid]||0; if(can<=0){ deferred[lid]=requested; for(const item of list.slice(start,start+requested)) deferredIds.push(featureEntryId(item)); if(settings.allocationMode==="sequential") break; continue;} const ed=demandForLayerCount(lid, can); for(const rid of campaignResourceIds()){ exp[rid]+=ed[rid]||0; stock[rid]=Math.max(0,(stock[rid]||0)-(ed[rid]||0)); fireRem[rid]=Math.max(0,(fireRem[rid]||0)-(ed[rid]||0)); } executed[lid]=can; deferred[lid]=requested-can; remainingByLayer[lid]-=can; cumLayer[lid]=(cumLayer[lid]||0)+can; for(const item of list.slice(start, start+can)) executedIds.push(featureEntryId(item)); for(const item of list.slice(start+can, start+requested)) deferredIds.push(featureEntryId(item)); cursor[lid]=start+can; }
+    cumulativeIds=cumulativeIds.concat(executedIds); for(const rid of campaignResourceIds()) cumRes[rid]+=exp[rid]||0; days.push({dayIndex,date,startingStockByResource:starting,productionByResource:prod,availableSupplyByResource:available,requestedTargetsByLayer:quotas,executedTargetsByLayer:executed,deferredTargetsByLayer:deferred,remainingTargetsByLayer:{...remainingByLayer},requestedDemandByResource:reqDemand,expendedByResource:exp,fireCapacityByResource:fire,fireCapacityRemainingByResource:fireRem,endingStockByResource:{...stock},requestedSupplyDeltaByResource:Object.fromEntries(campaignResourceIds().map(id=>[id,(available[id]||0)-(reqDemand[id]||0)])),executedSupplyDeltaByResource:{...stock},executedFeatureIds:executedIds,deferredFeatureIds:deferredIds,cumulativeExecutedFeatureIds:cumulativeIds.slice(),cumulativeExecutedByLayer:{...cumLayer},cumulativeExpendedByResource:{...cumRes},blocked:executedIds.length===0,notes:[]});
+  }
+  if(Object.values(remainingByLayer).some(v=>v>0)) warning="Maximum simulation days reached before completion."; return { days, summary:{totalEntries, elapsedDays:days.length, completionDate:Object.values(remainingByLayer).every(v=>v===0)?days.at(-1)?.date:null, warning, remainingByLayer} };
+}
+function recalculateCampaign(){ pauseCampaign(); const run=simulateCampaign(state.campaign); state.campaignRun={...state.campaignRun,...run,stale:false,currentDayIndex:run.days.length?0:-1,playing:false,playbackTimer:null}; renderCampaign(); renderCampaignMapStatus(); return run; }
+function setCampaignDay(dayIndex){ if(!state.campaignRun.days.length){state.campaignRun.currentDayIndex=-1;} else state.campaignRun.currentDayIndex=Math.min(state.campaignRun.days.length-1,Math.max(0,Number(dayIndex)||0)); renderCampaign(); renderCampaignMapStatus(); }
+function stepCampaign(delta){ setCampaignDay((state.campaignRun.currentDayIndex<0?0:state.campaignRun.currentDayIndex)+delta); }
+function pauseCampaign(options = {}){ if(state.campaignRun.playbackTimer) (window.clearInterval || clearInterval)(state.campaignRun.playbackTimer); state.campaignRun.playing=false; state.campaignRun.playbackTimer=null; if(options.render) renderCampaign(); }
+function playCampaign(){ if(state.campaignRun.stale || !state.campaignRun.days.length) return; pauseCampaign(); const timerFn = window.setInterval || (typeof setInterval === "function" ? setInterval : null); state.campaignRun.playing=true; renderCampaign(); if (!timerFn) return; state.campaignRun.playbackTimer=timerFn(()=>{ if(state.campaignRun.currentDayIndex>=state.campaignRun.days.length-1) pauseCampaign({ render: true }); else stepCampaign(1); }, state.campaign.playbackSpeedMs); }
+function resetCampaignPlayback(){
+  pauseCampaign();
+  state.campaignRun = { stale: true, currentDayIndex: -1, playing: false, playbackTimer: null, days: [], summary: null };
+  clearCampaignMapStatus();
+  renderCampaign();
+}
+function setSelectedTab(tab){ state.selectedTab=tab==="campaign"?"campaign":"map"; if(state.selectedTab!=="campaign") pauseCampaign({ render: true }); if(els.mapView) els.mapView.hidden=state.selectedTab!=="map"; if(els.campaignView) els.campaignView.hidden=state.selectedTab!=="campaign"; els.tabMapBtn?.classList.toggle("active",state.selectedTab==="map"); els.tabCampaignBtn?.classList.toggle("active",state.selectedTab==="campaign"); queueSavePreferences(); }
+function clearCampaignMapStatus(){ state.campaignStatusGroup?.clearLayers?.(); }
+function addCampaignStatusOverlay(item, status) {
+  const styles = {
+    executed: { color: "#25d366", radius: 5, className: "campaign-status-executed", fillOpacity: 0.35 },
+    current: { color: "#00f5ff", radius: 7, className: "campaign-status-current-day", fillOpacity: 0.45 },
+    deferred: { color: "#f59e0b", radius: 6, className: "campaign-status-deferred", fillOpacity: 0.28 },
+  };
+  const style = styles[status] || styles.executed;
+  if (item.stored.point) {
+    L.circleMarker(item.stored.point, { radius: style.radius, color: style.color, weight: 2, fillColor: style.color, fillOpacity: style.fillOpacity, interactive: false, className: style.className }).addTo(state.campaignStatusGroup);
+  } else if (item.stored.feature?.geometry) {
+    L.geoJSON(item.stored.feature, { style: { color: style.color, weight: status === "current" ? 5 : 4, opacity: 0.8, className: style.className } }).addTo(state.campaignStatusGroup);
+  }
+}
+function renderCampaignMapStatus(){ clearCampaignMapStatus(); const day=state.campaignRun.days[state.campaignRun.currentDayIndex]; if(!day || !state.campaignStatusGroup) return; const current=new Set(day.executedFeatureIds), all=new Set(day.cumulativeExecutedFeatureIds), deferred=new Set(day.deferredFeatureIds||[]); for(const item of campaignScopeEntries()){ const id=featureEntryId(item); if(all.has(id)) addCampaignStatusOverlay(item, current.has(id)?"current":"executed"); else if(deferred.has(id)) addCampaignStatusOverlay(item, "deferred"); } }
+
+function updateCampaignSetting(path, value){ const [group,key]=path.split('.'); if(key) state.campaign[group][key]=value; else state.campaign[group]=value; state.campaign=normalizeCampaignSettings(state.campaign); state.campaignRun.stale=true; renderCampaign(); queueSavePreferences(); }
+function renderCampaignSettings(){ if(!els.campaignSettings) return; const s=state.campaign; els.campaignSettings.innerHTML=`<label>Start date <input id="campaignStartDate" type="date" value="${escapeHtml(s.startDate)}"></label><label>Max simulation days <input id="campaignMaxDays" type="number" min="1" max="10000" value="${s.maxSimulationDays}"></label><label>Allocation mode <select id="campaignAllocationMode"><option value="weighted">weighted</option><option value="sequential">sequential</option></select></label><label>Playback speed ms <input id="campaignPlaybackSpeed" type="number" min="100" max="5000" value="${s.playbackSpeedMs}"></label>`; document.getElementById('campaignAllocationMode').value=s.allocationMode; document.getElementById('campaignStartDate').onchange=e=>updateCampaignSetting('startDate',e.target.value); document.getElementById('campaignMaxDays').onchange=e=>updateCampaignSetting('maxSimulationDays',e.target.value); document.getElementById('campaignAllocationMode').onchange=e=>updateCampaignSetting('allocationMode',e.target.value); document.getElementById('campaignPlaybackSpeed').onchange=e=>updateCampaignSetting('playbackSpeedMs',e.target.value); }
+function renderCampaignLayerAllocation(){ if(!els.campaignLayerAllocation) return; const day=state.campaignRun.days[state.campaignRun.currentDayIndex]; const rows=campaignLayerSummaries().map((layer,idx)=>`<div class="campaign-row campaign-allocation-row"><div class="campaign-layer-meta"><strong>${escapeHtml(layer.label)}</strong><small>${escapeHtml(layer.id)}</small><span class="campaign-layer-summary"><span><b>${layer.total}</b> entries</span><span><b>${day?.cumulativeExecutedByLayer?.[layer.id]||0}</b> executed</span><span><b>${day?.remainingTargetsByLayer?.[layer.id]??layer.total}</b> remaining</span></span></div><input aria-label="Weight ${escapeHtml(layer.label)}" type="number" min="0" data-layer-weight="${escapeHtml(layer.id)}" value="${state.campaign.layerWeights[layer.id]??1}"><button data-layer-up="${escapeHtml(layer.id)}" ${idx===0?'disabled':''}>Up</button><button data-layer-down="${escapeHtml(layer.id)}" ${idx===campaignLayerSummaries().length-1?'disabled':''}>Down</button></div>`).join('') || '<div class="empty-state">Draw a radius on the map to define the campaign scope.</div>'; els.campaignLayerAllocation.innerHTML=rows; els.campaignLayerAllocation.querySelectorAll('[data-layer-weight]').forEach(i=>i.onchange=e=>{state.campaign.layerWeights[e.target.dataset.layerWeight]=boundedNumber(e.target.value,0,0); state.campaignRun.stale=true; queueSavePreferences(); renderCampaign();}); const move=(id,delta)=>{const a=state.campaign.layerPriorityOrder; const i=a.indexOf(id), j=i+delta; if(i>=0&&j>=0&&j<a.length){[a[i],a[j]]=[a[j],a[i]]; state.campaignRun.stale=true; queueSavePreferences(); renderCampaign();}}; els.campaignLayerAllocation.querySelectorAll('[data-layer-up]').forEach(b=>b.onclick=e=>move(e.target.dataset.layerUp,-1)); els.campaignLayerAllocation.querySelectorAll('[data-layer-down]').forEach(b=>b.onclick=e=>move(e.target.dataset.layerDown,1)); }
+function renderCampaignCapacity(){ if(!els.campaignCapacity) return; els.campaignCapacity.innerHTML=`<label>Command capacity per day <input id="campaignCommandCapacity" type="number" min="0" step="1" value="${state.campaign.commandCapacityPerDay}"></label>`+state.estimator.resources.map(r=>`<label>${escapeHtml(r.label)} fire capacity/day <input data-fire="${escapeHtml(r.id)}" type="number" min="0" step="1" value="${state.campaign.fireCapacityPerDay[r.id]||0}"></label>`).join(''); document.getElementById('campaignCommandCapacity').onchange=e=>updateCampaignSetting('commandCapacityPerDay',e.target.value); els.campaignCapacity.querySelectorAll('[data-fire]').forEach(i=>i.onchange=e=>updateCampaignSetting(`fireCapacityPerDay.${e.target.dataset.fire}`,e.target.value)); }
+function renderCampaignSupply(){ if(!els.campaignSupply) return; const day=state.campaignRun.days[state.campaignRun.currentDayIndex]; els.campaignSupply.innerHTML=state.estimator.resources.map(r=>`<div class="campaign-supply-row"><strong>${escapeHtml(r.label)}</strong><label>Initial <input data-stock="${escapeHtml(r.id)}" type="number" min="0" value="${state.campaign.initialStock[r.id]||0}"></label><label>Monthly production <input data-prod="${escapeHtml(r.id)}" type="number" min="0" value="${state.campaign.productionMonthly[r.id]||0}"></label><span>Daily: ${numberFmt(dailyProductionForDate(r.id,state.campaign.startDate),3)} • stock: ${numberFmt(day?.endingStockByResource?.[r.id]??state.campaign.initialStock[r.id],2)}</span></div>`).join(''); els.campaignSupply.querySelectorAll('[data-stock]').forEach(i=>i.onchange=e=>updateCampaignSetting(`initialStock.${e.target.dataset.stock}`,e.target.value)); els.campaignSupply.querySelectorAll('[data-prod]').forEach(i=>i.onchange=e=>updateCampaignSetting(`productionMonthly.${e.target.dataset.prod}`,e.target.value)); }
+function renderCampaignDashboard(){ if(!els.campaignDashboard) return; const day=campaignSelectedDay(); if(!state.campaignRun.days.length){ els.campaignDashboard.innerHTML='<div class="empty-state">Run simulation to see the campaign dashboard.</div>'; return; } const total=campaignScopeEntries().length; const executed=day?sumValues(day.cumulativeExecutedByLayer):0; const remaining=day?sumValues(day.remainingTargetsByLayer):total; const cumulativeProduction=day?campaignCumulativeProduction(day.dayIndex):Object.fromEntries(campaignResourceIds().map((id)=>[id,0])); const depleted=campaignLayerDepletedDays(); const completion=state.campaignRun.summary?.completionDate || "Not completed"; const resourceRows=state.estimator.resources.map((r)=>`<tr><td>${escapeHtml(r.label)}</td><td>${numberFmt(state.campaign.initialStock[r.id],2)}</td><td>${numberFmt(cumulativeProduction[r.id],2)}</td><td>${numberFmt(day?.cumulativeExpendedByResource?.[r.id]||0,2)}</td><td>${numberFmt(day?.endingStockByResource?.[r.id]??state.campaign.initialStock[r.id],2)}</td><td>${numberFmt(day?.requestedSupplyDeltaByResource?.[r.id]||0,2)}</td><td>${numberFmt((day?.fireCapacityByResource?.[r.id]||0)-(day?.fireCapacityRemainingByResource?.[r.id]||0),2)} / ${numberFmt(day?.fireCapacityByResource?.[r.id]||0,2)}</td></tr>`).join(""); const layerRows=campaignLayerSummaries().map((l,idx)=>`<tr><td>${escapeHtml(l.label)}<br><small>${escapeHtml(l.id)}</small></td><td>${l.total}</td><td>${day?.cumulativeExecutedByLayer?.[l.id]||0}</td><td>${day?.remainingTargetsByLayer?.[l.id]??l.total}</td><td>${numberFmt(state.campaign.layerWeights[l.id]??0,2)}</td><td>${idx+1}</td><td>${depleted[l.id]||""}</td></tr>`).join(""); els.campaignDashboard.innerHTML=`<div class="campaign-cards"><div><strong>${total}</strong><span>Total entries</span></div><div><strong>${executed}</strong><span>Executed</span></div><div><strong>${remaining}</strong><span>Remaining</span></div><div><strong>${campaignDayLabel(day)}</strong><span>Current day</span></div><div><strong>${state.campaignRun.summary?.elapsedDays||0}</strong><span>Elapsed days</span></div><div><strong>${escapeHtml(completion)}</strong><span>Completion date</span></div></div>${state.campaignRun.summary?.warning?`<p class="warning">${escapeHtml(state.campaignRun.summary.warning)}</p>`:''}<h4>Resources</h4><div class="campaign-table"><table><thead><tr><th>Resource</th><th>Initial</th><th>Production</th><th>Expended</th><th>Ending stock</th><th>Requested delta</th><th>Fire used</th></tr></thead><tbody>${resourceRows}</tbody></table></div><h4>Layers</h4><div class="campaign-table"><table><thead><tr><th>Layer</th><th>Total</th><th>Executed</th><th>Remaining</th><th>Weight</th><th>Priority</th><th>Depleted day</th></tr></thead><tbody>${layerRows}</tbody></table></div>`; }
+function renderCampaignDailyTable(){ if(!els.campaignDailyTable) return; if(!state.campaignRun.days.length){ els.campaignDailyTable.innerHTML='<div class="empty-state">Run simulation to build the daily timeline.</div>'; return; } const rows=state.campaignRun.days.map(d=>`<tr data-day="${d.dayIndex}"><td>${d.dayIndex+1}</td><td>${d.date}</td><td>${sumValues(d.executedTargetsByLayer)}</td><td>${sumValues(d.deferredTargetsByLayer)}</td><td>${sumValues(d.remainingTargetsByLayer)}</td><td>${state.estimator.resources.map(r=>`${escapeHtml(r.label)}: ${numberFmt(d.expendedByResource[r.id],2)}`).join('<br>')}</td><td>${state.estimator.resources.map(r=>`${escapeHtml(r.label)}: ${numberFmt(d.endingStockByResource[r.id],2)}`).join('<br>')}</td><td>${state.estimator.resources.map(r=>`${escapeHtml(r.label)}: ${numberFmt(d.requestedSupplyDeltaByResource[r.id],2)}`).join('<br>')}</td></tr>`).join(''); els.campaignDailyTable.innerHTML=`<table><thead><tr><th>Day</th><th>Date</th><th>Executed</th><th>Deferred</th><th>Remaining</th><th>Expended</th><th>Ending stock</th><th>Requested delta</th></tr></thead><tbody>${rows}</tbody></table>`; els.campaignDailyTable.querySelectorAll('[data-day]').forEach(r=>r.onclick=e=>setCampaignDay(Number(e.currentTarget.dataset.day))); }
+function buildCampaignTimelineCsv(){ const fields=['day_index','date','layer_id','layer_label','requested_targets','executed_targets','deferred_targets','remaining_targets','resource_id','resource_label','requested_demand','expended','daily_production','starting_stock','available_supply','ending_stock','fire_capacity','fire_capacity_remaining','requested_supply_delta','executed_supply_delta','cumulative_expended']; const lines=[fields.join(',')]; for(const d of state.campaignRun.days){ for(const l of campaignLayerSummaries()) for(const r of state.estimator.resources){ const row={day_index:d.dayIndex,date:d.date,layer_id:l.id,layer_label:l.label,requested_targets:d.requestedTargetsByLayer[l.id]||0,executed_targets:d.executedTargetsByLayer[l.id]||0,deferred_targets:d.deferredTargetsByLayer[l.id]||0,remaining_targets:d.remainingTargetsByLayer[l.id]||0,resource_id:r.id,resource_label:r.label,requested_demand:d.requestedDemandByResource[r.id]||0,expended:d.expendedByResource[r.id]||0,daily_production:d.productionByResource[r.id]||0,starting_stock:d.startingStockByResource[r.id]||0,available_supply:d.availableSupplyByResource[r.id]||0,ending_stock:d.endingStockByResource[r.id]||0,fire_capacity:d.fireCapacityByResource[r.id]||0,fire_capacity_remaining:d.fireCapacityRemainingByResource[r.id]||0,requested_supply_delta:d.requestedSupplyDeltaByResource[r.id]||0,executed_supply_delta:d.executedSupplyDeltaByResource[r.id]||0,cumulative_expended:d.cumulativeExpendedByResource[r.id]||0}; lines.push(fields.map(f=>csvEscape(row[f])).join(',')); }} return lines.join('\r\n'); }
+function buildCampaignTimelineJson(){ return {exportedAt:new Date().toISOString(),settings:serializeCampaignSettings(),summary:state.campaignRun.summary,dailySnapshots:state.campaignRun.days,layerMetadata:campaignLayerSummaries(),resourceMetadata:state.estimator.resources}; }
+function exportCampaignTimelineCsv(){ if(!state.campaignRun.days.length) return alert('Run simulation before exporting timeline CSV.'); downloadTextFile(`campaign_timeline_${new Date().toISOString().replace(/[:.]/g,'-')}.csv`,buildCampaignTimelineCsv(),'text/csv;charset=utf-8'); }
+function exportCampaignTimelineJson(){ if(!state.campaignRun.days.length) return alert('Run simulation before exporting timeline JSON.'); downloadTextFile(`campaign_timeline_${new Date().toISOString().replace(/[:.]/g,'-')}.json`,JSON.stringify(buildCampaignTimelineJson(),null,2),'application/json;charset=utf-8'); }
+function campaignProfileSnapshot(name){ return {version:APP_VERSION,name,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),...serializeCampaignSettings(),profiles:undefined}; }
+function exportCampaignProfile(){ downloadTextFile(`campaign_profile_${new Date().toISOString().replace(/[:.]/g,'-')}.json`,JSON.stringify(campaignProfileSnapshot('Campaign profile'),null,2),'application/json;charset=utf-8'); }
+function campaignProfilePayloadFromImport(parsed) {
+  const payload = parsed?.campaign && typeof parsed.campaign === "object" && !Array.isArray(parsed.campaign) ? parsed.campaign : parsed;
+  const knownKeys = ["startDate","maxSimulationDays","allocationMode","layerPriorityOrder","layerWeights","commandCapacityPerDay","fireCapacityPerDay","initialStock","productionMonthly","playbackSpeedMs"];
+  if (!payload || typeof payload !== "object" || Array.isArray(payload) || !knownKeys.some((key) => Object.prototype.hasOwnProperty.call(payload, key))) {
+    throw new Error("Profile JSON does not contain campaign settings.");
+  }
+  return payload;
+}
+function importCampaignProfileFromText(text){ const parsed=JSON.parse(text); const payload=campaignProfilePayloadFromImport(parsed); const profiles=state.campaign.profiles; state.campaign=normalizeCampaignSettings({...payload, profiles}); state.campaignRun.stale=true; renderCampaign(); savePreferencesNow(); }
+function saveCampaignProfile(){ const name=prompt('Profile name?','Campaign profile'); if(!name) return; const profile=campaignProfileSnapshot(name); state.campaign.profiles=state.campaign.profiles.filter(p=>p.name!==name).concat(profile); renderCampaignProfiles(); savePreferencesNow(); }
+function renderCampaignProfiles(){ if(!els.campaignProfileSelect) return; els.campaignProfileSelect.innerHTML=(state.campaign.profiles||[]).map((p,i)=>`<option value="${i}">${escapeHtml(p.name)}</option>`).join(''); }
+function loadCampaignProfile(){ const p=state.campaign.profiles[Number(els.campaignProfileSelect?.value)]; if(p){ state.campaign=normalizeCampaignSettings({...p,profiles:state.campaign.profiles}); state.campaignRun.stale=true; renderCampaign(); savePreferencesNow(); }}
+function deleteCampaignProfile(){ const i=Number(els.campaignProfileSelect?.value); if(Number.isInteger(i)){ state.campaign.profiles.splice(i,1); renderCampaignProfiles(); savePreferencesNow(); }}
+function renderCampaignPlayer(){ if(!els.campaignPlayer) return; const noScope=!campaignScopeEntries().length, noRun=!state.campaignRun.days.length; const day=campaignSelectedDay(); els.campaignPlayer.innerHTML=`<div class="actions-row"><button id="campaignRunBtn" ${noScope?'disabled':''}>Recalculate / Run simulation</button><button id="campaignResetBtn" ${noRun?'disabled':''}>Reset run</button><button id="campaignPrevBtn" ${noRun?'disabled':''}>Previous</button><button id="campaignPlayBtn" ${state.campaignRun.stale||noRun?'disabled':''}>${state.campaignRun.playing?'Pause':'Play'}</button><button id="campaignNextBtn" ${noRun?'disabled':''}>Next</button></div><input id="campaignDaySlider" type="range" min="0" max="${Math.max(0,state.campaignRun.days.length-1)}" value="${Math.max(0,state.campaignRun.currentDayIndex)}" ${noRun?'disabled':''}><div>${campaignDayLabel(day)} ${state.campaignRun.stale?'<span class="warning">Stale: recalculate required.</span>':''}</div>`; document.getElementById('campaignRunBtn').onclick=recalculateCampaign; document.getElementById('campaignResetBtn').onclick=resetCampaignPlayback; document.getElementById('campaignPrevBtn').onclick=()=>stepCampaign(-1); document.getElementById('campaignNextBtn').onclick=()=>stepCampaign(1); document.getElementById('campaignPlayBtn').onclick=()=>state.campaignRun.playing?pauseCampaign():playCampaign(); document.getElementById('campaignDaySlider').oninput=e=>setCampaignDay(Number(e.target.value)); }
+function updateCampaignExportButtons(){ const disabled=!state.campaignRun.days.length; if(els.exportCampaignTimelineCsvBtn) els.exportCampaignTimelineCsvBtn.disabled=disabled; if(els.exportCampaignTimelineJsonBtn) els.exportCampaignTimelineJsonBtn.disabled=disabled; }
+function renderCampaign(){ if(!state.campaign) state.campaign=normalizeCampaignSettings(state.savedPreferences?.campaign); if(els.campaignScopeSummary) els.campaignScopeSummary.textContent=`${campaignScopeEntries().length.toLocaleString()} entries from current radius`; if(els.campaignStatus) els.campaignStatus.textContent=campaignScopeEntries().length?'Campaign scope ready.':'Draw a radius on the map to define the campaign scope.'; renderCampaignProfiles(); renderCampaignSettings(); renderCampaignLayerAllocation(); renderCampaignCapacity(); renderCampaignSupply(); renderCampaignPlayer(); renderCampaignDashboard(); renderCampaignDailyTable(); updateCampaignExportButtons(); }
+
 function exportEstimatorAssumptions() {
   const payload = {
     version: 1,
     exportedAt: new Date().toISOString(),
     estimator: serializeEstimatorAssumptions(),
+    selectedTab: state.selectedTab,
+    campaign: serializeCampaignSettings(),
   };
   downloadTextFile(
     `scenario_estimator_settings_${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
@@ -3745,6 +3921,8 @@ function importEstimatorAssumptionsFromText(text) {
     profiles: Array.isArray(assumptions?.profiles) ? assumptions.profiles : state.estimator.profiles,
   });
   renderEstimator();
+  state.campaign = normalizeCampaignSettings(state.campaign);
+  renderCampaign();
   savePreferencesNow();
 }
 
@@ -3803,12 +3981,24 @@ async function init() {
   restoreSavedRadius();
   renderEstimator();
   renderSearch();
+  syncCampaignLayersFromScope();
+  setSelectedTab(state.selectedTab);
   state.persistenceReady = true;
   savePreferencesNow();
 }
 
 setupInfoButtons();
 setupResizableMenus();
+els.tabMapBtn?.addEventListener("click", () => setSelectedTab("map"));
+els.tabCampaignBtn?.addEventListener("click", () => setSelectedTab("campaign"));
+els.saveCampaignProfileBtn?.addEventListener("click", saveCampaignProfile);
+els.loadCampaignProfileBtn?.addEventListener("click", loadCampaignProfile);
+els.deleteCampaignProfileBtn?.addEventListener("click", deleteCampaignProfile);
+els.exportCampaignProfileBtn?.addEventListener("click", exportCampaignProfile);
+els.importCampaignProfileBtn?.addEventListener("click", () => { els.campaignImportInput.value = ""; els.campaignImportInput.click(); });
+els.campaignImportInput?.addEventListener("change", async () => { const file = els.campaignImportInput.files?.[0]; if (!file) return; try { importCampaignProfileFromText(await file.text()); } catch (error) { alert(`Could not import campaign profile: ${error.message}`); } });
+els.exportCampaignTimelineCsvBtn?.addEventListener("click", exportCampaignTimelineCsv);
+els.exportCampaignTimelineJsonBtn?.addEventListener("click", exportCampaignTimelineJson);
 els.searchInput.addEventListener("input", () => {
   renderSearch();
   queueSavePreferences();
