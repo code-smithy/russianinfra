@@ -1,5 +1,5 @@
 const DATA_DIR = "data/";
-const APP_VERSION = "0.10.0";
+const APP_VERSION = "0.11.0";
 const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
@@ -141,10 +141,11 @@ const INFO_TOPICS = {
   app: {
     title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
     paragraphs: [
-      "Version 0.10.0 makes Campaign resource supply, production, and fire capacity range-band-specific. Version 0.9.0 adds a Campaign Timeline Planner over current radius results.",
+      "Version 0.11.0 adds Campaign resource substitution and tracks substituted demand in dashboards, timelines, and exports. Version 0.10.0 makes Campaign resource supply, production, and fire capacity range-band-specific.",
       "Highlights include Nightwatch military map scraping, resilient OSINT Varta archive capture selection, automatic country-boundary bootstrapping, and a durable compressed comparison baseline for scheduled builds.",
     ],
     history: [
+      { version: "0.11.0", date: "2026-07-02", notes: ["Adds configurable Campaign resource substitution with off, priority, weighted, and split-evenly modes.", "Keeps substitution atomic per target increment and preserves same-range-band behavior by default.", "Shows substituted-in and substituted-out demand in Campaign dashboards, daily timelines, CSV export, JSON export, saved profiles, and tests."] },
       { version: "0.10.0", date: "2026-07-02", notes: ["Makes Campaign supply, production, and fire capacity range-band-specific.", "Migrates legacy flat Campaign resource settings into the first configured range band.", "Adds band-aware Campaign dashboard, daily timeline, CSV export, JSON export, and tests for no cross-band borrowing."] },
       { version: "0.9.0", date: "2026-07-01", notes: ["Adds Campaign Timeline Planner tab.", "Supports weighted or strict layer allocation from current radius results.", "Adds daily command capacity, per-resource fire capacity, initial stock, monthly production, calendar-aware daily production, demand/supply deltas, playback, map status styling, and CSV/JSON export."] },
       { version: "0.8.0", date: "2026-06-30", notes: ["Replaces the local Military KML archive with public Nightwatch map placemark extraction.", "Retries OSINT Varta archive captures from newest to oldest and falls back to committed compact web data when Archive.org is unavailable.", "Downloads missing Natural Earth country boundaries in clean GitHub runners and stores the build comparison baseline under data_package/build_history.", "Updates the daily collection workflow to commit tracked data_package and web/data outputs without trying to add ignored data/ caches."] },
