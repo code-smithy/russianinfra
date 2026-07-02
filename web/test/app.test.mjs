@@ -1115,26 +1115,24 @@ test("scenario estimator saves loads and deletes range/resource profiles", async
   assert.equal(api.els.estimatorProfileSelect.disabled, true);
 });
 
-test("category assumptions use up and down buttons instead of number inputs", async () => {
+test("category assumptions use number inputs", async () => {
   const app = createAppContext();
   await app.__initPromise;
 
   const api = app.__api;
   const row = api.els.categoryAssumptionsList.children.find((child) => child.children[0].innerHTML.includes("Oil/Gas Facilities"));
   assert.ok(row);
-  assert.equal(row.children.some((child) => child.id === "input"), false);
+  assert.equal(row.children.length, 2);
 
-  const upButton = row.children[1];
-  const downButton = row.children[2];
-  assert.equal(upButton.textContent, "Up");
-  assert.equal(downButton.textContent, "Down");
+  const input = row.children[1];
+  assert.equal(input.type, "number");
+  assert.equal(input.min, "0");
+  assert.equal(input.step, "1");
+  assert.equal(input.value, "1");
 
-  upButton.listeners.click[0]();
-  assert.equal(api.state.estimator.categoryRequirements.energy_facilities, 2);
-
-  const updatedRow = api.els.categoryAssumptionsList.children.find((child) => child.children[0].innerHTML.includes("Oil/Gas Facilities"));
-  updatedRow.children[2].listeners.click[0]();
-  assert.equal(api.state.estimator.categoryRequirements.energy_facilities, 1);
+  input.value = "4";
+  input.listeners.input[0]();
+  assert.equal(api.state.estimator.categoryRequirements.energy_facilities, 4);
 });
 
 test("range band edits update one band without adding extra bands", async () => {

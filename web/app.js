@@ -3154,28 +3154,22 @@ function renderCategoryAssumptions() {
     const label = document.createElement("span");
     label.className = "estimator-label";
     label.innerHTML = `<strong>${escapeHtml(layerInfo.label)}</strong><span>Units per item</span>`;
-    const decreaseButton = document.createElement("button");
-    decreaseButton.type = "button";
-    decreaseButton.className = "text-btn";
-    decreaseButton.textContent = "Down";
-    decreaseButton.disabled = categoryRequirement(layerInfo.id) <= 0;
-    decreaseButton.setAttribute("aria-label", `Decrease ${layerInfo.label} units per item`);
-    const increaseButton = document.createElement("button");
-    increaseButton.type = "button";
-    increaseButton.className = "text-btn";
-    increaseButton.textContent = "Up";
-    increaseButton.setAttribute("aria-label", `Increase ${layerInfo.label} units per item`);
-    row.append(label, increaseButton, decreaseButton);
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "0";
+    input.max = "1000000";
+    input.step = "1";
+    input.inputMode = "numeric";
+    input.value = String(categoryRequirement(layerInfo.id));
+    input.setAttribute("aria-label", `${layerInfo.label} units per item`);
+    row.append(label, input);
     els.categoryAssumptionsList.appendChild(row);
 
-    const updateRequirement = (delta) => {
-      adjustCategoryRequirement(layerInfo.id, delta);
-      renderCategoryAssumptions();
+    input.addEventListener("input", () => {
+      setCategoryRequirement(layerInfo.id, input.value);
       renderEstimatorResults();
       queueSavePreferences();
-    };
-    increaseButton.addEventListener("click", () => updateRequirement(1));
-    decreaseButton.addEventListener("click", () => updateRequirement(-1));
+    });
   }
 }
 
