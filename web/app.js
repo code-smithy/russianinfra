@@ -124,7 +124,9 @@ const ESTIMATOR_BLOCKS = [
   { key: "estimate", label: "Estimate" },
 ];
 const CAMPAIGN_ALLOCATION_MODES = ["weighted", "sequential"];
-const DEFAULT_CAMPAIGN_SETTINGS = { startDate: "", maxSimulationDays: 365, allocationMode: "weighted", playbackSpeedMs: 700, commandCapacityPerDay: 25, layerPriorityOrder: [], layerWeights: {}, fireCapacityPerDay: {}, fireCapacityPerDayByBand: {}, initialStock: {}, initialStockByBand: {}, productionMonthly: {}, productionMonthlyByBand: {}, profiles: [] };
+const CAMPAIGN_SUBSTITUTION_MODES = ["off", "priority", "weighted", "split_evenly"];
+const DEFAULT_RESOURCE_SUBSTITUTION_SETTINGS = { enabled: false, mode: "off", preserveRangeBand: true, substitutePriorityOrder: [], substituteWeights: {} };
+const DEFAULT_CAMPAIGN_SETTINGS = { startDate: "", maxSimulationDays: 365, allocationMode: "weighted", playbackSpeedMs: 700, commandCapacityPerDay: 25, layerPriorityOrder: [], layerWeights: {}, fireCapacityPerDay: {}, fireCapacityPerDayByBand: {}, initialStock: {}, initialStockByBand: {}, productionMonthly: {}, productionMonthlyByBand: {}, resourceSubstitution: DEFAULT_RESOURCE_SUBSTITUTION_SETTINGS, profiles: [] };
 
 const COLLAPSIBLE_PANELS = [
   { key: "layers", label: "Layers", preferenceKey: "layersPanelCollapsed" },
@@ -3867,6 +3869,35 @@ function campaignBandMetadata() {
   const bands = campaignRangeBands();
   return bands.map((band, index) => ({ id: band.id, label: rangeBandLabel(band, index, bands), maxKm: band.maxKm }));
 }
+function resourceLabelById(resourceId) {
+  return state.estimator.resources.find((resource) => resource.id === resourceId)?.label || resourceId;
+}
+function rangeBandLabelById(bandId) {
+  return campaignBandMetadata().find((band) => band.id === bandId)?.label || bandId;
+}
+function normalizeResourceSubstitutionSettings(saved, resources = state.estimator.resources) {
+  const resourceIds = resources.map((resource) => resource.id);
+  const hasSaved = saved && typeof saved === "object" && !Array.isArray(saved);
+  const mode = CAMPAIGN_SUBSTITUTION_MODES.includes(saved?.mode) ? saved.mode : "off";
+  const order = [];
+  if (Array.isArray(saved?.substitutePriorityOrder) && saved.substitutePriorityOrder.length) {
+    for (const id of saved.substitutePriorityOrder) {
+      if (resourceIds.includes(id) && !order.includes(id)) order.push(id);
+    }
+    for (const id of resourceIds) if (!order.includes(id)) order.push(id);
+  }
+  const weights = {};
+  if (saved?.substituteWeights && typeof saved.substituteWeights === "object" && !Array.isArray(saved.substituteWeights) && Object.keys(saved.substituteWeights).length) {
+    for (const id of resourceIds) weights[id] = boundedNumber(saved.substituteWeights[id], 0, 0, 1e9);
+  }
+  return {
+    enabled: hasSaved ? saved.enabled === true : false,
+    mode,
+    preserveRangeBand: saved?.preserveRangeBand === false ? false : true,
+    substitutePriorityOrder: order,
+    substituteWeights: weights,
+  };
+}
 function normalizeCampaignSettings(saved = {}) {
   const layerIds = campaignLayerIdsFromScope();
   const order = Array.isArray(saved?.layerPriorityOrder) ? saved.layerPriorityOrder.filter((id) => layerIds.includes(id)) : [];
@@ -3890,6 +3921,7 @@ function normalizeCampaignSettings(saved = {}) {
     fireCapacityPerDay: sumBandResourceMap(fireCapacityPerDayByBand),
     initialStock: sumBandResourceMap(initialStockByBand),
     productionMonthly: sumBandResourceMap(productionMonthlyByBand),
+    resourceSubstitution: normalizeResourceSubstitutionSettings(saved?.resourceSubstitution),
     profiles: Array.isArray(saved?.profiles) ? saved.profiles.slice(0, 50) : [],
   };
 }
@@ -3933,6 +3965,173 @@ function dailyProductionForDate(bandId, resourceId, dateString, settings = state
 }
 function demandForLayerCount(layerId, count) { return Object.fromEntries(state.estimator.resources.map((r) => [r.id, estimateUnits(count, categoryRequirement(layerId), r.completionRate)])); }
 function demandFitsConstraints(demand, stock, fireRemaining) { return Object.entries(demand).every(([id,v]) => Number.isFinite(v) && v <= (stock[id] || 0) + 1e-9 && v <= (fireRemaining[id] || 0) + 1e-9); }
+function resourceCapacityAfterPlan(resourceId, stockRow, fireRow, consumption) {
+  const planned = consumption[resourceId] || 0;
+  return Math.max(0, Math.min(stockRow?.[resourceId] || 0, fireRow?.[resourceId] || 0) - planned);
+}
+function effectiveSubstitutePriorityOrder(settings) {
+  const configured = Array.isArray(settings?.resourceSubstitution?.substitutePriorityOrder) ? settings.resourceSubstitution.substitutePriorityOrder : [];
+  const order = configured.filter((id, index) => campaignResourceIds().includes(id) && configured.indexOf(id) === index);
+  for (const id of campaignResourceIds()) if (!order.includes(id)) order.push(id);
+  return order;
+}
+function eligibleSubstituteResources(sourceResourceId, bandId, stock, fireRemaining, settings, consumption = {}) {
+  const stockRow = stock?.[bandId] || {};
+  const fireRow = fireRemaining?.[bandId] || {};
+  return campaignResourceIds().filter((resourceId) => (
+    resourceId !== sourceResourceId &&
+    resourceCapacityAfterPlan(resourceId, stockRow, fireRow, consumption) > 1e-9
+  ));
+}
+function addSubstitutionAllocation(plan, sourceResourceId, substituteResourceId, amount) {
+  const value = Number(amount) || 0;
+  if (value <= 1e-9) return;
+  plan.consumption[substituteResourceId] = (plan.consumption[substituteResourceId] || 0) + value;
+  plan.substitutedIn[substituteResourceId] = (plan.substitutedIn[substituteResourceId] || 0) + value;
+  plan.substitutedOut[sourceResourceId] = (plan.substitutedOut[sourceResourceId] || 0) + value;
+  if (!plan.substitutionPairs[sourceResourceId]) plan.substitutionPairs[sourceResourceId] = {};
+  plan.substitutionPairs[sourceResourceId][substituteResourceId] = (plan.substitutionPairs[sourceResourceId][substituteResourceId] || 0) + value;
+}
+function allocatePrioritySubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings) {
+  let remaining = deficit;
+  const stockRow = stock?.[bandId] || {};
+  const fireRow = fireRemaining?.[bandId] || {};
+  for (const resourceId of effectiveSubstitutePriorityOrder(settings)) {
+    if (resourceId === sourceResourceId) continue;
+    const capacity = resourceCapacityAfterPlan(resourceId, stockRow, fireRow, plan.consumption);
+    const take = Math.min(remaining, capacity);
+    addSubstitutionAllocation(plan, sourceResourceId, resourceId, take);
+    remaining -= take;
+    if (remaining <= 1e-9) break;
+  }
+  return Math.max(0, remaining);
+}
+function allocateWeightedSubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings) {
+  const weights = settings.resourceSubstitution?.substituteWeights || {};
+  let remaining = deficit;
+  const stockRow = stock?.[bandId] || {};
+  const fireRow = fireRemaining?.[bandId] || {};
+  while (remaining > 1e-9) {
+    const eligible = eligibleSubstituteResources(sourceResourceId, bandId, stock, fireRemaining, settings, plan.consumption)
+      .filter((resourceId) => (weights[resourceId] || 0) > 0);
+    const totalWeight = eligible.reduce((sum, resourceId) => sum + (weights[resourceId] || 0), 0);
+    if (totalWeight <= 0) break;
+    const roundRemaining = remaining;
+    let progress = 0;
+    for (const resourceId of eligible) {
+      const capacity = resourceCapacityAfterPlan(resourceId, stockRow, fireRow, plan.consumption);
+      const take = Math.min(capacity, roundRemaining * ((weights[resourceId] || 0) / totalWeight));
+      addSubstitutionAllocation(plan, sourceResourceId, resourceId, take);
+      remaining -= take;
+      progress += take;
+    }
+    if (progress <= 1e-9) break;
+  }
+  return Math.max(0, remaining);
+}
+function allocateEvenSubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings) {
+  let remaining = deficit;
+  const stockRow = stock?.[bandId] || {};
+  const fireRow = fireRemaining?.[bandId] || {};
+  while (remaining > 1e-9) {
+    const eligible = eligibleSubstituteResources(sourceResourceId, bandId, stock, fireRemaining, settings, plan.consumption);
+    if (!eligible.length) break;
+    const share = remaining / eligible.length;
+    let progress = 0;
+    for (const resourceId of eligible) {
+      const capacity = resourceCapacityAfterPlan(resourceId, stockRow, fireRow, plan.consumption);
+      const take = Math.min(capacity, share);
+      addSubstitutionAllocation(plan, sourceResourceId, resourceId, take);
+      remaining -= take;
+      progress += take;
+    }
+    if (progress <= 1e-9) break;
+  }
+  return Math.max(0, remaining);
+}
+function buildSubstitutionPlan(deficitByResource, bandId, layerId, stock, fireRemaining, settings, plan) {
+  const subSettings = settings.resourceSubstitution || DEFAULT_RESOURCE_SUBSTITUTION_SETTINGS;
+  let mode = subSettings.mode;
+  if (mode === "weighted") {
+    const hasWeights = campaignResourceIds().some((resourceId) => (subSettings.substituteWeights?.[resourceId] || 0) > 0);
+    if (!hasWeights) mode = subSettings.substitutePriorityOrder?.length ? "priority" : "split_evenly";
+  }
+  for (const [sourceResourceId, deficit] of Object.entries(deficitByResource)) {
+    let remaining = deficit;
+    if (mode === "priority") remaining = allocatePrioritySubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings);
+    else if (mode === "weighted") remaining = allocateWeightedSubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings);
+    else if (mode === "split_evenly") remaining = allocateEvenSubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings);
+    if (remaining > 1e-9) plan.executable = false;
+  }
+  if (plan.executable) {
+    const bandLabel = rangeBandLabelById(bandId);
+    const layerLabel = layerInfoById(layerId).label || layerId;
+    for (const [sourceResourceId, substitutedOut] of Object.entries(plan.substitutedOut)) {
+      if ((substitutedOut || 0) <= 1e-9) continue;
+      for (const [resourceId, amount] of Object.entries(plan.substitutedIn)) {
+        if ((amount || 0) <= 1e-9) continue;
+        const sourceAllocations = plan.substitutionPairs?.[sourceResourceId]?.[resourceId] || 0;
+        if (sourceAllocations > 1e-9) {
+          plan.notes.push(`Substituted ${numberFmt(sourceAllocations, 2)} ${resourceLabelById(sourceResourceId)} demand with ${resourceLabelById(resourceId)} in ${bandLabel} for ${layerLabel}.`);
+        }
+      }
+    }
+  }
+  return plan;
+}
+function buildConsumptionPlan(incrementalDemand, bandId, layerId, stock, fireRemaining, settings = state.campaign) {
+  const stockRow = stock?.[bandId] || {};
+  const fireRow = fireRemaining?.[bandId] || {};
+  const subSettings = settings.resourceSubstitution || DEFAULT_RESOURCE_SUBSTITUTION_SETTINGS;
+  const substitutionEnabled = subSettings.enabled === true && subSettings.mode !== "off";
+  const plan = {
+    executable: true,
+    consumption: Object.fromEntries(campaignResourceIds().map((id) => [id, 0])),
+    substitutedIn: Object.fromEntries(campaignResourceIds().map((id) => [id, 0])),
+    substitutedOut: Object.fromEntries(campaignResourceIds().map((id) => [id, 0])),
+    substitutionPairs: {},
+    notes: [],
+  };
+  const deficitByResource = {};
+  for (const resourceId of campaignResourceIds()) {
+    const required = incrementalDemand[resourceId] || 0;
+    if (!Number.isFinite(required)) {
+      plan.executable = false;
+      return plan;
+    }
+    if (required <= 0) continue;
+    const nativeTake = Math.min(required, stockRow[resourceId] || 0, fireRow[resourceId] || 0);
+    plan.consumption[resourceId] = nativeTake;
+    const deficit = required - nativeTake;
+    if (deficit > 1e-9) deficitByResource[resourceId] = deficit;
+  }
+  if (!Object.keys(deficitByResource).length) return plan;
+  if (!substitutionEnabled) {
+    plan.executable = false;
+    return plan;
+  }
+  return buildSubstitutionPlan(deficitByResource, bandId, layerId, stock, fireRemaining, settings, plan);
+}
+function applyConsumptionPlan(plan, bandId, layerId, stock, fireRemaining, trackingMaps) {
+  if (!plan.executable) return;
+  for (const resourceId of campaignResourceIds()) {
+    const amount = plan.consumption[resourceId] || 0;
+    if (amount > 1e-9) {
+      incrementBandResource(trackingMaps.exp, bandId, resourceId, amount);
+      incrementLayerBandResource(trackingMaps.expByLayerBand, layerId, bandId, resourceId, amount);
+      stock[bandId][resourceId] = Math.max(0, (stock[bandId][resourceId] || 0) - amount);
+      fireRemaining[bandId][resourceId] = Math.max(0, (fireRemaining[bandId][resourceId] || 0) - amount);
+    }
+    const substitutedIn = plan.substitutedIn[resourceId] || 0;
+    const substitutedOut = plan.substitutedOut[resourceId] || 0;
+    if (substitutedIn || substitutedOut) {
+      incrementBandResource(trackingMaps.substitutionIn, bandId, resourceId, substitutedIn);
+      incrementBandResource(trackingMaps.substitutionOut, bandId, resourceId, substitutedOut);
+      incrementLayerBandResource(trackingMaps.substitutionInByLayerBand, layerId, bandId, resourceId, substitutedIn);
+      incrementLayerBandResource(trackingMaps.substitutionOutByLayerBand, layerId, bandId, resourceId, substitutedOut);
+    }
+  }
+}
 function buildSequentialLayerQuotas(remainingByLayer, settings = state.campaign) { const quotas={}; let slots=Math.floor(settings.commandCapacityPerDay); for(const id of settings.layerPriorityOrder){ const take=Math.min(slots, remainingByLayer[id]||0); if(take>0) quotas[id]=take; slots-=take; if(slots<=0) break;} return quotas; }
 function buildWeightedLayerQuotas(remainingByLayer, settings = state.campaign) { const active=settings.layerPriorityOrder.filter((id)=>(remainingByLayer[id]||0)>0); const total=active.reduce((s,id)=>s+boundedNumber(settings.layerWeights?.[id],0,0),0); if(total<=0) return buildSequentialLayerQuotas(remainingByLayer, settings); const cap=Math.floor(settings.commandCapacityPerDay); const quotas={}; const rows=active.map((id,priority)=>{const raw=cap*(settings.layerWeights[id]||0)/total; const base=Math.min(Math.floor(raw), remainingByLayer[id]||0); quotas[id]=base; return {id,priority,remainder:raw-Math.floor(raw)};}); let used=Object.values(quotas).reduce((a,b)=>a+b,0); while(used<cap){ let picked=null; for(const row of rows.slice().sort((a,b)=>b.remainder-a.remainder||a.priority-b.priority)){ if((quotas[row.id]||0)<(remainingByLayer[row.id]||0)){picked=row; break;} } if(!picked) break; quotas[picked.id]=(quotas[picked.id]||0)+1; used++; } return quotas; }
 function featureEntryId(item){ return item.stored.id || item.stored.feature.id; }
@@ -3991,8 +4190,12 @@ function simulateCampaign(settings = state.campaign) {
     const quotas = settings.allocationMode === "sequential" ? buildSequentialLayerQuotas(remainingCounts(), settings) : buildWeightedLayerQuotas(remainingCounts(), settings);
     const reqDemand = emptyBandResourceMap(0);
     const exp = emptyBandResourceMap(0);
+    const substitutionIn = emptyBandResourceMap(0);
+    const substitutionOut = emptyBandResourceMap(0);
     const reqDemandByLayerBand = {};
     const expByLayerBand = {};
+    const substitutionInByLayerBand = {};
+    const substitutionOutByLayerBand = {};
     const requestedByLayerBand = {};
     const executedByLayerBand = {};
     const deferredByLayerBand = {};
@@ -4003,6 +4206,7 @@ function simulateCampaign(settings = state.campaign) {
     const deferred = {};
     const executedIds = [];
     const deferredIds = [];
+    const notes = [];
     for (const [layerId, requested] of Object.entries(quotas)) {
       const requestedEntries = (remainingQueues[layerId] || []).slice(0, requested);
       const untouchedEntries = (remainingQueues[layerId] || []).slice(requested);
@@ -4026,20 +4230,16 @@ function simulateCampaign(settings = state.campaign) {
         const nextDemand = demandForLayerCount(layerId, currentCount + 1);
         const previousDemand = demandForLayerCount(layerId, currentCount);
         const incrementalDemand = Object.fromEntries(campaignResourceIds().map((resourceId) => [resourceId, (nextDemand[resourceId] || 0) - (previousDemand[resourceId] || 0)]));
-        if (demandFitsConstraints(incrementalDemand, stock[entry.bandId] || {}, fireRem[entry.bandId] || {})) {
+        const plan = buildConsumptionPlan(incrementalDemand, entry.bandId, layerId, stock, fireRem, settings);
+        if (plan.executable) {
           executedCountsByBand[entry.bandId] = currentCount + 1;
           executed[layerId] = (executed[layerId] || 0) + 1;
           incrementLayerBandCount(executedByLayerBand, layerId, entry.bandId);
           incrementBandCount(executedByBand, entry.bandId);
           cumLayer[layerId] = (cumLayer[layerId] || 0) + 1;
           executedIds.push(featureEntryId(entry.item));
-          for (const resourceId of campaignResourceIds()) {
-            const amount = incrementalDemand[resourceId] || 0;
-            incrementBandResource(exp, entry.bandId, resourceId, amount);
-            incrementLayerBandResource(expByLayerBand, layerId, entry.bandId, resourceId, amount);
-            stock[entry.bandId][resourceId] = Math.max(0, (stock[entry.bandId][resourceId] || 0) - amount);
-            fireRem[entry.bandId][resourceId] = Math.max(0, (fireRem[entry.bandId][resourceId] || 0) - amount);
-          }
+          applyConsumptionPlan(plan, entry.bandId, layerId, stock, fireRem, { exp, expByLayerBand, substitutionIn, substitutionOut, substitutionInByLayerBand, substitutionOutByLayerBand });
+          notes.push(...plan.notes);
         } else {
           deferred[layerId] = (deferred[layerId] || 0) + 1;
           incrementLayerBandCount(deferredByLayerBand, layerId, entry.bandId);
@@ -4090,6 +4290,8 @@ function simulateCampaign(settings = state.campaign) {
       requestedDemandByLayerBandResource: reqDemandByLayerBand,
       expendedByBandResource: exp,
       expendedByLayerBandResource: expByLayerBand,
+      substitutionByBandResource: Object.fromEntries(campaignBandIds().map((bandId) => [bandId, Object.fromEntries(campaignResourceIds().map((resourceId) => [resourceId, { substitutedIn: substitutionIn[bandId]?.[resourceId] || 0, substitutedOut: substitutionOut[bandId]?.[resourceId] || 0 }]))])),
+      substitutionByLayerBandResource: Object.fromEntries(campaignLayerSummaries().map((layer) => [layer.id, Object.fromEntries(campaignBandIds().map((bandId) => [bandId, Object.fromEntries(campaignResourceIds().map((resourceId) => [resourceId, { substitutedIn: substitutionInByLayerBand[layer.id]?.[bandId]?.[resourceId] || 0, substitutedOut: substitutionOutByLayerBand[layer.id]?.[bandId]?.[resourceId] || 0 }]))]))])),
       fireCapacityByBandResource: fire,
       fireCapacityRemainingByBandResource: fireRem,
       endingStockByBandResource: cloneBandResourceMap(stock),
@@ -4112,7 +4314,7 @@ function simulateCampaign(settings = state.campaign) {
       cumulativeExecutedFeatureIds: cumulativeIds.slice(),
       cumulativeExecutedByLayer: { ...cumLayer },
       blocked: executedIds.length === 0,
-      notes: [],
+      notes,
     });
   }
   const finalRemainingByLayer = remainingCounts();
@@ -4164,7 +4366,41 @@ function updateCampaignSetting(path, value){
   renderCampaign();
   queueSavePreferences();
 }
-function renderCampaignSettings(){ if(!els.campaignSettings) return; const s=state.campaign; els.campaignSettings.innerHTML=`<label>Start date <input id="campaignStartDate" type="date" value="${escapeHtml(s.startDate)}"></label><label>Max simulation days <input id="campaignMaxDays" type="number" min="1" max="10000" value="${s.maxSimulationDays}"></label><label>Allocation mode <select id="campaignAllocationMode"><option value="weighted">weighted</option><option value="sequential">sequential</option></select></label><label>Playback speed ms <input id="campaignPlaybackSpeed" type="number" min="100" max="5000" value="${s.playbackSpeedMs}"></label>`; document.getElementById('campaignAllocationMode').value=s.allocationMode; document.getElementById('campaignStartDate').onchange=e=>updateCampaignSetting('startDate',e.target.value); document.getElementById('campaignMaxDays').onchange=e=>updateCampaignSetting('maxSimulationDays',e.target.value); document.getElementById('campaignAllocationMode').onchange=e=>updateCampaignSetting('allocationMode',e.target.value); document.getElementById('campaignPlaybackSpeed').onchange=e=>updateCampaignSetting('playbackSpeedMs',e.target.value); }
+function updateCampaignSubstitutionPriority(resourceId, value) {
+  const resources = campaignResourceIds();
+  const priority = Math.round(boundedNumber(value, 1, 1, resources.length || 1));
+  const order = effectiveSubstitutePriorityOrder(state.campaign).filter((id) => id !== resourceId);
+  order.splice(Math.min(priority - 1, order.length), 0, resourceId);
+  if (!state.campaign.resourceSubstitution) state.campaign.resourceSubstitution = {};
+  state.campaign.resourceSubstitution.substitutePriorityOrder = order;
+  state.campaign = normalizeCampaignSettings(state.campaign);
+  state.campaignRun.stale = true;
+  renderCampaign();
+  queueSavePreferences();
+}
+function renderCampaignSettings(){
+  if(!els.campaignSettings) return;
+  const s=state.campaign;
+  const sub=s.resourceSubstitution || DEFAULT_RESOURCE_SUBSTITUTION_SETTINGS;
+  const priorityOrder=effectiveSubstitutePriorityOrder(s);
+  const priorityControls=sub.mode==="priority" ? `<div class="campaign-band-group"><h4>Substitution priority</h4>${state.estimator.resources.map((resource)=>`<label>${escapeHtml(resource.label)} priority <input id="subPriority_${escapeHtml(resource.id)}" type="number" min="1" step="1" value="${Math.max(1, priorityOrder.indexOf(resource.id)+1)}"></label>`).join("")}</div>` : "";
+  const weightControls=sub.mode==="weighted" ? `<div class="campaign-band-group"><h4>Substitution weights</h4>${state.estimator.resources.map((resource)=>`<label>${escapeHtml(resource.label)} weight <input id="subWeight_${escapeHtml(resource.id)}" type="number" min="0" step="1" value="${sub.substituteWeights?.[resource.id]||0}"></label>`).join("")}</div>` : "";
+  els.campaignSettings.innerHTML=`<label>Start date <input id="campaignStartDate" type="date" value="${escapeHtml(s.startDate)}"></label><label>Max simulation days <input id="campaignMaxDays" type="number" min="1" max="10000" value="${s.maxSimulationDays}"></label><label>Allocation mode <select id="campaignAllocationMode"><option value="weighted">weighted</option><option value="sequential">sequential</option></select></label><label>Playback speed ms <input id="campaignPlaybackSpeed" type="number" min="100" max="5000" value="${s.playbackSpeedMs}"></label><label class="checkbox-label"><input id="campaignSubstitutionEnabled" type="checkbox" ${sub.enabled?'checked':''}> Enable resource substitution</label><label>Substitution mode <select id="campaignSubstitutionMode"><option value="off">off</option><option value="priority">priority</option><option value="weighted">weighted</option><option value="split_evenly">split evenly</option></select></label>${priorityControls}${weightControls}`;
+  document.getElementById('campaignAllocationMode').value=s.allocationMode;
+  document.getElementById('campaignSubstitutionMode').value=sub.mode;
+  document.getElementById('campaignStartDate').onchange=e=>updateCampaignSetting('startDate',e.target.value);
+  document.getElementById('campaignMaxDays').onchange=e=>updateCampaignSetting('maxSimulationDays',e.target.value);
+  document.getElementById('campaignAllocationMode').onchange=e=>updateCampaignSetting('allocationMode',e.target.value);
+  document.getElementById('campaignPlaybackSpeed').onchange=e=>updateCampaignSetting('playbackSpeedMs',e.target.value);
+  document.getElementById('campaignSubstitutionEnabled').onchange=e=>updateCampaignSetting('resourceSubstitution.enabled',e.target.checked);
+  document.getElementById('campaignSubstitutionMode').onchange=e=>updateCampaignSetting('resourceSubstitution.mode',e.target.value);
+  for (const resource of state.estimator.resources) {
+    const priorityInput = document.getElementById(`subPriority_${resource.id}`);
+    if (priorityInput) priorityInput.onchange = e => updateCampaignSubstitutionPriority(resource.id, e.target.value);
+    const weightInput = document.getElementById(`subWeight_${resource.id}`);
+    if (weightInput) weightInput.onchange = e => updateCampaignSetting(`resourceSubstitution.substituteWeights.${resource.id}`, e.target.value);
+  }
+}
 function renderCampaignLayerAllocation(){
   if(!els.campaignLayerAllocation) return;
   els.campaignLayerAllocation.innerHTML = "";
@@ -4240,26 +4476,35 @@ function renderCampaignDashboard(){
   const cumulativeProduction=day?campaignCumulativeProductionByBand(day.dayIndex):emptyBandResourceMap(0);
   const depleted=campaignLayerDepletedDays();
   const completion=state.campaignRun.summary?.completionDate || "Not completed";
-  const resourceRows=campaignBandMetadata().flatMap((band)=>state.estimator.resources.map((resource)=>`<tr><td>${escapeHtml(band.label)}<br><small>${escapeHtml(band.id)}</small></td><td>${escapeHtml(resource.label)}</td><td>${numberFmt(state.campaign.initialStockByBand?.[band.id]?.[resource.id]||0,2)}</td><td>${numberFmt(cumulativeProduction?.[band.id]?.[resource.id]||0,2)}</td><td>${numberFmt(day?.cumulativeExpendedByBandResource?.[band.id]?.[resource.id]||0,2)}</td><td>${numberFmt(day?.endingStockByBandResource?.[band.id]?.[resource.id]??state.campaign.initialStockByBand?.[band.id]?.[resource.id]??0,2)}</td><td>${numberFmt(day?.requestedSupplyDeltaByBandResource?.[band.id]?.[resource.id]||0,2)}</td><td>${numberFmt((day?.fireCapacityByBandResource?.[band.id]?.[resource.id]||0)-(day?.fireCapacityRemainingByBandResource?.[band.id]?.[resource.id]||0),2)} / ${numberFmt(day?.fireCapacityByBandResource?.[band.id]?.[resource.id]||0,2)}</td></tr>`)).join("");
+  const resourceRows=campaignBandMetadata().flatMap((band)=>state.estimator.resources.map((resource)=>`<tr><td>${escapeHtml(band.label)}<br><small>${escapeHtml(band.id)}</small></td><td>${escapeHtml(resource.label)}</td><td>${numberFmt(state.campaign.initialStockByBand?.[band.id]?.[resource.id]||0,2)}</td><td>${numberFmt(cumulativeProduction?.[band.id]?.[resource.id]||0,2)}</td><td>${numberFmt(day?.cumulativeExpendedByBandResource?.[band.id]?.[resource.id]||0,2)}</td><td>${numberFmt(day?.endingStockByBandResource?.[band.id]?.[resource.id]??state.campaign.initialStockByBand?.[band.id]?.[resource.id]??0,2)}</td><td>${numberFmt(day?.requestedSupplyDeltaByBandResource?.[band.id]?.[resource.id]||0,2)}</td><td>${numberFmt(day?.substitutionByBandResource?.[band.id]?.[resource.id]?.substitutedIn||0,2)}</td><td>${numberFmt(day?.substitutionByBandResource?.[band.id]?.[resource.id]?.substitutedOut||0,2)}</td><td>${numberFmt((day?.fireCapacityByBandResource?.[band.id]?.[resource.id]||0)-(day?.fireCapacityRemainingByBandResource?.[band.id]?.[resource.id]||0),2)} / ${numberFmt(day?.fireCapacityByBandResource?.[band.id]?.[resource.id]||0,2)}</td></tr>`)).join("");
   const layerRows=campaignLayerSummaries().map((l,idx)=>`<tr><td>${escapeHtml(l.label)}<br><small>${escapeHtml(l.id)}</small></td><td>${l.total}</td><td>${day?.cumulativeExecutedByLayer?.[l.id]||0}</td><td>${day?.remainingTargetsByLayer?.[l.id]??l.total}</td><td>${numberFmt(state.campaign.layerWeights[l.id]??0,2)}</td><td>${idx+1}</td><td>${depleted[l.id]||""}</td></tr>`).join("");
-  els.campaignDashboard.innerHTML=`<div class="campaign-cards"><div><strong>${total}</strong><span>Total entries</span></div><div><strong>${executed}</strong><span>Executed</span></div><div><strong>${remaining}</strong><span>Remaining</span></div><div><strong>${campaignDayLabel(day)}</strong><span>Current day</span></div><div><strong>${state.campaignRun.summary?.elapsedDays||0}</strong><span>Elapsed days</span></div><div><strong>${escapeHtml(completion)}</strong><span>Completion date</span></div></div>${state.campaignRun.summary?.warning?`<p class="warning">${escapeHtml(state.campaignRun.summary.warning)}</p>`:''}<h4>Resources</h4><div class="campaign-table"><table><thead><tr><th>Range band</th><th>Resource</th><th>Initial</th><th>Production</th><th>Expended</th><th>Ending stock</th><th>Requested delta</th><th>Fire used</th></tr></thead><tbody>${resourceRows}</tbody></table></div><h4>Layers</h4><div class="campaign-table"><table><thead><tr><th>Layer</th><th>Total</th><th>Executed</th><th>Remaining</th><th>Weight</th><th>Priority</th><th>Depleted day</th></tr></thead><tbody>${layerRows}</tbody></table></div>`;
+  els.campaignDashboard.innerHTML=`<div class="campaign-cards"><div><strong>${total}</strong><span>Total entries</span></div><div><strong>${executed}</strong><span>Executed</span></div><div><strong>${remaining}</strong><span>Remaining</span></div><div><strong>${campaignDayLabel(day)}</strong><span>Current day</span></div><div><strong>${state.campaignRun.summary?.elapsedDays||0}</strong><span>Elapsed days</span></div><div><strong>${escapeHtml(completion)}</strong><span>Completion date</span></div></div>${state.campaignRun.summary?.warning?`<p class="warning">${escapeHtml(state.campaignRun.summary.warning)}</p>`:''}<h4>Resources</h4><div class="campaign-table"><table><thead><tr><th>Range band</th><th>Resource</th><th>Initial</th><th>Production</th><th>Expended</th><th>Ending stock</th><th>Requested delta</th><th>Sub in</th><th>Sub out</th><th>Fire used</th></tr></thead><tbody>${resourceRows}</tbody></table></div><h4>Layers</h4><div class="campaign-table"><table><thead><tr><th>Layer</th><th>Total</th><th>Executed</th><th>Remaining</th><th>Weight</th><th>Priority</th><th>Depleted day</th></tr></thead><tbody>${layerRows}</tbody></table></div>`;
 }
 function campaignBandResourceLines(day, field) {
   return campaignBandMetadata().flatMap((band)=>state.estimator.resources.map((resource)=>`${escapeHtml(band.label)} / ${escapeHtml(resource.label)}: ${numberFmt(day?.[field]?.[band.id]?.[resource.id]||0,2)}`)).join("<br>");
 }
+function campaignBandResourceSubstitutionLines(day) {
+  return campaignBandMetadata().flatMap((band)=>state.estimator.resources.map((resource)=>{
+    const row = day?.substitutionByBandResource?.[band.id]?.[resource.id] || {};
+    const substitutedIn = row.substitutedIn || 0;
+    const substitutedOut = row.substitutedOut || 0;
+    if (!substitutedIn && !substitutedOut) return "";
+    return `${escapeHtml(band.label)} / ${escapeHtml(resource.label)}: Substitution: +${numberFmt(substitutedIn,2)} in / -${numberFmt(substitutedOut,2)} out`;
+  }).filter(Boolean)).join("<br>") || "";
+}
 function renderCampaignDailyTable(){
   if(!els.campaignDailyTable) return;
   if(!state.campaignRun.days.length){ els.campaignDailyTable.innerHTML='<div class="empty-state">Run simulation to build the daily timeline.</div>'; return; }
-  const rows=state.campaignRun.days.map((d)=>`<tr data-day="${d.dayIndex}"><td>${d.dayIndex+1}</td><td>${d.date}</td><td>${sumValues(d.executedTargetsByLayer)}</td><td>${sumValues(d.deferredTargetsByLayer)}</td><td>${sumValues(d.remainingTargetsByLayer)}</td><td>${campaignBandResourceLines(d,"expendedByBandResource")}</td><td>${campaignBandResourceLines(d,"endingStockByBandResource")}</td><td>${campaignBandResourceLines(d,"requestedSupplyDeltaByBandResource")}</td></tr>`).join('');
-  els.campaignDailyTable.innerHTML=`<table><thead><tr><th>Day</th><th>Date</th><th>Executed</th><th>Deferred</th><th>Remaining</th><th>Range/resource expended</th><th>Range/resource stock</th><th>Requested delta by range/resource</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const rows=state.campaignRun.days.map((d)=>`<tr data-day="${d.dayIndex}"><td>${d.dayIndex+1}</td><td>${d.date}</td><td>${sumValues(d.executedTargetsByLayer)}</td><td>${sumValues(d.deferredTargetsByLayer)}</td><td>${sumValues(d.remainingTargetsByLayer)}</td><td>${campaignBandResourceLines(d,"expendedByBandResource")}</td><td>${campaignBandResourceSubstitutionLines(d)}</td><td>${campaignBandResourceLines(d,"endingStockByBandResource")}</td><td>${campaignBandResourceLines(d,"requestedSupplyDeltaByBandResource")}</td></tr>`).join('');
+  els.campaignDailyTable.innerHTML=`<table><thead><tr><th>Day</th><th>Date</th><th>Executed</th><th>Deferred</th><th>Remaining</th><th>Range/resource expended</th><th>Substitution</th><th>Range/resource stock</th><th>Requested delta by range/resource</th></tr></thead><tbody>${rows}</tbody></table>`;
   els.campaignDailyTable.querySelectorAll('[data-day]').forEach(r=>r.onclick=e=>setCampaignDay(Number(e.currentTarget.dataset.day)));
 }
 function buildCampaignTimelineCsv(){
-  const fields=['day_index','date','range_band_id','range_band_label','layer_id','layer_label','requested_targets','executed_targets','deferred_targets','remaining_targets','resource_id','resource_label','requested_demand','expended','daily_production','starting_stock','available_supply','ending_stock','fire_capacity','fire_capacity_remaining','requested_supply_delta','executed_supply_delta','cumulative_expended'];
+  const fields=['day_index','date','range_band_id','range_band_label','layer_id','layer_label','requested_targets','executed_targets','deferred_targets','remaining_targets','resource_id','resource_label','requested_demand','expended','substituted_in','substituted_out','daily_production','starting_stock','available_supply','ending_stock','fire_capacity','fire_capacity_remaining','requested_supply_delta','executed_supply_delta','cumulative_expended'];
   const lines=[fields.join(',')];
   for(const d of state.campaignRun.days){
     for(const l of campaignLayerSummaries()) for(const band of campaignBandMetadata()) for(const r of state.estimator.resources){
-      const row={day_index:d.dayIndex,date:d.date,range_band_id:band.id,range_band_label:band.label,layer_id:l.id,layer_label:l.label,requested_targets:d.requestedTargetsByLayerBand?.[l.id]?.[band.id]||0,executed_targets:d.executedTargetsByLayerBand?.[l.id]?.[band.id]||0,deferred_targets:d.deferredTargetsByLayerBand?.[l.id]?.[band.id]||0,remaining_targets:d.remainingTargetsByLayerBand?.[l.id]?.[band.id]||0,resource_id:r.id,resource_label:r.label,requested_demand:d.requestedDemandByLayerBandResource?.[l.id]?.[band.id]?.[r.id]||0,expended:d.expendedByLayerBandResource?.[l.id]?.[band.id]?.[r.id]||0,daily_production:d.productionByBandResource?.[band.id]?.[r.id]||0,starting_stock:d.startingStockByBandResource?.[band.id]?.[r.id]||0,available_supply:d.availableSupplyByBandResource?.[band.id]?.[r.id]||0,ending_stock:d.endingStockByBandResource?.[band.id]?.[r.id]||0,fire_capacity:d.fireCapacityByBandResource?.[band.id]?.[r.id]||0,fire_capacity_remaining:d.fireCapacityRemainingByBandResource?.[band.id]?.[r.id]||0,requested_supply_delta:d.requestedSupplyDeltaByBandResource?.[band.id]?.[r.id]||0,executed_supply_delta:d.executedSupplyDeltaByBandResource?.[band.id]?.[r.id]||0,cumulative_expended:d.cumulativeExpendedByBandResource?.[band.id]?.[r.id]||0};
+      const row={day_index:d.dayIndex,date:d.date,range_band_id:band.id,range_band_label:band.label,layer_id:l.id,layer_label:l.label,requested_targets:d.requestedTargetsByLayerBand?.[l.id]?.[band.id]||0,executed_targets:d.executedTargetsByLayerBand?.[l.id]?.[band.id]||0,deferred_targets:d.deferredTargetsByLayerBand?.[l.id]?.[band.id]||0,remaining_targets:d.remainingTargetsByLayerBand?.[l.id]?.[band.id]||0,resource_id:r.id,resource_label:r.label,requested_demand:d.requestedDemandByLayerBandResource?.[l.id]?.[band.id]?.[r.id]||0,expended:d.expendedByLayerBandResource?.[l.id]?.[band.id]?.[r.id]||0,substituted_in:d.substitutionByLayerBandResource?.[l.id]?.[band.id]?.[r.id]?.substitutedIn||0,substituted_out:d.substitutionByLayerBandResource?.[l.id]?.[band.id]?.[r.id]?.substitutedOut||0,daily_production:d.productionByBandResource?.[band.id]?.[r.id]||0,starting_stock:d.startingStockByBandResource?.[band.id]?.[r.id]||0,available_supply:d.availableSupplyByBandResource?.[band.id]?.[r.id]||0,ending_stock:d.endingStockByBandResource?.[band.id]?.[r.id]||0,fire_capacity:d.fireCapacityByBandResource?.[band.id]?.[r.id]||0,fire_capacity_remaining:d.fireCapacityRemainingByBandResource?.[band.id]?.[r.id]||0,requested_supply_delta:d.requestedSupplyDeltaByBandResource?.[band.id]?.[r.id]||0,executed_supply_delta:d.executedSupplyDeltaByBandResource?.[band.id]?.[r.id]||0,cumulative_expended:d.cumulativeExpendedByBandResource?.[band.id]?.[r.id]||0};
       lines.push(fields.map(f=>csvEscape(row[f])).join(','));
     }
   }
@@ -4272,7 +4517,7 @@ function campaignProfileSnapshot(name){ return {version:APP_VERSION,name,created
 function exportCampaignProfile(){ downloadTextFile(`campaign_profile_${new Date().toISOString().replace(/[:.]/g,'-')}.json`,JSON.stringify(campaignProfileSnapshot('Campaign profile'),null,2),'application/json;charset=utf-8'); }
 function campaignProfilePayloadFromImport(parsed) {
   const payload = parsed?.campaign && typeof parsed.campaign === "object" && !Array.isArray(parsed.campaign) ? parsed.campaign : parsed;
-  const knownKeys = ["startDate","maxSimulationDays","allocationMode","layerPriorityOrder","layerWeights","commandCapacityPerDay","fireCapacityPerDay","fireCapacityPerDayByBand","initialStock","initialStockByBand","productionMonthly","productionMonthlyByBand","playbackSpeedMs"];
+  const knownKeys = ["startDate","maxSimulationDays","allocationMode","layerPriorityOrder","layerWeights","commandCapacityPerDay","fireCapacityPerDay","fireCapacityPerDayByBand","initialStock","initialStockByBand","productionMonthly","productionMonthlyByBand","playbackSpeedMs","resourceSubstitution"];
   if (!payload || typeof payload !== "object" || Array.isArray(payload) || !knownKeys.some((key) => Object.prototype.hasOwnProperty.call(payload, key))) {
     throw new Error("Profile JSON does not contain campaign settings.");
   }

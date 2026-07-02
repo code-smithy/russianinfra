@@ -1558,6 +1558,29 @@ function createLeafletStub(document) {
   };
 }
 
+function configureSingleTargetCampaign(api, { requirement = 1, resourceSubstitution = undefined, distance = 100 } = {}) {
+  const [bandId] = api.campaignBandIds();
+  api.state.radiusResults = [
+    { stored: { id: "target_1", feature: feature("target_1", "Target 1", "energy_facilities", "energy_oil_facility", 55.2, 59.1) }, distance },
+  ];
+  api.state.estimator.categoryRequirements.energy_facilities = requirement;
+  for (const resource of api.state.estimator.resources) resource.completionRate = 100;
+  api.state.campaign = api.normalizeCampaignSettings({
+    startDate: "2026-07-01",
+    maxSimulationDays: 1,
+    allocationMode: "sequential",
+    commandCapacityPerDay: 1,
+    resourceSubstitution,
+  });
+  api.state.campaign.layerPriorityOrder = ["energy_facilities"];
+  return bandId;
+}
+
+function setCampaignBandResource(api, bandId, resourceId, stock, fireCapacity = stock) {
+  api.state.campaign.initialStockByBand[bandId][resourceId] = stock;
+  api.state.campaign.fireCapacityPerDayByBand[bandId][resourceId] = fireCapacity;
+}
+
 test("campaign settings normalize persist and calendar production uses real month lengths", async () => {
   const first = createAppContext();
   await first.__initPromise;
@@ -1579,6 +1602,13 @@ test("campaign settings normalize persist and calendar production uses real mont
   const saved = api.currentPreferences().campaign;
   assert.equal(saved.startDate, "2026-02-01");
   assert.equal(saved.initialStockByBand[firstBandId].resource_a, 22);
+  assert.deepEqual(JSON.parse(JSON.stringify(saved.resourceSubstitution)), {
+    enabled: false,
+    mode: "off",
+    preserveRangeBand: true,
+    substitutePriorityOrder: [],
+    substituteWeights: {},
+  });
   const second = createAppContext({ [STORAGE_KEY]: JSON.stringify(api.currentPreferences()) });
   await second.__initPromise;
   assert.equal(second.__api.state.campaign.startDate, "2026-02-01");
@@ -1774,6 +1804,210 @@ test("campaign simulation applies fire capacity per range band", async () => {
   assert.equal(day.fireCapacityRemainingByBandResource[midBandId].resource_a, 10);
 });
 
+test("campaign substitution disabled preserves strict resource availability behavior", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const bandId = configureSingleTargetCampaign(api);
+  setCampaignBandResource(api, bandId, "resource_a", 0, 10);
+  setCampaignBandResource(api, bandId, "resource_b", 10, 10);
+  setCampaignBandResource(api, bandId, "resource_c", 10, 10);
+
+  const run = api.recalculateCampaign();
+  const day = run.days[0];
+
+  assert.equal(day.executedTargetsByLayer.energy_facilities || 0, 0);
+  assert.equal(day.deferredTargetsByLayer.energy_facilities, 1);
+  assert.equal(day.endingStockByBandResource[bandId].resource_b, 10);
+  assert.equal(day.substitutionByBandResource[bandId].resource_a.substitutedOut, 0);
+});
+
+test("campaign priority substitution executes with substitute stock and tracks notes", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const bandId = configureSingleTargetCampaign(api, {
+    resourceSubstitution: {
+      enabled: true,
+      mode: "priority",
+      preserveRangeBand: true,
+      substitutePriorityOrder: ["resource_b", "resource_c"],
+      substituteWeights: {},
+    },
+  });
+  setCampaignBandResource(api, bandId, "resource_a", 0, 10);
+  setCampaignBandResource(api, bandId, "resource_b", 2, 2);
+  setCampaignBandResource(api, bandId, "resource_c", 1, 1);
+
+  const run = api.recalculateCampaign();
+  const day = run.days[0];
+
+  assert.equal(day.executedTargetsByLayer.energy_facilities, 1);
+  assert.equal(day.endingStockByBandResource[bandId].resource_a, 0);
+  assert.equal(day.endingStockByBandResource[bandId].resource_b, 0);
+  assert.equal(day.substitutionByBandResource[bandId].resource_a.substitutedOut, 1);
+  assert.equal(day.substitutionByBandResource[bandId].resource_b.substitutedIn, 1);
+  assert.match(day.notes.join("\n"), /Substituted 1 Resource A demand with Resource B/);
+});
+
+test("campaign weighted substitution distributes and redistributes by capacity", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  let bandId = configureSingleTargetCampaign(api, {
+    requirement: 10,
+    resourceSubstitution: {
+      enabled: true,
+      mode: "weighted",
+      preserveRangeBand: true,
+      substitutePriorityOrder: [],
+      substituteWeights: { resource_b: 70, resource_c: 30 },
+    },
+  });
+  setCampaignBandResource(api, bandId, "resource_a", 0, 10);
+  setCampaignBandResource(api, bandId, "resource_b", 17, 17);
+  setCampaignBandResource(api, bandId, "resource_c", 13, 13);
+
+  let day = api.recalculateCampaign().days[0];
+  assert.equal(day.executedTargetsByLayer.energy_facilities, 1);
+  assert.equal(day.substitutionByBandResource[bandId].resource_b.substitutedIn, 7);
+  assert.equal(day.substitutionByBandResource[bandId].resource_c.substitutedIn, 3);
+  assert.equal(day.substitutionByBandResource[bandId].resource_a.substitutedOut, 10);
+
+  bandId = configureSingleTargetCampaign(api, {
+    requirement: 10,
+    resourceSubstitution: {
+      enabled: true,
+      mode: "weighted",
+      preserveRangeBand: true,
+      substitutePriorityOrder: [],
+      substituteWeights: { resource_b: 70, resource_c: 30 },
+    },
+  });
+  setCampaignBandResource(api, bandId, "resource_a", 0, 10);
+  setCampaignBandResource(api, bandId, "resource_b", 15, 15);
+  setCampaignBandResource(api, bandId, "resource_c", 25, 25);
+
+  day = api.recalculateCampaign().days[0];
+  assert.equal(day.substitutionByBandResource[bandId].resource_b.substitutedIn, 5);
+  assert.equal(day.substitutionByBandResource[bandId].resource_c.substitutedIn, 5);
+  const totalIn = day.substitutionByBandResource[bandId].resource_b.substitutedIn + day.substitutionByBandResource[bandId].resource_c.substitutedIn;
+  assert.equal(totalIn, day.substitutionByBandResource[bandId].resource_a.substitutedOut);
+});
+
+test("campaign split-evenly substitution spreads deficit without exceeding capacity", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const bandId = configureSingleTargetCampaign(api, {
+    requirement: 5,
+    resourceSubstitution: {
+      enabled: true,
+      mode: "split_evenly",
+      preserveRangeBand: true,
+      substitutePriorityOrder: [],
+      substituteWeights: {},
+    },
+  });
+  setCampaignBandResource(api, bandId, "resource_a", 0, 5);
+  setCampaignBandResource(api, bandId, "resource_b", 8, 8);
+  setCampaignBandResource(api, bandId, "resource_c", 8, 8);
+
+  const day = api.recalculateCampaign().days[0];
+  const bIn = day.substitutionByBandResource[bandId].resource_b.substitutedIn;
+  const cIn = day.substitutionByBandResource[bandId].resource_c.substitutedIn;
+
+  assert.equal(day.executedTargetsByLayer.energy_facilities, 1);
+  assert.equal(bIn, 2.5);
+  assert.equal(cIn, 2.5);
+  assert.equal(bIn + cIn, day.substitutionByBandResource[bandId].resource_a.substitutedOut);
+  assert.ok(day.endingStockByBandResource[bandId].resource_b >= 0);
+  assert.ok(day.fireCapacityRemainingByBandResource[bandId].resource_c >= 0);
+});
+
+test("campaign substitution deferral is atomic when substitutes cannot cover deficit", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const bandId = configureSingleTargetCampaign(api, {
+    requirement: 5,
+    resourceSubstitution: {
+      enabled: true,
+      mode: "priority",
+      preserveRangeBand: true,
+      substitutePriorityOrder: ["resource_b", "resource_c"],
+      substituteWeights: {},
+    },
+  });
+  setCampaignBandResource(api, bandId, "resource_a", 0, 5);
+  setCampaignBandResource(api, bandId, "resource_b", 7, 7);
+  setCampaignBandResource(api, bandId, "resource_c", 7, 7);
+
+  const day = api.recalculateCampaign().days[0];
+
+  assert.equal(day.executedTargetsByLayer.energy_facilities || 0, 0);
+  assert.equal(day.deferredTargetsByLayer.energy_facilities, 1);
+  assert.equal(day.endingStockByBandResource[bandId].resource_a, 0);
+  assert.equal(day.endingStockByBandResource[bandId].resource_b, 7);
+  assert.equal(day.endingStockByBandResource[bandId].resource_c, 7);
+  assert.equal(day.fireCapacityRemainingByBandResource[bandId].resource_b, 7);
+  assert.equal(day.expendedByBandResource[bandId].resource_b, 0);
+  assert.equal(day.substitutionByBandResource[bandId].resource_b.substitutedIn, 0);
+});
+
+test("campaign substitution preserves range band supply by default", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const [shortBandId, midBandId] = api.campaignBandIds();
+  configureSingleTargetCampaign(api, {
+    resourceSubstitution: {
+      enabled: true,
+      mode: "priority",
+      preserveRangeBand: true,
+      substitutePriorityOrder: ["resource_b", "resource_c"],
+      substituteWeights: {},
+    },
+  });
+  setCampaignBandResource(api, shortBandId, "resource_a", 0, 1);
+  setCampaignBandResource(api, shortBandId, "resource_b", 0, 1);
+  setCampaignBandResource(api, shortBandId, "resource_c", 1, 1);
+  setCampaignBandResource(api, midBandId, "resource_b", 10, 10);
+
+  const day = api.recalculateCampaign().days[0];
+
+  assert.equal(day.executedTargetsByLayer.energy_facilities || 0, 0);
+  assert.equal(day.deferredTargetsByBand[shortBandId], 1);
+  assert.equal(day.endingStockByBandResource[midBandId].resource_b, 10);
+});
+
+test("campaign timeline exports include substitution data and settings", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const bandId = configureSingleTargetCampaign(api, {
+    resourceSubstitution: {
+      enabled: true,
+      mode: "priority",
+      preserveRangeBand: true,
+      substitutePriorityOrder: ["resource_b", "resource_c"],
+      substituteWeights: {},
+    },
+  });
+  setCampaignBandResource(api, bandId, "resource_a", 0, 10);
+  setCampaignBandResource(api, bandId, "resource_b", 2, 2);
+  setCampaignBandResource(api, bandId, "resource_c", 1, 1);
+  api.recalculateCampaign();
+
+  const csv = api.buildCampaignTimelineCsv();
+  const json = api.buildCampaignTimelineJson();
+
+  assert.match(csv, /substituted_in,substituted_out/);
+  assert.ok(json.dailySnapshots[0].substitutionByBandResource);
+  assert.ok(json.dailySnapshots[0].substitutionByLayerBandResource);
+  assert.equal(json.settings.resourceSubstitution.enabled, true);
+});
+
 test("campaign profile import validates payloads and accepts wrapped settings", async () => {
   const app = createAppContext();
   await app.__initPromise;
@@ -1789,6 +2023,10 @@ test("campaign profile import validates payloads and accepts wrapped settings", 
   assert.equal(api.state.campaign.initialStockByBand[firstBandId].resource_a, 44);
   assert.equal(api.state.campaign.productionMonthlyByBand[firstBandId].resource_a, 31);
   assert.equal(api.state.campaign.fireCapacityPerDayByBand[firstBandId].resource_a, 3);
+  api.importCampaignProfileFromText(JSON.stringify({ campaign: { resourceSubstitution: { enabled: true, mode: "priority", preserveRangeBand: true, substitutePriorityOrder: ["resource_b"] } } }));
+  assert.equal(api.state.campaign.resourceSubstitution.enabled, true);
+  assert.equal(api.state.campaign.resourceSubstitution.mode, "priority");
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.campaign.resourceSubstitution.substitutePriorityOrder)), ["resource_b", "resource_a", "resource_c"]);
 });
 
 test("campaign player tab switching and map status overlay update run state", async () => {
