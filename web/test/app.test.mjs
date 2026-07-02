@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
+import zlib from "node:zlib";
 
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 
@@ -43,6 +44,7 @@ globalThis.__api = {
   handleSubcategoryChange,
   importEstimatorAssumptionsFromText,
   importCampaignProfileFromText,
+  loadDataJson,
   markerIcon,
   metersKm,
   map,
@@ -236,6 +238,10 @@ const fixtures = {
       feature("fixture_military_1", "Bravo Site", "military_sites", "military_other", 56.2, 60.1, "Ukraine"),
     ],
   },
+  "data/compressed_only.geojson.gz": zlib.gzipSync(JSON.stringify({
+    type: "FeatureCollection",
+    features: [feature("fixture_gzip_1", "Compressed Site", "military_sites", "military_other", 57.2, 61.1, "Russia")],
+  })),
 };
 
 test("persists UI choices without removed measurement state and restores them on the next app load", async () => {
@@ -537,6 +543,16 @@ test("groups layers by domain and puts line layers last inside each group", asyn
   assert.deepEqual(grouped[1].layers, ["energy_facilities", "energy_gas"]);
   assert.deepEqual(grouped[2].layers, ["transport_other", "transport_rail"]);
   assert.deepEqual(grouped[3].layers, ["power_facilities", "power_lines"]);
+});
+
+test("loads gzipped GeoJSON when the raw layer file is absent", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const data = await app.__api.loadDataJson("compressed_only.geojson");
+
+  assert.equal(data.features.length, 1);
+  assert.equal(data.features[0].id, "fixture_gzip_1");
 });
 
 test("puts beta live overlays first and discovers DeepState icon subcategories", async () => {
@@ -1234,9 +1250,11 @@ function createAppContext(savedStorage = {}, options = {}) {
     },
     clearTimeout,
     console,
+    DecompressionStream,
     document,
     fetch: fetchFixture,
     localStorage,
+    Response,
     setTimeout,
   };
   if (options.pointerEvents) {
@@ -1268,6 +1286,7 @@ function createLocalStorage(seed) {
 async function fetchFixture(url) {
   const data = fixtures[url];
   if (!data) return { ok: false, json: async () => ({}) };
+  if (url.endsWith(".gz")) return new Response(data, { status: 200 });
   return { ok: true, json: async () => JSON.parse(JSON.stringify(data)) };
 }
 

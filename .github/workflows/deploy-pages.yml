@@ -30,13 +30,24 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
+      - name: Prepare Pages artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf pages-artifact
+          mkdir -p pages-artifact/data
+          cp web/index.html web/app.js web/styles.css web/favicon.png web/deepstate-layer-config.json pages-artifact/
+          cp web/data/*.json pages-artifact/data/
+          find web/data -maxdepth 1 -name '*.geojson' -print0 | while IFS= read -r -d '' file; do
+            gzip -9 -c "$file" > "pages-artifact/data/$(basename "$file").gz"
+          done
+          du -sh web pages-artifact pages-artifact/data
+
       - name: Upload web artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: web
+          path: pages-artifact
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        with:
-          timeout: 1800000

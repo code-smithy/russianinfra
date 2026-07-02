@@ -846,6 +846,26 @@ async function loadChangeReport(manifest) {
   }
 }
 
+async function parseGzipJson(response, file) {
+  if (typeof DecompressionStream !== "function" || !response.body) {
+    throw new Error(`Compressed data is not supported by this browser: ${file}`);
+  }
+  const stream = response.body.pipeThrough(new DecompressionStream("gzip"));
+  return await new Response(stream).json();
+}
+
+async function loadDataJson(file) {
+  const response = await fetch(DATA_DIR + file);
+  if (response.ok) return await response.json();
+
+  if (/\.geojson$/i.test(file)) {
+    const compressedResponse = await fetch(DATA_DIR + `${file}.gz`);
+    if (compressedResponse.ok) return await parseGzipJson(compressedResponse, `${file}.gz`);
+  }
+
+  throw new Error(`Failed to load ${file}`);
+}
+
 function changeStat(label, value, className = "") {
   return `
     <div class="change-stat ${className}">
@@ -2417,9 +2437,7 @@ async function loadLayer(layerInfo, checkbox, row) {
   for (let index = 0; index < files.length; index += 1) {
     const file = files[index];
     showLoading(files.length > 1 ? `Loading ${layerInfo.label} (${index + 1}/${files.length})...` : `Loading ${layerInfo.label}...`);
-    const response = await fetch(DATA_DIR + file);
-    if (!response.ok) throw new Error(`Failed to load ${file}`);
-    const data = await response.json();
+    const data = await loadDataJson(file);
     features.push(...(data.features || []));
   }
   record = { ...layerInfo, features, loaded: true, visible: true };
