@@ -1547,7 +1547,7 @@ input {
 .campaign-row { grid-template-columns: minmax(150px,1fr) auto auto auto; align-items:center; border-top:1px solid rgba(128,128,128,.25); padding-top:.5rem; }
 .campaign-row small, .campaign-row span { display:block; color:var(--muted-color,#666); }
 .campaign-allocation-row {
-  grid-template-columns:minmax(0,1fr) 3.5rem 4rem;
+  grid-template-columns:minmax(0,1fr) 5.5rem 6.5rem;
   min-height:76px;
   column-gap:.45rem;
 }
@@ -1579,10 +1579,28 @@ input {
   font-weight:700;
   font-variant-numeric:tabular-nums;
 }
-.campaign-allocation-row button {
+.campaign-allocation-row label {
+  display:grid;
+  gap:.25rem;
+  min-width:0;
+  color:var(--muted);
+  font-size:11px;
+}
+.campaign-allocation-row input {
   width:100%;
   min-width:0;
+  height:30px;
   padding-inline:.45rem;
+  border:1px solid var(--border);
+  border-radius:6px;
+  color:var(--text);
+  background:#101010;
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+}
+.campaign-allocation-row input:focus {
+  border-color:var(--accent-2);
+  outline:none;
 }
 .campaign-supply-row {
   display:grid;

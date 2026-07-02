@@ -3835,6 +3835,17 @@ function campaignLayerSummaries() {
       return ai - bi || a.label.localeCompare(b.label);
     });
 }
+function updateCampaignLayerPriority(id, value) {
+  const priority = Math.round(boundedNumber(value, 1, 1, 1000000));
+  const current = campaignLayerSummaries().map((layer) => layer.id);
+  const without = current.filter((layerId) => layerId !== id);
+  without.splice(Math.min(priority - 1, without.length), 0, id);
+  state.campaign.layerPriorityOrder = without;
+  state.campaign = normalizeCampaignSettings(state.campaign);
+  state.campaignRun.stale = true;
+  renderCampaign();
+  queueSavePreferences();
+}
 function syncCampaignLayersFromScope() { state.campaign = normalizeCampaignSettings(state.campaign || state.savedPreferences?.campaign); state.campaignRun.stale = true; state.campaignRun.days = []; state.campaignRun.currentDayIndex = -1; renderCampaign(); }
 function categoryRequirement(layerId) { return boundedNumber(state.estimator.categoryRequirements?.[layerId], 1, 0, 1000000); }
 function dailyProductionForDate(resourceId, dateString, settings = state.campaign) { const [y,m] = dateString.split("-").map(Number); return boundedNumber(settings.productionMonthly?.[resourceId], 0, 0) / daysInMonth(y, m); }
@@ -3912,35 +3923,34 @@ function renderCampaignLayerAllocation(){
     els.campaignLayerAllocation.innerHTML='<div class="empty-state">Draw a radius on the map to define the campaign scope.</div>';
     return;
   }
-  const move=(id,delta)=>{
-    const a=state.campaign.layerPriorityOrder;
-    const i=a.indexOf(id), j=i+delta;
-    if(i>=0&&j>=0&&j<a.length){
-      [a[i],a[j]]=[a[j],a[i]];
-      state.campaignRun.stale=true;
-      queueSavePreferences();
-      renderCampaign();
-    }
-  };
   layers.forEach((layer,idx)=>{
     const row=document.createElement("div");
     row.className="campaign-row campaign-allocation-row";
     const meta=document.createElement("div");
     meta.className="campaign-layer-meta";
     meta.innerHTML=`<strong>${escapeHtml(layer.label)}</strong><small>${escapeHtml(layer.id)}</small><span class="campaign-layer-summary"><span><b>${layer.total}</b> entries</span><span><b>${day?.cumulativeExecutedByLayer?.[layer.id]||0}</b> executed</span><span><b>${day?.remainingTargetsByLayer?.[layer.id]??layer.total}</b> remaining</span></span>`;
-    const up=document.createElement("button");
-    up.type="button";
-    up.textContent="Up";
-    up.disabled=idx===0;
-    up.setAttribute("aria-label", `Move ${layer.label} up`);
-    up.addEventListener("click",()=>move(layer.id,-1));
-    const down=document.createElement("button");
-    down.type="button";
-    down.textContent="Down";
-    down.disabled=idx===layers.length-1;
-    down.setAttribute("aria-label", `Move ${layer.label} down`);
-    down.addEventListener("click",()=>move(layer.id,1));
-    row.append(meta,up,down);
+    const priorityLabel=document.createElement("label");
+    priorityLabel.textContent="Priority";
+    const priorityInput=document.createElement("input");
+    priorityInput.type="number";
+    priorityInput.min="1";
+    priorityInput.max=String(layers.length);
+    priorityInput.step="1";
+    priorityInput.value=String(idx+1);
+    priorityInput.setAttribute("aria-label", `${layer.label} priority`);
+    priorityInput.addEventListener("change",(event)=>updateCampaignLayerPriority(layer.id,event.target.value));
+    priorityLabel.appendChild(priorityInput);
+    const weightLabel=document.createElement("label");
+    weightLabel.textContent="Allocation";
+    const weightInput=document.createElement("input");
+    weightInput.type="number";
+    weightInput.min="0";
+    weightInput.step="1";
+    weightInput.value=String(state.campaign.layerWeights[layer.id] ?? 0);
+    weightInput.setAttribute("aria-label", `${layer.label} allocation weight`);
+    weightInput.addEventListener("change",(event)=>updateCampaignSetting(`layerWeights.${layer.id}`,event.target.value));
+    weightLabel.appendChild(weightInput);
+    row.append(meta,priorityLabel,weightLabel);
     els.campaignLayerAllocation.appendChild(row);
   });
 }

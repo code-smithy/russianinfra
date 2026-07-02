@@ -1593,7 +1593,7 @@ test("campaign scope comes only from radius results and demand reuses estimator 
   assert.equal(api.demandForLayerCount("energy_facilities", 1).resource_a, Infinity);
 });
 
-test("campaign layer allocation uses up and down buttons instead of number inputs", async () => {
+test("campaign layer allocation uses numeric priority and allocation inputs", async () => {
   const app = createAppContext();
   await app.__initPromise;
   const api = app.__api;
@@ -1606,15 +1606,25 @@ test("campaign layer allocation uses up and down buttons instead of number input
   const rows = api.els.campaignLayerAllocation.children;
   assert.equal(rows.length, 2);
   assert.equal(rows[0].children.length, 3);
-  assert.equal(rows[0].children.some((child) => child.type === "number"), false);
+  const priorityInput = rows[0].children[1].children[0];
+  const allocationInput = rows[0].children[2].children[0];
+  assert.equal(priorityInput.type, "number");
+  assert.equal(priorityInput.value, "1");
+  assert.equal(allocationInput.type, "number");
+  assert.equal(allocationInput.value, "1");
   assert.deepEqual(JSON.parse(JSON.stringify(api.campaignLayerSummaries().map((layer) => layer.id))), ["energy_facilities", "military_sites"]);
 
-  const downButton = rows[0].children[2];
-  assert.equal(downButton.textContent, "Down");
-  downButton.listeners.click[0]();
+  priorityInput.value = "2";
+  priorityInput.listeners.change[0]({ target: priorityInput });
 
   assert.deepEqual(JSON.parse(JSON.stringify(api.state.campaign.layerPriorityOrder)), ["military_sites", "energy_facilities"]);
   assert.deepEqual(JSON.parse(JSON.stringify(api.campaignLayerSummaries().map((layer) => layer.id))), ["military_sites", "energy_facilities"]);
+
+  const updatedRows = api.els.campaignLayerAllocation.children;
+  const updatedAllocationInput = updatedRows[1].children[2].children[0];
+  updatedAllocationInput.value = "7";
+  updatedAllocationInput.listeners.change[0]({ target: updatedAllocationInput });
+  assert.equal(api.state.campaign.layerWeights.energy_facilities, 7);
 });
 
 test("campaign allocation, deferral, stock production and exports are deterministic", async () => {
