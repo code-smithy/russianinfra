@@ -27,6 +27,8 @@ globalThis.__api = {
   buildSequentialLayerQuotas,
   buildWeightedLayerQuotas,
   campaignLayerSummaries,
+  campaignBandIds,
+  campaignBandMetadata,
   campaignScopeEntries,
   buildEstimatorAggregates,
   countryForPosition,
@@ -44,6 +46,8 @@ globalThis.__api = {
   handleSubcategoryChange,
   importEstimatorAssumptionsFromText,
   importCampaignProfileFromText,
+  normalizeBandResourceMap,
+  normalizeCampaignSettings,
   loadDataJson,
   markerIcon,
   metersKm,
@@ -1561,21 +1565,56 @@ test("campaign settings normalize persist and calendar production uses real mont
   api.state.campaign.startDate = "2026-02-01";
   api.state.campaign.allocationMode = "sequential";
   api.state.campaign.commandCapacityPerDay = 7;
-  api.state.campaign.fireCapacityPerDay.resource_a = 11;
-  api.state.campaign.initialStock.resource_a = 22;
-  api.state.campaign.productionMonthly.resource_a = 280;
+  const firstBandId = api.campaignBandIds()[0];
+  api.state.campaign.fireCapacityPerDayByBand[firstBandId].resource_a = 11;
+  api.state.campaign.initialStockByBand[firstBandId].resource_a = 22;
+  api.state.campaign.productionMonthlyByBand[firstBandId].resource_a = 280;
   api.savePreferencesNow();
-  assert.equal(api.dailyProductionForDate("resource_a", "2026-02-01"), 10);
-  api.state.campaign.productionMonthly.resource_a = 290;
-  assert.equal(api.dailyProductionForDate("resource_a", "2028-02-01"), 10);
-  api.state.campaign.productionMonthly.resource_a = 310;
-  assert.equal(api.dailyProductionForDate("resource_a", "2026-07-01"), 10);
+  assert.equal(api.dailyProductionForDate(firstBandId, "resource_a", "2026-02-01"), 10);
+  api.state.campaign.productionMonthlyByBand[firstBandId].resource_a = 290;
+  assert.equal(api.dailyProductionForDate(firstBandId, "resource_a", "2028-02-01"), 10);
+  api.state.campaign.productionMonthlyByBand[firstBandId].resource_a = 310;
+  assert.equal(api.dailyProductionForDate(firstBandId, "resource_a", "2026-07-01"), 10);
 
   const saved = api.currentPreferences().campaign;
   assert.equal(saved.startDate, "2026-02-01");
+  assert.equal(saved.initialStockByBand[firstBandId].resource_a, 22);
   const second = createAppContext({ [STORAGE_KEY]: JSON.stringify(api.currentPreferences()) });
   await second.__initPromise;
   assert.equal(second.__api.state.campaign.startDate, "2026-02-01");
+  assert.equal(second.__api.state.campaign.initialStockByBand[firstBandId].resource_a, 22);
+});
+
+test("campaign band-resource normalization migrates legacy flat settings and prunes stale keys", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const [firstBandId, secondBandId] = api.campaignBandIds();
+
+  const normalized = api.normalizeBandResourceMap({
+    resource_a: 12,
+    stale_resource: 99,
+    stale_band: { resource_a: 88 },
+  });
+
+  assert.equal(normalized[firstBandId].resource_a, 12);
+  assert.equal(normalized[secondBandId].resource_a, 0);
+  assert.equal(normalized.stale_band, undefined);
+  assert.equal(normalized[firstBandId].stale_resource, undefined);
+
+  const nested = api.normalizeCampaignSettings({
+    initialStockByBand: {
+      [firstBandId]: { resource_a: 3 },
+      stale_band: { resource_a: 90 },
+    },
+    productionMonthlyByBand: {
+      [secondBandId]: { resource_a: 31 },
+    },
+  });
+
+  assert.equal(nested.initialStockByBand[firstBandId].resource_a, 3);
+  assert.equal(nested.initialStockByBand.stale_band, undefined);
+  assert.equal(nested.productionMonthlyByBand[secondBandId].resource_a, 31);
 });
 
 test("campaign scope comes only from radius results and demand reuses estimator formula", async () => {
@@ -1640,11 +1679,12 @@ test("campaign allocation, deferral, stock production and exports are determinis
   assert.deepEqual(JSON.parse(JSON.stringify(api.buildWeightedLayerQuotas({ energy_facilities: 10, military_sites: 10 }, api.state.campaign))), { energy_facilities: 3, military_sites: 1 });
   assert.deepEqual(JSON.parse(JSON.stringify(api.buildSequentialLayerQuotas({ energy_facilities: 2, military_sites: 10 }, api.state.campaign))), { energy_facilities: 2, military_sites: 2 });
 
+  const firstBandId = api.campaignBandIds()[0];
   for (const resource of api.state.estimator.resources) {
     resource.completionRate = 100;
-    api.state.campaign.fireCapacityPerDay[resource.id] = 1;
-    api.state.campaign.initialStock[resource.id] = 1;
-    api.state.campaign.productionMonthly[resource.id] = 31;
+    api.state.campaign.fireCapacityPerDayByBand[firstBandId][resource.id] = 1;
+    api.state.campaign.initialStockByBand[firstBandId][resource.id] = 1;
+    api.state.campaign.productionMonthlyByBand[firstBandId][resource.id] = 31;
   }
   api.state.campaign.startDate = "2026-07-01";
   api.state.campaign.maxSimulationDays = 5;
@@ -1655,15 +1695,83 @@ test("campaign allocation, deferral, stock production and exports are determinis
   assert.equal(api.els.exportCampaignTimelineCsvBtn.disabled, false);
   assert.equal(api.els.exportCampaignTimelineJsonBtn.disabled, false);
   assert.equal(run.days[0].startingStockByResource.resource_a, 1);
+  assert.equal(run.days[0].startingStockByBandResource[firstBandId].resource_a, 1);
   assert.equal(run.days[0].productionByResource.resource_a, 1);
+  assert.equal(run.days[0].productionByBandResource[firstBandId].resource_a, 1);
   assert.ok(run.days[0].endingStockByResource.resource_a >= 0);
   assert.ok(Object.values(run.days[0].deferredTargetsByLayer).reduce((a, b) => a + b, 0) >= 1);
   assert.ok(run.days[0].deferredFeatureIds.length >= 1);
   assert.match(api.els.campaignDashboard.innerHTML, /Resources/);
   assert.match(api.els.campaignDashboard.innerHTML, /Layers/);
   assert.match(api.els.campaignDailyTable.innerHTML, /Requested delta/);
-  assert.match(api.buildCampaignTimelineCsv(), /day_index,date,layer_id,layer_label/);
-  assert.equal(api.buildCampaignTimelineJson().dailySnapshots.length, run.days.length);
+  assert.match(api.buildCampaignTimelineCsv(), /day_index,date,range_band_id,range_band_label,layer_id,layer_label/);
+  const timelineJson = api.buildCampaignTimelineJson();
+  assert.equal(timelineJson.dailySnapshots.length, run.days.length);
+  assert.ok(timelineJson.rangeBandMetadata.length >= 1);
+  assert.ok(timelineJson.settings.initialStockByBand[firstBandId]);
+});
+
+test("campaign simulation consumes stock only from the matching range band", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const [shortBandId, midBandId] = api.campaignBandIds();
+  api.state.radiusResults = [
+    { stored: { id: "short_target", feature: feature("short_target", "Short target", "energy_facilities", "energy_oil_facility", 55.2, 59.1) }, distance: 100 },
+    { stored: { id: "mid_target", feature: feature("mid_target", "Mid target", "energy_facilities", "energy_oil_facility", 55.2, 59.2) }, distance: 1000 },
+  ];
+  api.state.campaign = api.normalizeCampaignSettings({
+    startDate: "2026-07-01",
+    maxSimulationDays: 1,
+    allocationMode: "sequential",
+    commandCapacityPerDay: 2,
+  });
+  api.state.campaign.layerPriorityOrder = ["energy_facilities"];
+  for (const resource of api.state.estimator.resources) {
+    resource.completionRate = 100;
+    api.state.campaign.initialStockByBand[shortBandId][resource.id] = 0;
+    api.state.campaign.initialStockByBand[midBandId][resource.id] = 10;
+    api.state.campaign.fireCapacityPerDayByBand[shortBandId][resource.id] = 10;
+    api.state.campaign.fireCapacityPerDayByBand[midBandId][resource.id] = 10;
+  }
+
+  const run = api.recalculateCampaign();
+  const day = run.days[0];
+
+  assert.equal(day.deferredTargetsByBand[shortBandId], 1);
+  assert.equal(day.executedTargetsByBand[midBandId], 1);
+  assert.equal(day.endingStockByBandResource[shortBandId].resource_a, 0);
+  assert.equal(day.endingStockByBandResource[midBandId].resource_a, 9);
+});
+
+test("campaign simulation applies fire capacity per range band", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const [shortBandId, midBandId] = api.campaignBandIds();
+  api.state.radiusResults = [
+    { stored: { id: "short_target", feature: feature("short_target", "Short target", "energy_facilities", "energy_oil_facility", 55.2, 59.1) }, distance: 100 },
+  ];
+  api.state.campaign = api.normalizeCampaignSettings({
+    startDate: "2026-07-01",
+    maxSimulationDays: 1,
+    allocationMode: "sequential",
+    commandCapacityPerDay: 1,
+  });
+  api.state.campaign.layerPriorityOrder = ["energy_facilities"];
+  for (const resource of api.state.estimator.resources) {
+    resource.completionRate = 100;
+    api.state.campaign.initialStockByBand[shortBandId][resource.id] = 10;
+    api.state.campaign.fireCapacityPerDayByBand[shortBandId][resource.id] = 0;
+    api.state.campaign.fireCapacityPerDayByBand[midBandId][resource.id] = 10;
+  }
+
+  const run = api.recalculateCampaign();
+  const day = run.days[0];
+
+  assert.equal(day.executedTargetsByLayer.energy_facilities || 0, 0);
+  assert.equal(day.deferredTargetsByBand[shortBandId], 1);
+  assert.equal(day.fireCapacityRemainingByBandResource[midBandId].resource_a, 10);
 });
 
 test("campaign profile import validates payloads and accepts wrapped settings", async () => {
@@ -1676,6 +1784,11 @@ test("campaign profile import validates payloads and accepts wrapped settings", 
   api.importCampaignProfileFromText(JSON.stringify({ campaign: { startDate: "2026-07-01", commandCapacityPerDay: 12 } }));
   assert.equal(api.state.campaign.startDate, "2026-07-01");
   assert.equal(api.state.campaign.commandCapacityPerDay, 12);
+  const firstBandId = api.campaignBandIds()[0];
+  api.importCampaignProfileFromText(JSON.stringify({ campaign: { initialStock: { resource_a: 44 }, productionMonthly: { resource_a: 31 }, fireCapacityPerDay: { resource_a: 3 } } }));
+  assert.equal(api.state.campaign.initialStockByBand[firstBandId].resource_a, 44);
+  assert.equal(api.state.campaign.productionMonthlyByBand[firstBandId].resource_a, 31);
+  assert.equal(api.state.campaign.fireCapacityPerDayByBand[firstBandId].resource_a, 3);
 });
 
 test("campaign player tab switching and map status overlay update run state", async () => {
@@ -1683,10 +1796,11 @@ test("campaign player tab switching and map status overlay update run state", as
   await app.__initPromise;
   const api = app.__api;
   api.renderRadiusResults({ lat: 55.75, lng: 37.61 }, 5000);
+  const firstBandId = api.campaignBandIds()[0];
   for (const resource of api.state.estimator.resources) {
     resource.completionRate = 100;
-    api.state.campaign.fireCapacityPerDay[resource.id] = 100;
-    api.state.campaign.initialStock[resource.id] = 100;
+    api.state.campaign.fireCapacityPerDayByBand[firstBandId][resource.id] = 100;
+    api.state.campaign.initialStockByBand[firstBandId][resource.id] = 100;
   }
   api.state.campaign.commandCapacityPerDay = 1;
   api.recalculateCampaign();

@@ -124,7 +124,7 @@ const ESTIMATOR_BLOCKS = [
   { key: "estimate", label: "Estimate" },
 ];
 const CAMPAIGN_ALLOCATION_MODES = ["weighted", "sequential"];
-const DEFAULT_CAMPAIGN_SETTINGS = { startDate: "", maxSimulationDays: 365, allocationMode: "weighted", playbackSpeedMs: 700, commandCapacityPerDay: 25, layerPriorityOrder: [], layerWeights: {}, fireCapacityPerDay: {}, initialStock: {}, productionMonthly: {}, profiles: [] };
+const DEFAULT_CAMPAIGN_SETTINGS = { startDate: "", maxSimulationDays: 365, allocationMode: "weighted", playbackSpeedMs: 700, commandCapacityPerDay: 25, layerPriorityOrder: [], layerWeights: {}, fireCapacityPerDay: {}, fireCapacityPerDayByBand: {}, initialStock: {}, initialStockByBand: {}, productionMonthly: {}, productionMonthlyByBand: {}, profiles: [] };
 
 const COLLAPSIBLE_PANELS = [
   { key: "layers", label: "Layers", preferenceKey: "layersPanelCollapsed" },
@@ -3105,6 +3105,7 @@ function renderRangeBands() {
       renderRangeBands();
       refreshRadiusRangeOverlay();
       renderEstimatorResults();
+      if (state.campaign) syncCampaignResourceShape();
       savePreferencesNow();
     };
 
@@ -3123,6 +3124,7 @@ function renderRangeBands() {
       renderRangeBands();
       refreshRadiusRangeOverlay();
       renderEstimatorResults();
+      if (state.campaign) syncCampaignResourceShape();
       savePreferencesNow();
     });
   }
@@ -3796,16 +3798,83 @@ function addDays(dateString, dayOffset) {
   const date = new Date(Date.UTC(y, m - 1, d + Number(dayOffset || 0)));
   return `${date.getUTCFullYear()}-${padDatePart(date.getUTCMonth() + 1)}-${padDatePart(date.getUTCDate())}`;
 }
+function campaignRangeBands() { return sortedRangeBands(); }
+function campaignBandIds() { return campaignRangeBands().map((band) => band.id); }
 function campaignResourceIds() { return state.estimator.resources.map((resource) => resource.id); }
 function campaignLayerIdsFromScope() { return [...new Set(state.radiusResults.map((item) => item.stored?.feature?.properties?.map_layer).filter(Boolean))]; }
+function emptyBandResourceMap(defaultValue = 0) {
+  return Object.fromEntries(campaignBandIds().map((bandId) => [
+    bandId,
+    Object.fromEntries(campaignResourceIds().map((resourceId) => [resourceId, defaultValue])),
+  ]));
+}
+function hasNestedBandResourceMap(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return campaignBandIds().some((bandId) => value[bandId] && typeof value[bandId] === "object" && !Array.isArray(value[bandId]));
+}
+function normalizeBandResourceMap(value, fallback = 0) {
+  const bands = campaignBandIds();
+  const resources = campaignResourceIds();
+  const nested = hasNestedBandResourceMap(value);
+  const legacyBandId = bands[0];
+  return Object.fromEntries(bands.map((bandId) => [
+    bandId,
+    Object.fromEntries(resources.map((resourceId) => {
+      // Legacy flat campaign maps were global per resource; migrate them to the first configured band to avoid inventing cross-band supply.
+      const sourceValue = nested ? value?.[bandId]?.[resourceId] : (bandId === legacyBandId ? value?.[resourceId] : undefined);
+      return [resourceId, boundedNumber(sourceValue, fallback, 0, 1e12)];
+    })),
+  ]));
+}
+function campaignBandResourceSource(saved, nestedKey, legacyKey) {
+  return hasNestedBandResourceMap(saved?.[nestedKey]) ? saved[nestedKey] : saved?.[legacyKey];
+}
+function sumBandResourceMap(map) {
+  const totals = Object.fromEntries(campaignResourceIds().map((id) => [id, 0]));
+  for (const bandId of campaignBandIds()) {
+    for (const resourceId of campaignResourceIds()) totals[resourceId] += Number(map?.[bandId]?.[resourceId]) || 0;
+  }
+  return totals;
+}
+function cloneBandResourceMap(map) {
+  return Object.fromEntries(campaignBandIds().map((bandId) => [
+    bandId,
+    Object.fromEntries(campaignResourceIds().map((resourceId) => [resourceId, Number(map?.[bandId]?.[resourceId]) || 0])),
+  ]));
+}
+function incrementBandResource(map, bandId, resourceId, value) {
+  if (!map[bandId]) map[bandId] = {};
+  map[bandId][resourceId] = (map[bandId][resourceId] || 0) + (Number(value) || 0);
+}
+function ensureLayerBandResource(map, layerId, bandId) {
+  if (!map[layerId]) map[layerId] = {};
+  if (!map[layerId][bandId]) map[layerId][bandId] = Object.fromEntries(campaignResourceIds().map((id) => [id, 0]));
+  return map[layerId][bandId];
+}
+function incrementLayerBandResource(map, layerId, bandId, resourceId, value) {
+  const row = ensureLayerBandResource(map, layerId, bandId);
+  row[resourceId] = (row[resourceId] || 0) + (Number(value) || 0);
+}
+function incrementLayerBandCount(map, layerId, bandId, value = 1) {
+  if (!map[layerId]) map[layerId] = {};
+  map[layerId][bandId] = (map[layerId][bandId] || 0) + value;
+}
+function incrementBandCount(map, bandId, value = 1) {
+  map[bandId] = (map[bandId] || 0) + value;
+}
+function campaignBandMetadata() {
+  const bands = campaignRangeBands();
+  return bands.map((band, index) => ({ id: band.id, label: rangeBandLabel(band, index, bands), maxKm: band.maxKm }));
+}
 function normalizeCampaignSettings(saved = {}) {
-  const resourceIds = new Set(campaignResourceIds());
   const layerIds = campaignLayerIdsFromScope();
   const order = Array.isArray(saved?.layerPriorityOrder) ? saved.layerPriorityOrder.filter((id) => layerIds.includes(id)) : [];
   for (const id of layerIds) if (!order.includes(id)) order.push(id);
-  const keepResources = (object, fallback = 0) => Object.fromEntries([...resourceIds].map((id) => [id, boundedNumber(object?.[id], fallback, 0, 1e12)]));
   const layerWeights = {};
   for (const id of order) layerWeights[id] = boundedNumber(saved?.layerWeights?.[id], 1, 0, 1e9);
+  const fireCapacityPerDayByBand = normalizeBandResourceMap(campaignBandResourceSource(saved, "fireCapacityPerDayByBand", "fireCapacityPerDay"));
+  const initialStockByBand = normalizeBandResourceMap(campaignBandResourceSource(saved, "initialStockByBand", "initialStock"));
+  const productionMonthlyByBand = normalizeBandResourceMap(campaignBandResourceSource(saved, "productionMonthlyByBand", "productionMonthly"));
   return {
     startDate: parseDateString(saved?.startDate) || todayDateString(),
     maxSimulationDays: Math.round(boundedNumber(saved?.maxSimulationDays, DEFAULT_CAMPAIGN_SETTINGS.maxSimulationDays, 1, 10000)),
@@ -3814,9 +3883,12 @@ function normalizeCampaignSettings(saved = {}) {
     commandCapacityPerDay: Math.floor(boundedNumber(saved?.commandCapacityPerDay, 25, 0, 1000000)),
     layerPriorityOrder: order,
     layerWeights,
-    fireCapacityPerDay: keepResources(saved?.fireCapacityPerDay),
-    initialStock: keepResources(saved?.initialStock),
-    productionMonthly: keepResources(saved?.productionMonthly),
+    fireCapacityPerDayByBand,
+    initialStockByBand,
+    productionMonthlyByBand,
+    fireCapacityPerDay: sumBandResourceMap(fireCapacityPerDayByBand),
+    initialStock: sumBandResourceMap(initialStockByBand),
+    productionMonthly: sumBandResourceMap(productionMonthlyByBand),
     profiles: Array.isArray(saved?.profiles) ? saved.profiles.slice(0, 50) : [],
   };
 }
@@ -3847,21 +3919,32 @@ function updateCampaignLayerPriority(id, value) {
   queueSavePreferences();
 }
 function syncCampaignLayersFromScope() { state.campaign = normalizeCampaignSettings(state.campaign || state.savedPreferences?.campaign); state.campaignRun.stale = true; state.campaignRun.days = []; state.campaignRun.currentDayIndex = -1; renderCampaign(); }
+function syncCampaignResourceShape() { state.campaign = normalizeCampaignSettings(state.campaign || state.savedPreferences?.campaign); state.campaignRun.stale = true; renderCampaign(); }
 function categoryRequirement(layerId) { return boundedNumber(state.estimator.categoryRequirements?.[layerId], 1, 0, 1000000); }
-function dailyProductionForDate(resourceId, dateString, settings = state.campaign) { const [y,m] = dateString.split("-").map(Number); return boundedNumber(settings.productionMonthly?.[resourceId], 0, 0) / daysInMonth(y, m); }
+function dailyProductionForDate(bandId, resourceId, dateString, settings = state.campaign) {
+  if (dateString === undefined) {
+    dateString = resourceId;
+    resourceId = bandId;
+    bandId = campaignBandIds()[0];
+  }
+  const [y,m] = (parseDateString(dateString) || todayDateString()).split("-").map(Number);
+  return boundedNumber(settings.productionMonthlyByBand?.[bandId]?.[resourceId] ?? settings.productionMonthly?.[resourceId], 0, 0) / daysInMonth(y, m);
+}
 function demandForLayerCount(layerId, count) { return Object.fromEntries(state.estimator.resources.map((r) => [r.id, estimateUnits(count, categoryRequirement(layerId), r.completionRate)])); }
 function demandFitsConstraints(demand, stock, fireRemaining) { return Object.entries(demand).every(([id,v]) => Number.isFinite(v) && v <= (stock[id] || 0) + 1e-9 && v <= (fireRemaining[id] || 0) + 1e-9); }
-function maxExecutableCountForLayer(layerId, desiredCount, stock, fireRemaining) { let lo=0, hi=Math.floor(desiredCount); while(lo<hi){const mid=Math.ceil((lo+hi)/2); if(demandFitsConstraints(demandForLayerCount(layerId, mid), stock, fireRemaining)) lo=mid; else hi=mid-1;} return lo; }
 function buildSequentialLayerQuotas(remainingByLayer, settings = state.campaign) { const quotas={}; let slots=Math.floor(settings.commandCapacityPerDay); for(const id of settings.layerPriorityOrder){ const take=Math.min(slots, remainingByLayer[id]||0); if(take>0) quotas[id]=take; slots-=take; if(slots<=0) break;} return quotas; }
 function buildWeightedLayerQuotas(remainingByLayer, settings = state.campaign) { const active=settings.layerPriorityOrder.filter((id)=>(remainingByLayer[id]||0)>0); const total=active.reduce((s,id)=>s+boundedNumber(settings.layerWeights?.[id],0,0),0); if(total<=0) return buildSequentialLayerQuotas(remainingByLayer, settings); const cap=Math.floor(settings.commandCapacityPerDay); const quotas={}; const rows=active.map((id,priority)=>{const raw=cap*(settings.layerWeights[id]||0)/total; const base=Math.min(Math.floor(raw), remainingByLayer[id]||0); quotas[id]=base; return {id,priority,remainder:raw-Math.floor(raw)};}); let used=Object.values(quotas).reduce((a,b)=>a+b,0); while(used<cap){ let picked=null; for(const row of rows.slice().sort((a,b)=>b.remainder-a.remainder||a.priority-b.priority)){ if((quotas[row.id]||0)<(remainingByLayer[row.id]||0)){picked=row; break;} } if(!picked) break; quotas[picked.id]=(quotas[picked.id]||0)+1; used++; } return quotas; }
 function featureEntryId(item){ return item.stored.id || item.stored.feature.id; }
+function targetBandId(item) { return bandForDistance(item.distance).id; }
 function sumValues(object) { return Object.values(object || {}).reduce((total, value) => total + (Number(value) || 0), 0); }
 function campaignDayLabel(day) { return day ? `Day ${day.dayIndex + 1} - ${day.date}` : "Before campaign"; }
 function campaignSelectedDay() { return state.campaignRun.days[state.campaignRun.currentDayIndex] || null; }
-function campaignCumulativeProduction(dayIndex) {
-  const totals = Object.fromEntries(campaignResourceIds().map((id) => [id, 0]));
+function campaignCumulativeProductionByBand(dayIndex) {
+  const totals = emptyBandResourceMap(0);
   for (const day of state.campaignRun.days.slice(0, Math.max(0, dayIndex) + 1)) {
-    for (const id of campaignResourceIds()) totals[id] += day.productionByResource?.[id] || 0;
+    for (const bandId of campaignBandIds()) {
+      for (const resourceId of campaignResourceIds()) totals[bandId][resourceId] += day.productionByBandResource?.[bandId]?.[resourceId] || 0;
+    }
   }
   return totals;
 }
@@ -3875,16 +3958,167 @@ function campaignLayerDepletedDays() {
   return depleted;
 }
 function simulateCampaign(settings = state.campaign) {
-  settings = normalizeCampaignSettings(settings); const entriesByLayer={}; for(const item of campaignScopeEntries()){ const id=item.stored.feature.properties.map_layer; (entriesByLayer[id] ||= []).push(item); }
-  const totalEntries=campaignScopeEntries().length, remainingByLayer=Object.fromEntries(Object.entries(entriesByLayer).map(([id,a])=>[id,a.length])); const cursor=Object.fromEntries(Object.keys(entriesByLayer).map(id=>[id,0])); let stock={...settings.initialStock}; const cumLayer={}, cumRes=Object.fromEntries(campaignResourceIds().map(id=>[id,0])); let cumulativeIds=[]; const days=[]; let warning="";
-  for(let dayIndex=0; dayIndex<settings.maxSimulationDays && Object.values(remainingByLayer).some(v=>v>0); dayIndex++){
-    const date=addDays(settings.startDate, dayIndex), starting={...stock}, prod={}, available={}; for(const id of campaignResourceIds()){prod[id]=dailyProductionForDate(id,date,settings); available[id]=(stock[id]||0)+prod[id];} stock={...available}; const fire={...settings.fireCapacityPerDay}, fireRem={...fire}; const quotas=settings.allocationMode==="sequential"?buildSequentialLayerQuotas(remainingByLayer,settings):buildWeightedLayerQuotas(remainingByLayer,settings); const reqDemand=Object.fromEntries(campaignResourceIds().map(id=>[id,0])), exp=Object.fromEntries(campaignResourceIds().map(id=>[id,0])), executed={}, deferred={}, executedIds=[], deferredIds=[];
-    for(const [lid,requested] of Object.entries(quotas)){ const d=demandForLayerCount(lid, requested); for(const rid of campaignResourceIds()) reqDemand[rid]+=d[rid]||0; const can=maxExecutableCountForLayer(lid, requested, stock, fireRem); const list=entriesByLayer[lid]||[], start=cursor[lid]||0; if(can<=0){ deferred[lid]=requested; for(const item of list.slice(start,start+requested)) deferredIds.push(featureEntryId(item)); if(settings.allocationMode==="sequential") break; continue;} const ed=demandForLayerCount(lid, can); for(const rid of campaignResourceIds()){ exp[rid]+=ed[rid]||0; stock[rid]=Math.max(0,(stock[rid]||0)-(ed[rid]||0)); fireRem[rid]=Math.max(0,(fireRem[rid]||0)-(ed[rid]||0)); } executed[lid]=can; deferred[lid]=requested-can; remainingByLayer[lid]-=can; cumLayer[lid]=(cumLayer[lid]||0)+can; for(const item of list.slice(start, start+can)) executedIds.push(featureEntryId(item)); for(const item of list.slice(start+can, start+requested)) deferredIds.push(featureEntryId(item)); cursor[lid]=start+can; }
-    cumulativeIds=cumulativeIds.concat(executedIds); for(const rid of campaignResourceIds()) cumRes[rid]+=exp[rid]||0; days.push({dayIndex,date,startingStockByResource:starting,productionByResource:prod,availableSupplyByResource:available,requestedTargetsByLayer:quotas,executedTargetsByLayer:executed,deferredTargetsByLayer:deferred,remainingTargetsByLayer:{...remainingByLayer},requestedDemandByResource:reqDemand,expendedByResource:exp,fireCapacityByResource:fire,fireCapacityRemainingByResource:fireRem,endingStockByResource:{...stock},requestedSupplyDeltaByResource:Object.fromEntries(campaignResourceIds().map(id=>[id,(available[id]||0)-(reqDemand[id]||0)])),executedSupplyDeltaByResource:{...stock},executedFeatureIds:executedIds,deferredFeatureIds:deferredIds,cumulativeExecutedFeatureIds:cumulativeIds.slice(),cumulativeExecutedByLayer:{...cumLayer},cumulativeExpendedByResource:{...cumRes},blocked:executedIds.length===0,notes:[]});
+  settings = normalizeCampaignSettings(settings);
+  const entriesByLayer = {};
+  for (const item of campaignScopeEntries()) {
+    const layerId = item.stored.feature.properties.map_layer;
+    (entriesByLayer[layerId] ||= []).push({ item, layerId, bandId: targetBandId(item) });
   }
-  if(Object.values(remainingByLayer).some(v=>v>0)) warning="Maximum simulation days reached before completion."; return { days, summary:{totalEntries, elapsedDays:days.length, completionDate:Object.values(remainingByLayer).every(v=>v===0)?days.at(-1)?.date:null, warning, remainingByLayer} };
+  const remainingQueues = Object.fromEntries(Object.entries(entriesByLayer).map(([id, rows]) => [id, rows.slice()]));
+  const totalEntries = campaignScopeEntries().length;
+  let stock = cloneBandResourceMap(settings.initialStockByBand);
+  const cumLayer = {};
+  const cumResByBand = emptyBandResourceMap(0);
+  let cumulativeIds = [];
+  const days = [];
+  let warning = "";
+  const remainingCounts = () => Object.fromEntries(Object.entries(remainingQueues).map(([id, rows]) => [id, rows.length]));
+  for (let dayIndex = 0; dayIndex < settings.maxSimulationDays && Object.values(remainingCounts()).some((value) => value > 0); dayIndex += 1) {
+    const date = addDays(settings.startDate, dayIndex);
+    const starting = cloneBandResourceMap(stock);
+    const prod = emptyBandResourceMap(0);
+    const available = emptyBandResourceMap(0);
+    for (const bandId of campaignBandIds()) {
+      for (const resourceId of campaignResourceIds()) {
+        prod[bandId][resourceId] = dailyProductionForDate(bandId, resourceId, date, settings);
+        available[bandId][resourceId] = (stock[bandId]?.[resourceId] || 0) + prod[bandId][resourceId];
+      }
+    }
+    stock = cloneBandResourceMap(available);
+    const fire = cloneBandResourceMap(settings.fireCapacityPerDayByBand);
+    const fireRem = cloneBandResourceMap(fire);
+    const quotas = settings.allocationMode === "sequential" ? buildSequentialLayerQuotas(remainingCounts(), settings) : buildWeightedLayerQuotas(remainingCounts(), settings);
+    const reqDemand = emptyBandResourceMap(0);
+    const exp = emptyBandResourceMap(0);
+    const reqDemandByLayerBand = {};
+    const expByLayerBand = {};
+    const requestedByLayerBand = {};
+    const executedByLayerBand = {};
+    const deferredByLayerBand = {};
+    const requestedByBand = {};
+    const executedByBand = {};
+    const deferredByBand = {};
+    const executed = {};
+    const deferred = {};
+    const executedIds = [];
+    const deferredIds = [];
+    for (const [layerId, requested] of Object.entries(quotas)) {
+      const requestedEntries = (remainingQueues[layerId] || []).slice(0, requested);
+      const untouchedEntries = (remainingQueues[layerId] || []).slice(requested);
+      const requestedCountsByBand = {};
+      for (const entry of requestedEntries) {
+        requestedCountsByBand[entry.bandId] = (requestedCountsByBand[entry.bandId] || 0) + 1;
+        incrementLayerBandCount(requestedByLayerBand, layerId, entry.bandId);
+        incrementBandCount(requestedByBand, entry.bandId);
+      }
+      for (const [bandId, count] of Object.entries(requestedCountsByBand)) {
+        const demand = demandForLayerCount(layerId, count);
+        for (const resourceId of campaignResourceIds()) {
+          incrementBandResource(reqDemand, bandId, resourceId, demand[resourceId] || 0);
+          incrementLayerBandResource(reqDemandByLayerBand, layerId, bandId, resourceId, demand[resourceId] || 0);
+        }
+      }
+      const deferredEntries = [];
+      const executedCountsByBand = {};
+      for (const entry of requestedEntries) {
+        const currentCount = executedCountsByBand[entry.bandId] || 0;
+        const nextDemand = demandForLayerCount(layerId, currentCount + 1);
+        const previousDemand = demandForLayerCount(layerId, currentCount);
+        const incrementalDemand = Object.fromEntries(campaignResourceIds().map((resourceId) => [resourceId, (nextDemand[resourceId] || 0) - (previousDemand[resourceId] || 0)]));
+        if (demandFitsConstraints(incrementalDemand, stock[entry.bandId] || {}, fireRem[entry.bandId] || {})) {
+          executedCountsByBand[entry.bandId] = currentCount + 1;
+          executed[layerId] = (executed[layerId] || 0) + 1;
+          incrementLayerBandCount(executedByLayerBand, layerId, entry.bandId);
+          incrementBandCount(executedByBand, entry.bandId);
+          cumLayer[layerId] = (cumLayer[layerId] || 0) + 1;
+          executedIds.push(featureEntryId(entry.item));
+          for (const resourceId of campaignResourceIds()) {
+            const amount = incrementalDemand[resourceId] || 0;
+            incrementBandResource(exp, entry.bandId, resourceId, amount);
+            incrementLayerBandResource(expByLayerBand, layerId, entry.bandId, resourceId, amount);
+            stock[entry.bandId][resourceId] = Math.max(0, (stock[entry.bandId][resourceId] || 0) - amount);
+            fireRem[entry.bandId][resourceId] = Math.max(0, (fireRem[entry.bandId][resourceId] || 0) - amount);
+          }
+        } else {
+          deferred[layerId] = (deferred[layerId] || 0) + 1;
+          incrementLayerBandCount(deferredByLayerBand, layerId, entry.bandId);
+          incrementBandCount(deferredByBand, entry.bandId);
+          deferredEntries.push(entry);
+          deferredIds.push(featureEntryId(entry.item));
+        }
+      }
+      remainingQueues[layerId] = deferredEntries.concat(untouchedEntries);
+      if (settings.allocationMode === "sequential" && requestedEntries.length && !(executed[layerId] > 0)) break;
+    }
+    const remainingByLayer = remainingCounts();
+    const remainingByLayerBand = {};
+    const remainingByBand = {};
+    for (const [layerId, rows] of Object.entries(remainingQueues)) {
+      for (const entry of rows) {
+        incrementLayerBandCount(remainingByLayerBand, layerId, entry.bandId);
+        incrementBandCount(remainingByBand, entry.bandId);
+      }
+    }
+    cumulativeIds = cumulativeIds.concat(executedIds);
+    for (const bandId of campaignBandIds()) {
+      for (const resourceId of campaignResourceIds()) cumResByBand[bandId][resourceId] += exp[bandId]?.[resourceId] || 0;
+    }
+    const requestedSupplyDeltaByBand = emptyBandResourceMap(0);
+    for (const bandId of campaignBandIds()) {
+      for (const resourceId of campaignResourceIds()) requestedSupplyDeltaByBand[bandId][resourceId] = (available[bandId]?.[resourceId] || 0) - (reqDemand[bandId]?.[resourceId] || 0);
+    }
+    days.push({
+      dayIndex,
+      date,
+      startingStockByBandResource: starting,
+      productionByBandResource: prod,
+      availableSupplyByBandResource: available,
+      requestedTargetsByLayer: quotas,
+      requestedTargetsByLayerBand: requestedByLayerBand,
+      requestedTargetsByBand: requestedByBand,
+      executedTargetsByLayer: executed,
+      executedTargetsByLayerBand: executedByLayerBand,
+      executedTargetsByBand: executedByBand,
+      deferredTargetsByLayer: deferred,
+      deferredTargetsByLayerBand: deferredByLayerBand,
+      deferredTargetsByBand: deferredByBand,
+      remainingTargetsByLayer: remainingByLayer,
+      remainingTargetsByLayerBand: remainingByLayerBand,
+      remainingTargetsByBand: remainingByBand,
+      requestedDemandByBandResource: reqDemand,
+      requestedDemandByLayerBandResource: reqDemandByLayerBand,
+      expendedByBandResource: exp,
+      expendedByLayerBandResource: expByLayerBand,
+      fireCapacityByBandResource: fire,
+      fireCapacityRemainingByBandResource: fireRem,
+      endingStockByBandResource: cloneBandResourceMap(stock),
+      requestedSupplyDeltaByBandResource: requestedSupplyDeltaByBand,
+      executedSupplyDeltaByBandResource: cloneBandResourceMap(stock),
+      cumulativeExpendedByBandResource: cloneBandResourceMap(cumResByBand),
+      startingStockByResource: sumBandResourceMap(starting),
+      productionByResource: sumBandResourceMap(prod),
+      availableSupplyByResource: sumBandResourceMap(available),
+      requestedDemandByResource: sumBandResourceMap(reqDemand),
+      expendedByResource: sumBandResourceMap(exp),
+      fireCapacityByResource: sumBandResourceMap(fire),
+      fireCapacityRemainingByResource: sumBandResourceMap(fireRem),
+      endingStockByResource: sumBandResourceMap(stock),
+      requestedSupplyDeltaByResource: sumBandResourceMap(requestedSupplyDeltaByBand),
+      executedSupplyDeltaByResource: sumBandResourceMap(stock),
+      cumulativeExpendedByResource: sumBandResourceMap(cumResByBand),
+      executedFeatureIds: executedIds,
+      deferredFeatureIds: deferredIds,
+      cumulativeExecutedFeatureIds: cumulativeIds.slice(),
+      cumulativeExecutedByLayer: { ...cumLayer },
+      blocked: executedIds.length === 0,
+      notes: [],
+    });
+  }
+  const finalRemainingByLayer = remainingCounts();
+  if (Object.values(finalRemainingByLayer).some((value) => value > 0)) warning = "Maximum simulation days reached before completion.";
+  return { days, summary: { totalEntries, elapsedDays: days.length, completionDate: Object.values(finalRemainingByLayer).every((value) => value === 0) ? days.at(-1)?.date : null, warning, remainingByLayer: finalRemainingByLayer } };
 }
-function recalculateCampaign(){ pauseCampaign(); const run=simulateCampaign(state.campaign); state.campaignRun={...state.campaignRun,...run,stale:false,currentDayIndex:run.days.length?0:-1,playing:false,playbackTimer:null}; renderCampaign(); renderCampaignMapStatus(); return run; }
+function recalculateCampaign(){ pauseCampaign(); state.campaign = normalizeCampaignSettings(state.campaign); const run=simulateCampaign(state.campaign); state.campaignRun={...state.campaignRun,...run,stale:false,currentDayIndex:run.days.length?0:-1,playing:false,playbackTimer:null}; renderCampaign(); renderCampaignMapStatus(); return run; }
 function setCampaignDay(dayIndex){ if(!state.campaignRun.days.length){state.campaignRun.currentDayIndex=-1;} else state.campaignRun.currentDayIndex=Math.min(state.campaignRun.days.length-1,Math.max(0,Number(dayIndex)||0)); renderCampaign(); renderCampaignMapStatus(); }
 function stepCampaign(delta){ setCampaignDay((state.campaignRun.currentDayIndex<0?0:state.campaignRun.currentDayIndex)+delta); }
 function pauseCampaign(options = {}){ if(state.campaignRun.playbackTimer) (window.clearInterval || clearInterval)(state.campaignRun.playbackTimer); state.campaignRun.playing=false; state.campaignRun.playbackTimer=null; if(options.render) renderCampaign(); }
@@ -3912,7 +4146,23 @@ function addCampaignStatusOverlay(item, status) {
 }
 function renderCampaignMapStatus(){ clearCampaignMapStatus(); const day=state.campaignRun.days[state.campaignRun.currentDayIndex]; if(!day || !state.campaignStatusGroup) return; const current=new Set(day.executedFeatureIds), all=new Set(day.cumulativeExecutedFeatureIds), deferred=new Set(day.deferredFeatureIds||[]); for(const item of campaignScopeEntries()){ const id=featureEntryId(item); if(all.has(id)) addCampaignStatusOverlay(item, current.has(id)?"current":"executed"); else if(deferred.has(id)) addCampaignStatusOverlay(item, "deferred"); } }
 
-function updateCampaignSetting(path, value){ const [group,key]=path.split('.'); if(key) state.campaign[group][key]=value; else state.campaign[group]=value; state.campaign=normalizeCampaignSettings(state.campaign); state.campaignRun.stale=true; renderCampaign(); queueSavePreferences(); }
+function updateCampaignSetting(path, value){
+  const parts = path.split(".");
+  if (parts.length === 3) {
+    const [group, bandId, resourceId] = parts;
+    if (!state.campaign[group]) state.campaign[group] = {};
+    if (!state.campaign[group][bandId]) state.campaign[group][bandId] = {};
+    state.campaign[group][bandId][resourceId] = value;
+  } else {
+    const [group,key]=parts;
+    if(key) state.campaign[group][key]=value;
+    else state.campaign[group]=value;
+  }
+  state.campaign=normalizeCampaignSettings(state.campaign);
+  state.campaignRun.stale=true;
+  renderCampaign();
+  queueSavePreferences();
+}
 function renderCampaignSettings(){ if(!els.campaignSettings) return; const s=state.campaign; els.campaignSettings.innerHTML=`<label>Start date <input id="campaignStartDate" type="date" value="${escapeHtml(s.startDate)}"></label><label>Max simulation days <input id="campaignMaxDays" type="number" min="1" max="10000" value="${s.maxSimulationDays}"></label><label>Allocation mode <select id="campaignAllocationMode"><option value="weighted">weighted</option><option value="sequential">sequential</option></select></label><label>Playback speed ms <input id="campaignPlaybackSpeed" type="number" min="100" max="5000" value="${s.playbackSpeedMs}"></label>`; document.getElementById('campaignAllocationMode').value=s.allocationMode; document.getElementById('campaignStartDate').onchange=e=>updateCampaignSetting('startDate',e.target.value); document.getElementById('campaignMaxDays').onchange=e=>updateCampaignSetting('maxSimulationDays',e.target.value); document.getElementById('campaignAllocationMode').onchange=e=>updateCampaignSetting('allocationMode',e.target.value); document.getElementById('campaignPlaybackSpeed').onchange=e=>updateCampaignSetting('playbackSpeedMs',e.target.value); }
 function renderCampaignLayerAllocation(){
   if(!els.campaignLayerAllocation) return;
@@ -3954,19 +4204,74 @@ function renderCampaignLayerAllocation(){
     els.campaignLayerAllocation.appendChild(row);
   });
 }
-function renderCampaignCapacity(){ if(!els.campaignCapacity) return; els.campaignCapacity.innerHTML=`<label>Command capacity per day <input id="campaignCommandCapacity" type="number" min="0" step="1" value="${state.campaign.commandCapacityPerDay}"></label>`+state.estimator.resources.map(r=>`<label>${escapeHtml(r.label)} fire capacity/day <input data-fire="${escapeHtml(r.id)}" type="number" min="0" step="1" value="${state.campaign.fireCapacityPerDay[r.id]||0}"></label>`).join(''); document.getElementById('campaignCommandCapacity').onchange=e=>updateCampaignSetting('commandCapacityPerDay',e.target.value); els.campaignCapacity.querySelectorAll('[data-fire]').forEach(i=>i.onchange=e=>updateCampaignSetting(`fireCapacityPerDay.${e.target.dataset.fire}`,e.target.value)); }
-function renderCampaignSupply(){ if(!els.campaignSupply) return; const day=state.campaignRun.days[state.campaignRun.currentDayIndex]; els.campaignSupply.innerHTML=state.estimator.resources.map(r=>`<div class="campaign-supply-row"><strong>${escapeHtml(r.label)}</strong><label>Initial <input data-stock="${escapeHtml(r.id)}" type="number" min="0" value="${state.campaign.initialStock[r.id]||0}"></label><label>Monthly production <input data-prod="${escapeHtml(r.id)}" type="number" min="0" value="${state.campaign.productionMonthly[r.id]||0}"></label><span>Daily: ${numberFmt(dailyProductionForDate(r.id,state.campaign.startDate),3)} • stock: ${numberFmt(day?.endingStockByResource?.[r.id]??state.campaign.initialStock[r.id],2)}</span></div>`).join(''); els.campaignSupply.querySelectorAll('[data-stock]').forEach(i=>i.onchange=e=>updateCampaignSetting(`initialStock.${e.target.dataset.stock}`,e.target.value)); els.campaignSupply.querySelectorAll('[data-prod]').forEach(i=>i.onchange=e=>updateCampaignSetting(`productionMonthly.${e.target.dataset.prod}`,e.target.value)); }
-function renderCampaignDashboard(){ if(!els.campaignDashboard) return; const day=campaignSelectedDay(); if(!state.campaignRun.days.length){ els.campaignDashboard.innerHTML='<div class="empty-state">Run simulation to see the campaign dashboard.</div>'; return; } const total=campaignScopeEntries().length; const executed=day?sumValues(day.cumulativeExecutedByLayer):0; const remaining=day?sumValues(day.remainingTargetsByLayer):total; const cumulativeProduction=day?campaignCumulativeProduction(day.dayIndex):Object.fromEntries(campaignResourceIds().map((id)=>[id,0])); const depleted=campaignLayerDepletedDays(); const completion=state.campaignRun.summary?.completionDate || "Not completed"; const resourceRows=state.estimator.resources.map((r)=>`<tr><td>${escapeHtml(r.label)}</td><td>${numberFmt(state.campaign.initialStock[r.id],2)}</td><td>${numberFmt(cumulativeProduction[r.id],2)}</td><td>${numberFmt(day?.cumulativeExpendedByResource?.[r.id]||0,2)}</td><td>${numberFmt(day?.endingStockByResource?.[r.id]??state.campaign.initialStock[r.id],2)}</td><td>${numberFmt(day?.requestedSupplyDeltaByResource?.[r.id]||0,2)}</td><td>${numberFmt((day?.fireCapacityByResource?.[r.id]||0)-(day?.fireCapacityRemainingByResource?.[r.id]||0),2)} / ${numberFmt(day?.fireCapacityByResource?.[r.id]||0,2)}</td></tr>`).join(""); const layerRows=campaignLayerSummaries().map((l,idx)=>`<tr><td>${escapeHtml(l.label)}<br><small>${escapeHtml(l.id)}</small></td><td>${l.total}</td><td>${day?.cumulativeExecutedByLayer?.[l.id]||0}</td><td>${day?.remainingTargetsByLayer?.[l.id]??l.total}</td><td>${numberFmt(state.campaign.layerWeights[l.id]??0,2)}</td><td>${idx+1}</td><td>${depleted[l.id]||""}</td></tr>`).join(""); els.campaignDashboard.innerHTML=`<div class="campaign-cards"><div><strong>${total}</strong><span>Total entries</span></div><div><strong>${executed}</strong><span>Executed</span></div><div><strong>${remaining}</strong><span>Remaining</span></div><div><strong>${campaignDayLabel(day)}</strong><span>Current day</span></div><div><strong>${state.campaignRun.summary?.elapsedDays||0}</strong><span>Elapsed days</span></div><div><strong>${escapeHtml(completion)}</strong><span>Completion date</span></div></div>${state.campaignRun.summary?.warning?`<p class="warning">${escapeHtml(state.campaignRun.summary.warning)}</p>`:''}<h4>Resources</h4><div class="campaign-table"><table><thead><tr><th>Resource</th><th>Initial</th><th>Production</th><th>Expended</th><th>Ending stock</th><th>Requested delta</th><th>Fire used</th></tr></thead><tbody>${resourceRows}</tbody></table></div><h4>Layers</h4><div class="campaign-table"><table><thead><tr><th>Layer</th><th>Total</th><th>Executed</th><th>Remaining</th><th>Weight</th><th>Priority</th><th>Depleted day</th></tr></thead><tbody>${layerRows}</tbody></table></div>`; }
-function renderCampaignDailyTable(){ if(!els.campaignDailyTable) return; if(!state.campaignRun.days.length){ els.campaignDailyTable.innerHTML='<div class="empty-state">Run simulation to build the daily timeline.</div>'; return; } const rows=state.campaignRun.days.map(d=>`<tr data-day="${d.dayIndex}"><td>${d.dayIndex+1}</td><td>${d.date}</td><td>${sumValues(d.executedTargetsByLayer)}</td><td>${sumValues(d.deferredTargetsByLayer)}</td><td>${sumValues(d.remainingTargetsByLayer)}</td><td>${state.estimator.resources.map(r=>`${escapeHtml(r.label)}: ${numberFmt(d.expendedByResource[r.id],2)}`).join('<br>')}</td><td>${state.estimator.resources.map(r=>`${escapeHtml(r.label)}: ${numberFmt(d.endingStockByResource[r.id],2)}`).join('<br>')}</td><td>${state.estimator.resources.map(r=>`${escapeHtml(r.label)}: ${numberFmt(d.requestedSupplyDeltaByResource[r.id],2)}`).join('<br>')}</td></tr>`).join(''); els.campaignDailyTable.innerHTML=`<table><thead><tr><th>Day</th><th>Date</th><th>Executed</th><th>Deferred</th><th>Remaining</th><th>Expended</th><th>Ending stock</th><th>Requested delta</th></tr></thead><tbody>${rows}</tbody></table>`; els.campaignDailyTable.querySelectorAll('[data-day]').forEach(r=>r.onclick=e=>setCampaignDay(Number(e.currentTarget.dataset.day))); }
-function buildCampaignTimelineCsv(){ const fields=['day_index','date','layer_id','layer_label','requested_targets','executed_targets','deferred_targets','remaining_targets','resource_id','resource_label','requested_demand','expended','daily_production','starting_stock','available_supply','ending_stock','fire_capacity','fire_capacity_remaining','requested_supply_delta','executed_supply_delta','cumulative_expended']; const lines=[fields.join(',')]; for(const d of state.campaignRun.days){ for(const l of campaignLayerSummaries()) for(const r of state.estimator.resources){ const row={day_index:d.dayIndex,date:d.date,layer_id:l.id,layer_label:l.label,requested_targets:d.requestedTargetsByLayer[l.id]||0,executed_targets:d.executedTargetsByLayer[l.id]||0,deferred_targets:d.deferredTargetsByLayer[l.id]||0,remaining_targets:d.remainingTargetsByLayer[l.id]||0,resource_id:r.id,resource_label:r.label,requested_demand:d.requestedDemandByResource[r.id]||0,expended:d.expendedByResource[r.id]||0,daily_production:d.productionByResource[r.id]||0,starting_stock:d.startingStockByResource[r.id]||0,available_supply:d.availableSupplyByResource[r.id]||0,ending_stock:d.endingStockByResource[r.id]||0,fire_capacity:d.fireCapacityByResource[r.id]||0,fire_capacity_remaining:d.fireCapacityRemainingByResource[r.id]||0,requested_supply_delta:d.requestedSupplyDeltaByResource[r.id]||0,executed_supply_delta:d.executedSupplyDeltaByResource[r.id]||0,cumulative_expended:d.cumulativeExpendedByResource[r.id]||0}; lines.push(fields.map(f=>csvEscape(row[f])).join(',')); }} return lines.join('\r\n'); }
-function buildCampaignTimelineJson(){ return {exportedAt:new Date().toISOString(),settings:serializeCampaignSettings(),summary:state.campaignRun.summary,dailySnapshots:state.campaignRun.days,layerMetadata:campaignLayerSummaries(),resourceMetadata:state.estimator.resources}; }
+function renderCampaignCapacity(){
+  if(!els.campaignCapacity) return;
+  const bandGroups = campaignBandMetadata().map((band) => `
+    <div class="campaign-band-group">
+      <h4>${escapeHtml(band.label)}</h4>
+      ${state.estimator.resources.map((resource) => `<label>${escapeHtml(resource.label)} fire capacity/day <input data-fire-band="${escapeHtml(band.id)}" data-fire-resource="${escapeHtml(resource.id)}" type="number" min="0" step="1" value="${state.campaign.fireCapacityPerDayByBand?.[band.id]?.[resource.id]||0}"></label>`).join("") || '<div class="empty-state">No resource types configured.</div>'}
+    </div>
+  `).join("");
+  els.campaignCapacity.innerHTML=`<label>Command capacity per day <input id="campaignCommandCapacity" type="number" min="0" step="1" value="${state.campaign.commandCapacityPerDay}"></label>${bandGroups || '<div class="empty-state">No range bands configured.</div>'}`;
+  document.getElementById('campaignCommandCapacity').onchange=e=>updateCampaignSetting('commandCapacityPerDay',e.target.value);
+  els.campaignCapacity.querySelectorAll('[data-fire-band]').forEach((input)=>input.onchange=(event)=>updateCampaignSetting(`fireCapacityPerDayByBand.${event.target.dataset.fireBand}.${event.target.dataset.fireResource}`,event.target.value));
+}
+function renderCampaignSupply(){
+  if(!els.campaignSupply) return;
+  const day=state.campaignRun.days[state.campaignRun.currentDayIndex];
+  const groups = campaignBandMetadata().map((band) => `
+    <div class="campaign-band-group">
+      <h4>${escapeHtml(band.label)}</h4>
+      ${state.estimator.resources.map((resource)=>`<div class="campaign-supply-row"><strong>${escapeHtml(resource.label)}</strong><label>Initial <input data-stock-band="${escapeHtml(band.id)}" data-stock-resource="${escapeHtml(resource.id)}" type="number" min="0" value="${state.campaign.initialStockByBand?.[band.id]?.[resource.id]||0}"></label><label>Monthly production <input data-prod-band="${escapeHtml(band.id)}" data-prod-resource="${escapeHtml(resource.id)}" type="number" min="0" value="${state.campaign.productionMonthlyByBand?.[band.id]?.[resource.id]||0}"></label><span>Daily: ${numberFmt(dailyProductionForDate(band.id,resource.id,state.campaign.startDate),3)} / stock: ${numberFmt(day?.endingStockByBandResource?.[band.id]?.[resource.id]??state.campaign.initialStockByBand?.[band.id]?.[resource.id]??0,2)}</span></div>`).join("") || '<div class="empty-state">No resource types configured.</div>'}
+    </div>
+  `).join("");
+  els.campaignSupply.innerHTML=groups || '<div class="empty-state">No range bands configured.</div>';
+  els.campaignSupply.querySelectorAll('[data-stock-band]').forEach((input)=>input.onchange=(event)=>updateCampaignSetting(`initialStockByBand.${event.target.dataset.stockBand}.${event.target.dataset.stockResource}`,event.target.value));
+  els.campaignSupply.querySelectorAll('[data-prod-band]').forEach((input)=>input.onchange=(event)=>updateCampaignSetting(`productionMonthlyByBand.${event.target.dataset.prodBand}.${event.target.dataset.prodResource}`,event.target.value));
+}
+function renderCampaignDashboard(){
+  if(!els.campaignDashboard) return;
+  const day=campaignSelectedDay();
+  if(!state.campaignRun.days.length){ els.campaignDashboard.innerHTML='<div class="empty-state">Run simulation to see the campaign dashboard.</div>'; return; }
+  const total=campaignScopeEntries().length;
+  const executed=day?sumValues(day.cumulativeExecutedByLayer):0;
+  const remaining=day?sumValues(day.remainingTargetsByLayer):total;
+  const cumulativeProduction=day?campaignCumulativeProductionByBand(day.dayIndex):emptyBandResourceMap(0);
+  const depleted=campaignLayerDepletedDays();
+  const completion=state.campaignRun.summary?.completionDate || "Not completed";
+  const resourceRows=campaignBandMetadata().flatMap((band)=>state.estimator.resources.map((resource)=>`<tr><td>${escapeHtml(band.label)}<br><small>${escapeHtml(band.id)}</small></td><td>${escapeHtml(resource.label)}</td><td>${numberFmt(state.campaign.initialStockByBand?.[band.id]?.[resource.id]||0,2)}</td><td>${numberFmt(cumulativeProduction?.[band.id]?.[resource.id]||0,2)}</td><td>${numberFmt(day?.cumulativeExpendedByBandResource?.[band.id]?.[resource.id]||0,2)}</td><td>${numberFmt(day?.endingStockByBandResource?.[band.id]?.[resource.id]??state.campaign.initialStockByBand?.[band.id]?.[resource.id]??0,2)}</td><td>${numberFmt(day?.requestedSupplyDeltaByBandResource?.[band.id]?.[resource.id]||0,2)}</td><td>${numberFmt((day?.fireCapacityByBandResource?.[band.id]?.[resource.id]||0)-(day?.fireCapacityRemainingByBandResource?.[band.id]?.[resource.id]||0),2)} / ${numberFmt(day?.fireCapacityByBandResource?.[band.id]?.[resource.id]||0,2)}</td></tr>`)).join("");
+  const layerRows=campaignLayerSummaries().map((l,idx)=>`<tr><td>${escapeHtml(l.label)}<br><small>${escapeHtml(l.id)}</small></td><td>${l.total}</td><td>${day?.cumulativeExecutedByLayer?.[l.id]||0}</td><td>${day?.remainingTargetsByLayer?.[l.id]??l.total}</td><td>${numberFmt(state.campaign.layerWeights[l.id]??0,2)}</td><td>${idx+1}</td><td>${depleted[l.id]||""}</td></tr>`).join("");
+  els.campaignDashboard.innerHTML=`<div class="campaign-cards"><div><strong>${total}</strong><span>Total entries</span></div><div><strong>${executed}</strong><span>Executed</span></div><div><strong>${remaining}</strong><span>Remaining</span></div><div><strong>${campaignDayLabel(day)}</strong><span>Current day</span></div><div><strong>${state.campaignRun.summary?.elapsedDays||0}</strong><span>Elapsed days</span></div><div><strong>${escapeHtml(completion)}</strong><span>Completion date</span></div></div>${state.campaignRun.summary?.warning?`<p class="warning">${escapeHtml(state.campaignRun.summary.warning)}</p>`:''}<h4>Resources</h4><div class="campaign-table"><table><thead><tr><th>Range band</th><th>Resource</th><th>Initial</th><th>Production</th><th>Expended</th><th>Ending stock</th><th>Requested delta</th><th>Fire used</th></tr></thead><tbody>${resourceRows}</tbody></table></div><h4>Layers</h4><div class="campaign-table"><table><thead><tr><th>Layer</th><th>Total</th><th>Executed</th><th>Remaining</th><th>Weight</th><th>Priority</th><th>Depleted day</th></tr></thead><tbody>${layerRows}</tbody></table></div>`;
+}
+function campaignBandResourceLines(day, field) {
+  return campaignBandMetadata().flatMap((band)=>state.estimator.resources.map((resource)=>`${escapeHtml(band.label)} / ${escapeHtml(resource.label)}: ${numberFmt(day?.[field]?.[band.id]?.[resource.id]||0,2)}`)).join("<br>");
+}
+function renderCampaignDailyTable(){
+  if(!els.campaignDailyTable) return;
+  if(!state.campaignRun.days.length){ els.campaignDailyTable.innerHTML='<div class="empty-state">Run simulation to build the daily timeline.</div>'; return; }
+  const rows=state.campaignRun.days.map((d)=>`<tr data-day="${d.dayIndex}"><td>${d.dayIndex+1}</td><td>${d.date}</td><td>${sumValues(d.executedTargetsByLayer)}</td><td>${sumValues(d.deferredTargetsByLayer)}</td><td>${sumValues(d.remainingTargetsByLayer)}</td><td>${campaignBandResourceLines(d,"expendedByBandResource")}</td><td>${campaignBandResourceLines(d,"endingStockByBandResource")}</td><td>${campaignBandResourceLines(d,"requestedSupplyDeltaByBandResource")}</td></tr>`).join('');
+  els.campaignDailyTable.innerHTML=`<table><thead><tr><th>Day</th><th>Date</th><th>Executed</th><th>Deferred</th><th>Remaining</th><th>Range/resource expended</th><th>Range/resource stock</th><th>Requested delta by range/resource</th></tr></thead><tbody>${rows}</tbody></table>`;
+  els.campaignDailyTable.querySelectorAll('[data-day]').forEach(r=>r.onclick=e=>setCampaignDay(Number(e.currentTarget.dataset.day)));
+}
+function buildCampaignTimelineCsv(){
+  const fields=['day_index','date','range_band_id','range_band_label','layer_id','layer_label','requested_targets','executed_targets','deferred_targets','remaining_targets','resource_id','resource_label','requested_demand','expended','daily_production','starting_stock','available_supply','ending_stock','fire_capacity','fire_capacity_remaining','requested_supply_delta','executed_supply_delta','cumulative_expended'];
+  const lines=[fields.join(',')];
+  for(const d of state.campaignRun.days){
+    for(const l of campaignLayerSummaries()) for(const band of campaignBandMetadata()) for(const r of state.estimator.resources){
+      const row={day_index:d.dayIndex,date:d.date,range_band_id:band.id,range_band_label:band.label,layer_id:l.id,layer_label:l.label,requested_targets:d.requestedTargetsByLayerBand?.[l.id]?.[band.id]||0,executed_targets:d.executedTargetsByLayerBand?.[l.id]?.[band.id]||0,deferred_targets:d.deferredTargetsByLayerBand?.[l.id]?.[band.id]||0,remaining_targets:d.remainingTargetsByLayerBand?.[l.id]?.[band.id]||0,resource_id:r.id,resource_label:r.label,requested_demand:d.requestedDemandByLayerBandResource?.[l.id]?.[band.id]?.[r.id]||0,expended:d.expendedByLayerBandResource?.[l.id]?.[band.id]?.[r.id]||0,daily_production:d.productionByBandResource?.[band.id]?.[r.id]||0,starting_stock:d.startingStockByBandResource?.[band.id]?.[r.id]||0,available_supply:d.availableSupplyByBandResource?.[band.id]?.[r.id]||0,ending_stock:d.endingStockByBandResource?.[band.id]?.[r.id]||0,fire_capacity:d.fireCapacityByBandResource?.[band.id]?.[r.id]||0,fire_capacity_remaining:d.fireCapacityRemainingByBandResource?.[band.id]?.[r.id]||0,requested_supply_delta:d.requestedSupplyDeltaByBandResource?.[band.id]?.[r.id]||0,executed_supply_delta:d.executedSupplyDeltaByBandResource?.[band.id]?.[r.id]||0,cumulative_expended:d.cumulativeExpendedByBandResource?.[band.id]?.[r.id]||0};
+      lines.push(fields.map(f=>csvEscape(row[f])).join(','));
+    }
+  }
+  return lines.join('\r\n');
+}
+function buildCampaignTimelineJson(){ return {exportedAt:new Date().toISOString(),settings:serializeCampaignSettings(),summary:state.campaignRun.summary,dailySnapshots:state.campaignRun.days,rangeBandMetadata:campaignBandMetadata(),layerMetadata:campaignLayerSummaries(),resourceMetadata:state.estimator.resources}; }
 function exportCampaignTimelineCsv(){ if(!state.campaignRun.days.length) return alert('Run simulation before exporting timeline CSV.'); downloadTextFile(`campaign_timeline_${new Date().toISOString().replace(/[:.]/g,'-')}.csv`,buildCampaignTimelineCsv(),'text/csv;charset=utf-8'); }
 function exportCampaignTimelineJson(){ if(!state.campaignRun.days.length) return alert('Run simulation before exporting timeline JSON.'); downloadTextFile(`campaign_timeline_${new Date().toISOString().replace(/[:.]/g,'-')}.json`,JSON.stringify(buildCampaignTimelineJson(),null,2),'application/json;charset=utf-8'); }
 function campaignProfileSnapshot(name){ return {version:APP_VERSION,name,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),...serializeCampaignSettings(),profiles:undefined}; }
 function exportCampaignProfile(){ downloadTextFile(`campaign_profile_${new Date().toISOString().replace(/[:.]/g,'-')}.json`,JSON.stringify(campaignProfileSnapshot('Campaign profile'),null,2),'application/json;charset=utf-8'); }
 function campaignProfilePayloadFromImport(parsed) {
   const payload = parsed?.campaign && typeof parsed.campaign === "object" && !Array.isArray(parsed.campaign) ? parsed.campaign : parsed;
-  const knownKeys = ["startDate","maxSimulationDays","allocationMode","layerPriorityOrder","layerWeights","commandCapacityPerDay","fireCapacityPerDay","initialStock","productionMonthly","playbackSpeedMs"];
+  const knownKeys = ["startDate","maxSimulationDays","allocationMode","layerPriorityOrder","layerWeights","commandCapacityPerDay","fireCapacityPerDay","fireCapacityPerDayByBand","initialStock","initialStockByBand","productionMonthly","productionMonthlyByBand","playbackSpeedMs"];
   if (!payload || typeof payload !== "object" || Array.isArray(payload) || !knownKeys.some((key) => Object.prototype.hasOwnProperty.call(payload, key))) {
     throw new Error("Profile JSON does not contain campaign settings.");
   }
@@ -3979,7 +4284,7 @@ function loadCampaignProfile(){ const p=state.campaign.profiles[Number(els.campa
 function deleteCampaignProfile(){ const i=Number(els.campaignProfileSelect?.value); if(Number.isInteger(i)){ state.campaign.profiles.splice(i,1); renderCampaignProfiles(); savePreferencesNow(); }}
 function renderCampaignPlayer(){ if(!els.campaignPlayer) return; const noScope=!campaignScopeEntries().length, noRun=!state.campaignRun.days.length; const day=campaignSelectedDay(); els.campaignPlayer.innerHTML=`<div class="actions-row"><button id="campaignRunBtn" ${noScope?'disabled':''}>Recalculate / Run simulation</button><button id="campaignResetBtn" ${noRun?'disabled':''}>Reset run</button><button id="campaignPrevBtn" ${noRun?'disabled':''}>Previous</button><button id="campaignPlayBtn" ${state.campaignRun.stale||noRun?'disabled':''}>${state.campaignRun.playing?'Pause':'Play'}</button><button id="campaignNextBtn" ${noRun?'disabled':''}>Next</button></div><input id="campaignDaySlider" type="range" min="0" max="${Math.max(0,state.campaignRun.days.length-1)}" value="${Math.max(0,state.campaignRun.currentDayIndex)}" ${noRun?'disabled':''}><div>${campaignDayLabel(day)} ${state.campaignRun.stale?'<span class="warning">Stale: recalculate required.</span>':''}</div>`; document.getElementById('campaignRunBtn').onclick=recalculateCampaign; document.getElementById('campaignResetBtn').onclick=resetCampaignPlayback; document.getElementById('campaignPrevBtn').onclick=()=>stepCampaign(-1); document.getElementById('campaignNextBtn').onclick=()=>stepCampaign(1); document.getElementById('campaignPlayBtn').onclick=()=>state.campaignRun.playing?pauseCampaign():playCampaign(); document.getElementById('campaignDaySlider').oninput=e=>setCampaignDay(Number(e.target.value)); }
 function updateCampaignExportButtons(){ const disabled=!state.campaignRun.days.length; if(els.exportCampaignTimelineCsvBtn) els.exportCampaignTimelineCsvBtn.disabled=disabled; if(els.exportCampaignTimelineJsonBtn) els.exportCampaignTimelineJsonBtn.disabled=disabled; }
-function renderCampaign(){ if(!state.campaign) state.campaign=normalizeCampaignSettings(state.savedPreferences?.campaign); if(els.campaignScopeSummary) els.campaignScopeSummary.textContent=`${campaignScopeEntries().length.toLocaleString()} entries from current radius`; if(els.campaignStatus) els.campaignStatus.textContent=campaignScopeEntries().length?'Campaign scope ready.':'Draw a radius on the map to define the campaign scope.'; renderCampaignProfiles(); renderCampaignSettings(); renderCampaignLayerAllocation(); renderCampaignCapacity(); renderCampaignSupply(); renderCampaignPlayer(); renderCampaignDashboard(); renderCampaignDailyTable(); updateCampaignExportButtons(); }
+function renderCampaign(){ state.campaign=normalizeCampaignSettings(state.campaign || state.savedPreferences?.campaign); if(els.campaignScopeSummary) els.campaignScopeSummary.textContent=`${campaignScopeEntries().length.toLocaleString()} entries from current radius`; if(els.campaignStatus) els.campaignStatus.textContent=campaignScopeEntries().length?'Campaign scope ready.':'Draw a radius on the map to define the campaign scope.'; renderCampaignProfiles(); renderCampaignSettings(); renderCampaignLayerAllocation(); renderCampaignCapacity(); renderCampaignSupply(); renderCampaignPlayer(); renderCampaignDashboard(); renderCampaignDailyTable(); updateCampaignExportButtons(); }
 
 function exportEstimatorAssumptions() {
   const payload = {
@@ -4005,6 +4310,7 @@ function importEstimatorAssumptionsFromText(text) {
   });
   renderEstimator();
   state.campaign = normalizeCampaignSettings(state.campaign);
+  state.campaignRun.stale = true;
   renderCampaign();
   savePreferencesNow();
 }
@@ -4120,6 +4426,7 @@ els.addRangeBandBtn.addEventListener("click", () => {
   renderRangeBands();
   refreshRadiusRangeOverlay();
   renderEstimatorResults();
+  if (state.campaign) syncCampaignResourceShape();
   savePreferencesNow();
 });
 els.exportAssumptionsBtn.addEventListener("click", exportEstimatorAssumptions);
