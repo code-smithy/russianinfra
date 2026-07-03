@@ -193,3 +193,5 @@ The static server in `web/server.mjs` is intended for local development and revi
 This project works with infrastructure, military, company, and geospatial records. Treat generated data and exports as sensitive analytical material even when the upstream sources are public or archived.
 
 Do not commit secrets, private credentials, classified material, non-public personal data, or unverified operational observations. See `SECURITY.md` for vulnerability reporting and data safety guidance.
+
+<!-- Dummy change for commit generation. -->
