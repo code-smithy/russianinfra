@@ -408,6 +408,35 @@ test("places Timeline and Build comparison at the bottom of their sidebars", () 
   assert.ok(html.indexOf('id="changeReportPanel"') > html.indexOf('id="estimatorPanel"'));
 });
 
+test("campaign input masks have matching information explanations", () => {
+  const html = fs.readFileSync("web/index.html", "utf8");
+  const js = fs.readFileSync("web/app.js", "utf8");
+  const campaignInputMasks = [
+    ["campaignSettings", "campaignSettingsInfoBtn"],
+    ["campaignLayerAllocation", "campaignLayerAllocationInfoBtn"],
+    ["campaignCapacity", "campaignCapacityInfoBtn"],
+    ["campaignSupply", "campaignSupplyInfoBtn"],
+  ];
+
+  for (const [topic, buttonId] of campaignInputMasks) {
+    assert.match(html, new RegExp(`id="${buttonId}"[^>]+data-info-topic="${topic}"`));
+    assert.match(html, new RegExp(`id="${topic}"`));
+    assert.match(js, new RegExp(`${topic}: \\{[\\s\\S]*?paragraphs:`));
+    assert.match(js, new RegExp(`"${buttonId}"`));
+  }
+});
+
+test("version metadata includes the campaign explanation release", () => {
+  const html = fs.readFileSync("web/index.html", "utf8");
+  const js = fs.readFileSync("web/app.js", "utf8");
+  const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
+
+  assert.equal(packageJson.version, "0.13.0");
+  assert.match(js, /const APP_VERSION = "0\.13\.0"/);
+  assert.match(html, /id="appVersion"[^>]*>v0\.13\.0</);
+  assert.match(js, /version: "0\.13\.0"[\s\S]*Adds information popovers to Campaign Settings/);
+});
+
 test("saves and restores resized menu widths", async () => {
   const first = createAppContext();
   await first.__initPromise;

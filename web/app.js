@@ -1,5 +1,5 @@
 const DATA_DIR = "data/";
-const APP_VERSION = "0.12.0";
+const APP_VERSION = "0.13.0";
 const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
@@ -141,10 +141,11 @@ const INFO_TOPICS = {
   app: {
     title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
     paragraphs: [
-      "Version 0.12.0 lets Resource types be added and removed, and keeps Campaign settings synchronized with the active resource list. Version 0.11.0 adds Campaign resource substitution and tracks substituted demand in dashboards, timelines, and exports.",
+      "Version 0.13.0 adds Campaign help explanations for settings, layer allocation, capacity, and supply inputs. Version 0.12.0 lets Resource types be added and removed, and keeps Campaign settings synchronized with the active resource list.",
       "Highlights include Nightwatch military map scraping, resilient OSINT Varta archive capture selection, automatic country-boundary bootstrapping, and a durable compressed comparison baseline for scheduled builds.",
     ],
     history: [
+      { version: "0.13.0", date: "2026-07-07", notes: ["Adds information popovers to Campaign Settings, Layer priority and allocation, Capacity, and Supply and production.", "Explains allocation modes, layer priorities and weights, command/fire capacity, initial stock, monthly production, range-band separation, and resource substitution behavior.", "Adds coverage so new Campaign input-mask sections are expected to include matching information explanations."] },
       { version: "0.12.0", date: "2026-07-07", notes: ["Adds Resource type creation and removal controls to the Scenario Estimator.", "Persists arbitrary resource type lists in estimator settings and profiles instead of forcing the three default resources.", "Re-shapes Campaign capacity, stock, production, and substitution settings when resource types change."] },
       { version: "0.11.0", date: "2026-07-02", notes: ["Adds configurable Campaign resource substitution with off, priority, weighted, and split-evenly modes.", "Keeps substitution atomic per target increment and preserves same-range-band behavior by default.", "Shows substituted-in and substituted-out demand in Campaign dashboards, daily timelines, CSV export, JSON export, saved profiles, and tests."] },
       { version: "0.10.0", date: "2026-07-02", notes: ["Makes Campaign supply, production, and fire capacity range-band-specific.", "Migrates legacy flat Campaign resource settings into the first configured range band.", "Adds band-aware Campaign dashboard, daily timeline, CSV export, JSON export, and tests for no cross-band borrowing."] },
@@ -230,6 +231,38 @@ const INFO_TOPICS = {
     paragraphs: [
       "Shows the calculated effector demand from the current radius results and estimator assumptions.",
       "Per row, the calculation is: targets x effectors per target / survivability, rounded up to a whole effector count.",
+    ],
+  },
+  campaignSettings: {
+    title: "Campaign settings",
+    paragraphs: [
+      "Controls the simulation calendar, run length, playback speed, allocation mode, and optional resource substitution behavior.",
+      "Weighted allocation splits each day by layer weights. Sequential allocation spends daily command capacity in priority order before moving to the next layer.",
+      "Resource substitution can replace unavailable demand with other resource types. Priority mode tries substitutes in order, weighted mode distributes by substitute weights, and split evenly divides demand across available substitutes.",
+    ],
+  },
+  campaignLayerAllocation: {
+    title: "Layer priority and allocation",
+    paragraphs: [
+      "Sets how campaign scope entries are selected from the current radius results when daily command capacity is limited.",
+      "Priority is the strict layer order used for sequential allocation and for tie-breaking. Allocation is the layer weight used by weighted allocation.",
+      "The entry, executed, and remaining counts show the current campaign scope or selected simulation day for each layer.",
+    ],
+  },
+  campaignCapacity: {
+    title: "Capacity",
+    paragraphs: [
+      "Command capacity per day limits how many targets the campaign can attempt on each simulated day.",
+      "Fire capacity per day is tracked separately by range band and resource type. A target can execute only when the required resource capacity remains in that same range band.",
+      "Capacity limits reset each day; stock and production determine whether enough supply exists across the whole run.",
+    ],
+  },
+  campaignSupply: {
+    title: "Supply and production",
+    paragraphs: [
+      "Initial stock is the starting inventory for each range band and resource type.",
+      "Monthly production is converted to calendar-aware daily production from the campaign start date, then added to stock as the simulation advances.",
+      "Supply is separated by range band by default. Demand in one range band does not borrow stock, production, or fire capacity from another band.",
     ],
   },
 };
@@ -494,6 +527,10 @@ function setupInfoButtons() {
     "resourceTypesInfoBtn",
     "categoryAssumptionsInfoBtn",
     "estimateInfoBtn",
+    "campaignSettingsInfoBtn",
+    "campaignLayerAllocationInfoBtn",
+    "campaignCapacityInfoBtn",
+    "campaignSupplyInfoBtn",
   ];
   for (const id of buttonIds) {
     const button = document.getElementById(id);
