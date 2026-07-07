@@ -1945,6 +1945,25 @@ test("campaign substitution disabled preserves strict resource availability beha
   assert.equal(day.substitutionByBandResource[bandId].resource_a.substitutedOut, 0);
 });
 
+test("campaign daily timeline requested delta only displays deficits", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const bandId = configureSingleTargetCampaign(api);
+  setCampaignBandResource(api, bandId, "resource_a", 10, 10);
+  setCampaignBandResource(api, bandId, "resource_b", 0, 10);
+  setCampaignBandResource(api, bandId, "resource_c", 10, 10);
+
+  const day = api.recalculateCampaign().days[0];
+
+  assert.equal(day.requestedSupplyDeltaByBandResource[bandId].resource_a, 9);
+  assert.equal(day.requestedSupplyDeltaByBandResource[bandId].resource_b, -1);
+  assert.equal(day.requestedSupplyDeltaByBandResource[bandId].resource_c, 9);
+  assert.match(api.els.campaignDailyTable.innerHTML, /Resource B: -1/);
+  assert.doesNotMatch(api.els.campaignDailyTable.innerHTML, /Resource A: 9/);
+  assert.doesNotMatch(api.els.campaignDailyTable.innerHTML, /Resource C: 9/);
+});
+
 test("campaign priority substitution executes with substitute stock and tracks notes", async () => {
   const app = createAppContext();
   await app.__initPromise;

@@ -4635,6 +4635,13 @@ function renderCampaignDashboard(){
 function campaignBandResourceLines(day, field) {
   return campaignBandMetadata().flatMap((band)=>state.estimator.resources.map((resource)=>`${escapeHtml(band.label)} / ${escapeHtml(resource.label)}: ${numberFmt(day?.[field]?.[band.id]?.[resource.id]||0,2)}`)).join("<br>");
 }
+function campaignRequestedSupplyDeltaLines(day) {
+  return campaignBandMetadata().flatMap((band)=>state.estimator.resources.map((resource)=>{
+    const value = Number(day?.requestedSupplyDeltaByBandResource?.[band.id]?.[resource.id] || 0);
+    if (!(value < 0)) return "";
+    return `${escapeHtml(band.label)} / ${escapeHtml(resource.label)}: ${numberFmt(value,2)}`;
+  }).filter(Boolean)).join("<br>");
+}
 function campaignBandResourceSubstitutionLines(day) {
   return campaignBandMetadata().flatMap((band)=>state.estimator.resources.map((resource)=>{
     const row = day?.substitutionByBandResource?.[band.id]?.[resource.id] || {};
@@ -4647,7 +4654,7 @@ function campaignBandResourceSubstitutionLines(day) {
 function renderCampaignDailyTable(){
   if(!els.campaignDailyTable) return;
   if(!state.campaignRun.days.length){ els.campaignDailyTable.innerHTML='<div class="empty-state">Run simulation to build the daily timeline.</div>'; return; }
-  const rows=state.campaignRun.days.map((d)=>`<tr data-day="${d.dayIndex}"><td>${d.dayIndex+1}</td><td>${d.date}</td><td>${sumValues(d.executedTargetsByLayer)}</td><td>${sumValues(d.deferredTargetsByLayer)}</td><td>${sumValues(d.remainingTargetsByLayer)}</td><td>${campaignBandResourceLines(d,"expendedByBandResource")}</td><td>${campaignBandResourceSubstitutionLines(d)}</td><td>${campaignBandResourceLines(d,"endingStockByBandResource")}</td><td>${campaignBandResourceLines(d,"requestedSupplyDeltaByBandResource")}</td></tr>`).join('');
+  const rows=state.campaignRun.days.map((d)=>`<tr data-day="${d.dayIndex}"><td>${d.dayIndex+1}</td><td>${d.date}</td><td>${sumValues(d.executedTargetsByLayer)}</td><td>${sumValues(d.deferredTargetsByLayer)}</td><td>${sumValues(d.remainingTargetsByLayer)}</td><td>${campaignBandResourceLines(d,"expendedByBandResource")}</td><td>${campaignBandResourceSubstitutionLines(d)}</td><td>${campaignBandResourceLines(d,"endingStockByBandResource")}</td><td>${campaignRequestedSupplyDeltaLines(d)}</td></tr>`).join('');
   els.campaignDailyTable.innerHTML=`<table><thead><tr><th>Day</th><th>Date</th><th>Executed</th><th>Deferred</th><th>Remaining</th><th>Range/resource expended</th><th>Substitution</th><th>Range/resource stock</th><th>Requested delta by range/resource</th></tr></thead><tbody>${rows}</tbody></table>`;
   els.campaignDailyTable.querySelectorAll('[data-day]').forEach(r=>r.onclick=e=>setCampaignDay(Number(e.currentTarget.dataset.day)));
 }
