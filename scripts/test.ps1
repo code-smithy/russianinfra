@@ -1,22 +1,26 @@
 $ErrorActionPreference = "Stop"
 
-$node = (Get-Command node -ErrorAction SilentlyContinue).Source
-if (-not $node) {
-  $node = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
+$bundledNode = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
+$node = if (Test-Path $bundledNode) {
+  $bundledNode
+} else {
+  (Get-Command node -ErrorAction SilentlyContinue).Source
 }
 
-if (-not (Test-Path $node)) {
+if (-not $node -or -not (Test-Path $node)) {
   throw "Node.js was not found. Install Node.js or run from the Codex desktop environment."
 }
 
 & $node --test "web/test/*.test.mjs"
 
-$python = (Get-Command python -ErrorAction SilentlyContinue).Source
-if (-not $python) {
-  $python = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+$bundledPython = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+$python = if (Test-Path $bundledPython) {
+  $bundledPython
+} else {
+  (Get-Command python -ErrorAction SilentlyContinue).Source
 }
 
-if (-not (Test-Path $python)) {
+if (-not $python -or -not (Test-Path $python)) {
   throw "Python was not found. Install Python 3.10+ or run from the Codex desktop environment."
 }
 

@@ -1069,6 +1069,34 @@ test("scenario estimator imports and persists editable assumptions", async () =>
   assert.equal(saved.categoryRequirements.energy_facilities, 3);
 });
 
+test("scenario estimator preserves imported resource lists beyond the defaults", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  api.importEstimatorAssumptionsFromText(JSON.stringify({
+    estimator: {
+      resources: [
+        { id: "resource_alpha", label: "Alpha", completionRate: 90 },
+        { id: "resource_beta", label: "Beta", completionRate: 80 },
+        { id: "resource_gamma", label: "Gamma", completionRate: 70 },
+        { id: "resource_delta", label: "Delta", completionRate: 60 },
+      ],
+    },
+  }));
+
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.estimator.resources.map((resource) => resource.id))), [
+    "resource_alpha",
+    "resource_beta",
+    "resource_gamma",
+    "resource_delta",
+  ]);
+  assert.equal(api.currentPreferences().estimator.resources.length, 4);
+  const firstBandId = api.campaignBandIds()[0];
+  assert.equal(api.state.campaign.initialStockByBand[firstBandId].resource_delta, 0);
+  assert.equal(api.state.campaign.fireCapacityPerDayByBand[firstBandId].resource_delta, 0);
+});
+
 test("scenario estimator clear all restores default assumptions", async () => {
   const app = createAppContext();
   await app.__initPromise;
@@ -1133,6 +1161,62 @@ test("scenario estimator saves loads and deletes range/resource profiles", async
   api.els.deleteEstimatorProfileBtn.listeners.click[0]();
   assert.equal(api.state.estimator.profiles.length, 0);
   assert.equal(api.els.estimatorProfileSelect.disabled, true);
+});
+
+test("resource type controls add remove and re-shape campaign settings", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  const firstBandId = api.campaignBandIds()[0];
+  api.state.campaign.initialStockByBand[firstBandId].resource_b = 22;
+  api.state.campaign.resourceSubstitution = api.normalizeCampaignSettings({
+    resourceSubstitution: {
+      enabled: true,
+      mode: "priority",
+      preserveRangeBand: true,
+      substitutePriorityOrder: ["resource_b", "resource_c"],
+      substituteWeights: {},
+    },
+  }).resourceSubstitution;
+
+  api.els.addResourceTypeBtn.listeners.click[0]();
+
+  assert.equal(api.state.estimator.resources.length, 4);
+  const added = api.state.estimator.resources[3];
+  assert.equal(added.id, "resource_d");
+  assert.equal(api.state.campaign.initialStockByBand[firstBandId].resource_d, 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.campaign.resourceSubstitution.substitutePriorityOrder)), [
+    "resource_b",
+    "resource_c",
+    "resource_a",
+    "resource_d",
+  ]);
+
+  const addedRow = api.els.resourceTypesList.children[3];
+  addedRow.children[0].value = "Drone";
+  addedRow.children[0].listeners.input[0]();
+  addedRow.children[1].value = "88";
+  addedRow.children[1].listeners.input[0]();
+  assert.equal(api.state.estimator.resources[3].label, "Drone");
+  assert.equal(api.state.estimator.resources[3].completionRate, 88);
+  assert.equal(api.state.campaignRun.stale, true);
+
+  const secondRow = api.els.resourceTypesList.children[1];
+  secondRow.children[2].listeners.click[0]();
+
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.estimator.resources.map((resource) => resource.id))), [
+    "resource_a",
+    "resource_c",
+    "resource_d",
+  ]);
+  assert.equal(api.state.campaign.initialStockByBand[firstBandId].resource_b, undefined);
+  assert.equal(api.state.campaign.initialStockByBand[firstBandId].resource_d, 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.campaign.resourceSubstitution.substitutePriorityOrder)), [
+    "resource_c",
+    "resource_a",
+    "resource_d",
+  ]);
 });
 
 test("category assumptions use number inputs", async () => {

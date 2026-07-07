@@ -1,5 +1,5 @@
 const DATA_DIR = "data/";
-const APP_VERSION = "0.11.0";
+const APP_VERSION = "0.12.0";
 const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
@@ -141,10 +141,11 @@ const INFO_TOPICS = {
   app: {
     title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
     paragraphs: [
-      "Version 0.11.0 adds Campaign resource substitution and tracks substituted demand in dashboards, timelines, and exports. Version 0.10.0 makes Campaign resource supply, production, and fire capacity range-band-specific.",
+      "Version 0.12.0 lets Resource types be added and removed, and keeps Campaign settings synchronized with the active resource list. Version 0.11.0 adds Campaign resource substitution and tracks substituted demand in dashboards, timelines, and exports.",
       "Highlights include Nightwatch military map scraping, resilient OSINT Varta archive capture selection, automatic country-boundary bootstrapping, and a durable compressed comparison baseline for scheduled builds.",
     ],
     history: [
+      { version: "0.12.0", date: "2026-07-07", notes: ["Adds Resource type creation and removal controls to the Scenario Estimator.", "Persists arbitrary resource type lists in estimator settings and profiles instead of forcing the three default resources.", "Re-shapes Campaign capacity, stock, production, and substitution settings when resource types change."] },
       { version: "0.11.0", date: "2026-07-02", notes: ["Adds configurable Campaign resource substitution with off, priority, weighted, and split-evenly modes.", "Keeps substitution atomic per target increment and preserves same-range-band behavior by default.", "Shows substituted-in and substituted-out demand in Campaign dashboards, daily timelines, CSV export, JSON export, saved profiles, and tests."] },
       { version: "0.10.0", date: "2026-07-02", notes: ["Makes Campaign supply, production, and fire capacity range-band-specific.", "Migrates legacy flat Campaign resource settings into the first configured range band.", "Adds band-aware Campaign dashboard, daily timeline, CSV export, JSON export, and tests for no cross-band borrowing."] },
       { version: "0.9.0", date: "2026-07-01", notes: ["Adds Campaign Timeline Planner tab.", "Supports weighted or strict layer allocation from current radius results.", "Adds daily command capacity, per-resource fire capacity, initial stock, monthly production, calendar-aware daily production, demand/supply deltas, playback, map status styling, and CSV/JSON export."] },
@@ -365,6 +366,7 @@ const els = {
   resourceTypesBody: document.getElementById("resourceTypesBody"),
   resourceTypesToggle: document.getElementById("resourceTypesToggle"),
   resourceTypesList: document.getElementById("resourceTypesList"),
+  addResourceTypeBtn: document.getElementById("addResourceTypeBtn"),
   categoryAssumptionsBlock: document.getElementById("categoryAssumptionsBlock"),
   categoryAssumptionsBody: document.getElementById("categoryAssumptionsBody"),
   categoryAssumptionsToggle: document.getElementById("categoryAssumptionsToggle"),
@@ -1049,6 +1051,57 @@ function profileId(name) {
     .slice(0, 48) || `profile_${Date.now()}`;
 }
 
+function resourceLetter(index) {
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  let n = Math.max(0, Number(index) || 0);
+  let value = "";
+  do {
+    value = letters[n % letters.length] + value;
+    n = Math.floor(n / letters.length) - 1;
+  } while (n >= 0);
+  return value;
+}
+
+function resourceFallbackLabel(index) {
+  return `Resource ${resourceLetter(index)}`;
+}
+
+function slugId(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 48);
+}
+
+function resourceIdFromLabel(label, index = 0) {
+  const id = slugId(label).replace(/^resource_?/, "");
+  return id ? `resource_${id}` : `resource_${resourceLetter(index).toLowerCase()}`;
+}
+
+function uniqueResourceId(rawId, label, index, seen) {
+  const base = slugId(rawId) || resourceIdFromLabel(label, index);
+  let candidate = base;
+  let suffix = 2;
+  while (seen.has(candidate)) {
+    candidate = `${base}_${suffix}`;
+    suffix += 1;
+  }
+  seen.add(candidate);
+  return candidate;
+}
+
+function nextResourceTemplate(resources = state.estimator.resources) {
+  const seen = new Set(resources.map((resource) => resource.id));
+  for (let index = 0; index < 52; index += 1) {
+    const label = resourceFallbackLabel(index);
+    const id = resourceIdFromLabel(label, index);
+    if (!seen.has(id)) return { id, label, completionRate: 100 };
+  }
+  return { id: `resource_${Date.now()}`, label: `Resource ${resources.length + 1}`, completionRate: 100 };
+}
+
 function estimatorProfileSnapshot(name) {
   return {
     id: profileId(name),
@@ -1106,15 +1159,21 @@ function normalizeEstimatorAssumptions(saved) {
   rangeBands.push({ id: "band_open", maxKm: null });
 
   const savedResources = Array.isArray(saved?.resources) ? saved.resources : [];
-  const savedById = new Map(savedResources.map((resource) => [resource?.id, resource]));
-  const resources = defaults.resources.map((resource) => {
-    const savedResource = savedById.get(resource.id) || {};
-    return {
-      id: resource.id,
-      label: String(savedResource.label || resource.label).trim().slice(0, 60) || resource.label,
-      completionRate: boundedNumber(savedResource.completionRate, resource.completionRate, 0, 100),
-    };
-  });
+  const sourceResources = savedResources.length ? savedResources : defaults.resources;
+  const seenResourceIds = new Set();
+  const resources = sourceResources
+    .map((resource, index) => {
+      const defaultResource = defaults.resources[index] || {};
+      const fallbackLabel = defaultResource.label || resourceFallbackLabel(index);
+      const label = String(resource?.label || fallbackLabel).trim().slice(0, 60) || fallbackLabel;
+      return {
+        id: uniqueResourceId(resource?.id || defaultResource.id, label, index, seenResourceIds),
+        label,
+        completionRate: boundedNumber(resource?.completionRate, defaultResource.completionRate ?? 100, 0, 100),
+      };
+    })
+    .filter((resource) => resource.label);
+  if (!resources.length) resources.push(nextResourceTemplate([]));
 
   const categoryRequirements = {};
   const savedRequirements = saved?.categoryRequirements && typeof saved.categoryRequirements === "object"
@@ -1263,10 +1322,18 @@ function categoryRequirement(layerId) {
 
 function setCategoryRequirement(layerId, value) {
   state.estimator.categoryRequirements[layerId] = boundedNumber(value, 1, 0, 1000000);
+  markCampaignAssumptionsChanged();
 }
 
 function adjustCategoryRequirement(layerId, delta) {
   setCategoryRequirement(layerId, categoryRequirement(layerId) + delta);
+}
+
+function markCampaignAssumptionsChanged() {
+  if (!state.campaign) return;
+  state.campaign = normalizeCampaignSettings(state.campaign);
+  state.campaignRun.stale = true;
+  renderCampaign();
 }
 
 function summarizeEstimatorResults() {
@@ -3138,7 +3205,7 @@ function renderResourceTypes() {
   els.resourceTypesList.innerHTML = "";
   for (const resource of state.estimator.resources) {
     const row = document.createElement("div");
-    row.className = "estimator-row";
+    row.className = "estimator-row three-col";
     const labelInput = document.createElement("input");
     labelInput.type = "text";
     labelInput.value = resource.label;
@@ -3150,18 +3217,37 @@ function renderResourceTypes() {
     rateInput.step = "1";
     rateInput.value = String(resource.completionRate);
     rateInput.setAttribute("aria-label", `${resource.label} completion rate percent`);
-    row.append(labelInput, rateInput);
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "icon-btn";
+    removeButton.innerHTML = `<span aria-hidden="true">&times;</span>`;
+    removeButton.setAttribute("aria-label", `Remove ${resource.label}`);
+    removeButton.disabled = state.estimator.resources.length <= 1;
+    row.append(labelInput, rateInput, removeButton);
     els.resourceTypesList.appendChild(row);
 
     labelInput.addEventListener("input", () => {
       resource.label = labelInput.value.trim().slice(0, 60) || resource.label;
       renderEstimatorResults();
+      markCampaignAssumptionsChanged();
       queueSavePreferences();
     });
     rateInput.addEventListener("input", () => {
       resource.completionRate = boundedNumber(rateInput.value, resource.completionRate, 0, 100);
       renderEstimatorResults();
+      markCampaignAssumptionsChanged();
       queueSavePreferences();
+    });
+    removeButton.addEventListener("click", () => {
+      if (state.estimator.resources.length <= 1) return;
+      state.estimator = normalizeEstimatorAssumptions({
+        ...state.estimator,
+        resources: state.estimator.resources.filter((item) => item.id !== resource.id),
+      });
+      renderResourceTypes();
+      renderEstimatorResults();
+      markCampaignAssumptionsChanged();
+      savePreferencesNow();
     });
   }
 }
@@ -3261,6 +3347,7 @@ function loadEstimatorProfile() {
   renderResourceTypes();
   renderCategoryAssumptions();
   renderEstimatorResults();
+  markCampaignAssumptionsChanged();
   savePreferencesNow();
 }
 
@@ -4567,6 +4654,7 @@ function resetEstimatorAssumptions() {
     profiles: state.estimator.profiles,
   });
   renderEstimator();
+  markCampaignAssumptionsChanged();
   savePreferencesNow();
 }
 
@@ -4674,6 +4762,19 @@ els.addRangeBandBtn.addEventListener("click", () => {
   refreshRadiusRangeOverlay();
   renderEstimatorResults();
   if (state.campaign) syncCampaignResourceShape();
+  savePreferencesNow();
+});
+els.addResourceTypeBtn.addEventListener("click", () => {
+  state.estimator = normalizeEstimatorAssumptions({
+    ...state.estimator,
+    resources: [
+      ...state.estimator.resources,
+      nextResourceTemplate(state.estimator.resources),
+    ],
+  });
+  renderResourceTypes();
+  renderEstimatorResults();
+  markCampaignAssumptionsChanged();
   savePreferencesNow();
 });
 els.exportAssumptionsBtn.addEventListener("click", exportEstimatorAssumptions);
