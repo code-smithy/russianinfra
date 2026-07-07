@@ -8,6 +8,7 @@ __all__ = [
     "extract_nightwatch_map",
     "extract_osint_varta_archive",
     "extract_russia_oil_power_map",
+    "extract_un_locode",
     "generate_change_report",
     "normalize_infrastructure_data",
     "prepare_web_data",

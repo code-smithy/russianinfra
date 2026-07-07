@@ -293,6 +293,15 @@ def enrich_file(path: Path, boundaries: list[dict[str, Any]], write: bool) -> di
     unmatched = 0
     for feature in data.get("features", []):
         props = feature.setdefault("properties", {})
+        if props.get("country_source") == "un_locode" or props.get("source") == "un_locode":
+            country = props.get("country_code") or props.get("country") or "Unknown"
+            props["source_country"] = country
+            props["country"] = country
+            props["countries"] = [country]
+            props["country_match_method"] = "un_locode_country"
+            country_counts[country] += 1
+            method_counts["un_locode_country"] += 1
+            continue
         if "source_country" not in props:
             props["source_country"] = props.get("country", "")
         countries, method = derive_feature_countries(feature, boundaries)

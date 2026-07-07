@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
@@ -14,10 +15,14 @@ NORMALIZED_GEOJSON = Path("data/normalized_infrastructure.geojson")
 CHANGE_REPORT_JSON = Path("data/change_report.json")
 WEB_DATA_DIR = Path("web/data")
 MAX_WEB_DATA_FILE_BYTES = 48_000_000
+LOCKED_WEB_DATA_FILES: set[str] = set()
+RUN_FILE_SUFFIX = str(int(time.time()))
 
 
 APP_PROPERTY_KEYS = [
     "uid",
+    "object_id",
+    "source",
     "source_dataset",
     "source_id",
     "source_record_id",
@@ -30,6 +35,7 @@ APP_PROPERTY_KEYS = [
     "source_reliability",
     "license_or_terms",
     "name",
+    "name_en",
     "description",
     "name_translated",
     "description_translated",
@@ -38,14 +44,18 @@ APP_PROPERTY_KEYS = [
     "asset_type",
     "asset_subtype",
     "domain",
+    "status",
     "operator",
     "product",
     "country",
+    "country_code",
+    "country_source",
     "countries",
     "source_country",
     "country_match_method",
     "region",
     "region_translated",
+    "subdivision",
     "inn",
     "is_sanctioned",
     "is_mass_director",
@@ -67,17 +77,27 @@ APP_PROPERTY_KEYS = [
     "has_point_location",
     "location_quality",
     "coordinate_precision",
+    "coordinate_source",
     "entity_confidence",
     "freshness",
     "cross_source_support",
     "review_status",
     "confidence",
+    "confidence_grade",
     "confidence_score",
     "selectable",
     "map_layer",
     "map_color",
     "map_icon",
     "risk_flags",
+    "subcategory",
+    "transport_functions",
+    "un_locode",
+    "locode_country",
+    "locode_location",
+    "iata",
+    "remarks",
+    "source_date",
     "detected_language",
     "translation_source",
     "derived_subcategory",
@@ -104,6 +124,7 @@ LAYER_LABELS = {
     "power_lines": "HV Transmission Lines",
     "power_facilities": "Power Plants & Substations",
     "transport_rail": "Railway Lines",
+    "transport_ports_logistics": "Ports & Logistics Nodes",
     "transport_other": "Transport Structures",
     "military_industrial": "Military-Industrial Companies",
     "military_sites": "Military Sites",
@@ -148,12 +169,36 @@ def compact_feature(feature: dict[str, Any]) -> dict[str, Any]:
 
 
 def clean_web_data_dir() -> None:
+    LOCKED_WEB_DATA_FILES.clear()
     for pattern in ("*.geojson", "radius_index.tsv"):
         for path in WEB_DATA_DIR.glob(pattern):
-            path.unlink()
+            unlink_or_mark_locked(path)
     diff_report = WEB_DATA_DIR / "diff_report.json"
     if diff_report.exists():
-        diff_report.unlink()
+        unlink_or_mark_locked(diff_report)
+
+
+def unlink_or_mark_locked(path: Path) -> None:
+    for attempt in range(8):
+        try:
+            path.unlink()
+            return
+        except FileNotFoundError:
+            return
+        except PermissionError:
+            if attempt == 7:
+                LOCKED_WEB_DATA_FILES.add(path.name)
+                print(f"Warning: could not remove locked web data file; leaving stale copy: {path}", file=sys.stderr)
+                return
+            time.sleep(0.25)
+
+
+def output_filename(filename: str) -> str:
+    if filename not in LOCKED_WEB_DATA_FILES:
+        return filename
+    stem = Path(filename).stem
+    suffix = Path(filename).suffix
+    return f"{stem}_{RUN_FILE_SUFFIX}{suffix}"
 
 
 def feature_json(feature: dict[str, Any]) -> str:
@@ -189,14 +234,14 @@ def write_layer_files(layer: str, features: list[dict[str, Any]]) -> list[dict[s
         chunks.append(current)
 
     if len(chunks) == 1:
-        filename = f"{layer}.geojson"
+        filename = output_filename(f"{layer}.geojson")
         size = write_geojson_items(WEB_DATA_DIR / filename, chunks[0])
         return [{"file": filename, "size_bytes": size, "feature_count": len(chunks[0])}]
 
     files = []
     width = len(str(len(chunks)))
     for index, chunk in enumerate(chunks, start=1):
-        filename = f"{layer}_part{index:0{max(3, width)}d}.geojson"
+        filename = output_filename(f"{layer}_part{index:0{max(3, width)}d}.geojson")
         size = write_geojson_items(WEB_DATA_DIR / filename, chunk)
         files.append({"file": filename, "size_bytes": size, "feature_count": len(chunk)})
     return files
@@ -205,7 +250,7 @@ def write_layer_files(layer: str, features: list[dict[str, Any]]) -> list[dict[s
 def copy_change_report() -> str:
     if not CHANGE_REPORT_JSON.exists():
         return ""
-    target = WEB_DATA_DIR / "diff_report.json"
+    target = WEB_DATA_DIR / output_filename("diff_report.json")
     target.write_text(CHANGE_REPORT_JSON.read_text(encoding="utf-8"), encoding="utf-8")
     return target.name
 

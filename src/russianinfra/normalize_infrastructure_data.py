@@ -35,6 +35,8 @@ MANUAL_SOURCE_OVERRIDES_CSV = OUT_DIR / "manual" / "source_overrides.csv"
 
 CSV_FIELDS = [
     "uid",
+    "object_id",
+    "source",
     "source_dataset",
     "source_id",
     "source_record_id",
@@ -48,6 +50,7 @@ CSV_FIELDS = [
     "source_reliability",
     "license_or_terms",
     "name",
+    "name_en",
     "name_original",
     "description",
     "display_label",
@@ -55,10 +58,14 @@ CSV_FIELDS = [
     "asset_type",
     "asset_subtype",
     "domain",
+    "status",
     "operator",
     "product",
     "country",
+    "country_code",
+    "country_source",
     "region",
+    "subdivision",
     "locality",
     "inn",
     "is_sanctioned",
@@ -85,17 +92,27 @@ CSV_FIELDS = [
     "has_point_location",
     "location_quality",
     "coordinate_precision",
+    "coordinate_source",
     "entity_confidence",
     "freshness",
     "cross_source_support",
     "review_status",
     "confidence",
+    "confidence_grade",
     "confidence_score",
     "selectable",
     "map_layer",
     "map_color",
     "map_icon",
     "risk_flags",
+    "subcategory",
+    "transport_functions",
+    "un_locode",
+    "locode_country",
+    "locode_location",
+    "iata",
+    "remarks",
+    "source_date",
     "dedupe_key",
     "possible_duplicate_group",
     "search_text",
@@ -109,6 +126,7 @@ CSV_FIELDS = [
 SOURCE_RUSSIA = "Russia Oil & Power Infrastructure Map"
 SOURCE_VARTA = "OSINT Varta"
 SOURCE_NIGHTWATCH = "Nightwatch map"
+SOURCE_UN_LOCODE = "UN/LOCODE Codelist"
 
 SOURCE_CATALOG = {
     SOURCE_RUSSIA: {
@@ -167,20 +185,40 @@ SOURCE_CATALOG = {
         "source_reliability": "C",
         "notes": "Extracted from public server-rendered Nightwatch map placemarks.",
     },
+    SOURCE_UN_LOCODE: {
+        "source_id": "un_locode",
+        "source_name": "UN/LOCODE Codelist",
+        "publisher": "UNECE",
+        "source_type": "transport_gazetteer",
+        "source_url": "https://github.com/datasets/un-locode",
+        "retrieval_method": "cached_csv_or_remote_refresh",
+        "license_or_terms": "ODC-PDDL-1.0",
+        "license": "ODC-PDDL-1.0",
+        "terms_url": "",
+        "can_redistribute_raw": "yes",
+        "can_redistribute_derived": "yes",
+        "attribution_required": "yes",
+        "source_reliability": "B",
+        "reliability": "B",
+        "notes": "Global trade and transport location code list. Coordinates represent coded locations, not exact infrastructure footprints.",
+    },
 }
 
 SOURCE_CATALOG_FIELDS = [
     "source_id",
     "source_name",
+    "publisher",
     "source_type",
     "source_url",
     "retrieval_method",
     "license_or_terms",
+    "license",
     "terms_url",
     "can_redistribute_raw",
     "can_redistribute_derived",
     "attribution_required",
     "source_reliability",
+    "reliability",
     "notes",
 ]
 
@@ -421,7 +459,7 @@ def confidence_score(
     cross_source_support: str,
 ) -> float:
     score = SOURCE_SCORE.get(source_reliability, 0.38)
-    score += {"exact": 0.12, "approximate": 0.02, "centroid": -0.03, "missing": -0.25}.get(precision, -0.05)
+    score += {"exact": 0.12, "approximate": 0.02, "centroid": -0.03, "location_centroid": -0.03, "missing": -0.25}.get(precision, -0.05)
     score += {"high": 0.10, "medium": 0.0, "low": -0.18}.get(entity, 0.0)
     score += {"recent": 0.05, "stale": -0.04, "old": -0.12, "unknown": -0.02}.get(freshness, -0.02)
     try:
@@ -531,6 +569,9 @@ def classify(row: dict[str, str]) -> tuple[str, str, str, str]:
     power_tag = value(row, "properties_tags_power").casefold()
     blob = lower_blob(layer, category, name, product, line_type, power_tag)
 
+    if value(row, "source_dataset") == SOURCE_UN_LOCODE:
+        subcategory = value(row, "subcategory") or "fixed_transport_terminal"
+        return "transport", subcategory, value(row, "transport_functions"), "transport"
     if source_info(value(row, "source_dataset"))["source_id"] == "osint_varta_archive":
         return "military_industrial", "company", "defense_industrial_company", "military"
     if value(row, "source_dataset") == SOURCE_NIGHTWATCH:
@@ -584,6 +625,14 @@ def marker_style(asset_class: str, asset_type: str) -> tuple[str, str, str]:
         "hv_line": ("power_lines", "#ffd200", "line-power"),
         "railway": ("transport_rail", "#8a8a8a", "rail"),
         "bridge": ("transport_other", "#2a93d5", "bridge"),
+        "seaport": ("transport_ports_logistics", "#126782", "anchor"),
+        "inland_port": ("transport_ports_logistics", "#168aad", "anchor"),
+        "inland_clearance_depot": ("transport_ports_logistics", "#52b788", "warehouse"),
+        "rail_terminal": ("transport_ports_logistics", "#6c757d", "rail"),
+        "road_terminal": ("transport_ports_logistics", "#457b9d", "truck"),
+        "border_crossing": ("transport_ports_logistics", "#9d4edd", "map-pin"),
+        "airport": ("transport_ports_logistics", "#4361ee", "plane"),
+        "fixed_transport_terminal": ("transport_ports_logistics", "#5c677d", "circle"),
         "company": ("military_industrial", "#4f7cff", "building"),
         "military_site": ("military_sites", "#d4472f", "shield"),
         "military_boundary": ("military_boundaries", "#ff6b4a", "line"),
@@ -711,7 +760,8 @@ def normalize_row(
     geometry = geometry_from_row(row)
     location = derive_location(row, geometry)
     tags = extract_tags(row)
-    precision = coordinate_precision(location["location_quality"])
+    is_un_locode = source_dataset == SOURCE_UN_LOCODE
+    precision = value(row, "coordinate_precision") if is_un_locode else coordinate_precision(location["location_quality"])
 
     name_original = clean_name(value(row, "name"))
     description = value(row, "description")
@@ -720,7 +770,7 @@ def normalize_row(
     inn = value(row, "inn")
     region = value(row, "region")
     display_label = first_nonempty(name_original, operator, inn, f"{asset_type}:{source_record_id}")
-    entity = entity_confidence(asset_class, asset_type, display_label)
+    entity = "medium" if is_un_locode else entity_confidence(asset_class, asset_type, display_label)
     freshness = freshness_from_capture(reference["retrieved_at"])
     score = confidence_score(source["source_reliability"], precision, entity, freshness, "1")
     confidence = confidence_grade(score)
@@ -743,7 +793,14 @@ def normalize_row(
     normalized_name = " ".join(display_label.casefold().split())
     dedupe_key = "|".join([asset_type, normalized_name, rounded_lat, rounded_lon])
 
-    uid = stable_uid([source_dataset, layer, source_record_id, feature_index, location["map_latitude"], location["map_longitude"]])
+    locode_country = value(row, "locode_country") or value(row, "country_code")
+    locode_location = value(row, "locode_location")
+    uid = (
+        value(row, "object_id") or f"un_locode_{locode_country}_{locode_location}"
+        if is_un_locode and locode_country and locode_location
+        else stable_uid([source_dataset, layer, source_record_id, feature_index, location["map_latitude"], location["map_longitude"]])
+    )
+    country_value = value(row, "country_code") if is_un_locode else "Russia"
     search_text = " ".join(
         part
         for part in [
@@ -758,6 +815,9 @@ def normalize_row(
             product,
             inn,
             region,
+            value(row, "un_locode"),
+            value(row, "transport_functions"),
+            value(row, "remarks"),
             source_dataset,
             layer,
         ]
@@ -766,8 +826,10 @@ def normalize_row(
 
     normalized = {
         "uid": uid,
+        "object_id": uid,
+        "source": source["source_id"],
         "source_dataset": source_dataset,
-        "source_id": source["source_id"],
+        "source_id": source_record_id if is_un_locode else source["source_id"],
         "source_record_id": source_record_id,
         "source_url": reference["url"],
         "source_capture_date": reference["retrieved_at"],
@@ -779,6 +841,7 @@ def normalize_row(
         "source_reliability": source["source_reliability"],
         "license_or_terms": source["license_or_terms"],
         "name": display_label,
+        "name_en": value(row, "name_en"),
         "name_original": name_original,
         "description": description,
         "display_label": display_label,
@@ -786,10 +849,14 @@ def normalize_row(
         "asset_type": asset_type,
         "asset_subtype": asset_subtype,
         "domain": domain,
+        "status": value(row, "status"),
         "operator": operator,
         "product": product,
-        "country": "Russia",
+        "country": country_value,
+        "country_code": value(row, "country_code"),
+        "country_source": value(row, "country_source"),
         "region": region,
+        "subdivision": value(row, "subdivision"),
         "locality": "",
         "inn": inn,
         "is_sanctioned": csv_bool(value(row, "is_sanctioned")),
@@ -798,17 +865,27 @@ def normalize_row(
         "is_disqualified_persons": csv_bool(value(row, "is_disqualified_persons")),
         **location,
         "coordinate_precision": precision,
+        "coordinate_source": value(row, "coordinate_source"),
         "entity_confidence": entity,
         "freshness": freshness,
         "cross_source_support": "1",
         "review_status": "unreviewed",
         "confidence": confidence,
+        "confidence_grade": confidence,
         "confidence_score": f"{score:.2f}",
         "selectable": "true" if location["has_point_location"] == "true" else "false",
         "map_layer": map_layer,
         "map_color": map_color,
         "map_icon": map_icon,
         "risk_flags": ",".join(risk_flags),
+        "subcategory": value(row, "subcategory") or asset_type,
+        "transport_functions": value(row, "transport_functions"),
+        "un_locode": value(row, "un_locode"),
+        "locode_country": locode_country,
+        "locode_location": locode_location,
+        "iata": value(row, "iata"),
+        "remarks": value(row, "remarks"),
+        "source_date": value(row, "source_date"),
         "dedupe_key": dedupe_key,
         "possible_duplicate_group": "",
         "search_text": search_text,
@@ -824,6 +901,10 @@ def normalize_row(
         "geometry": geometry,
         "properties": {key: normalized[key] for key in CSV_FIELDS if key not in {"geometry_json", "raw_json", "tags_json"}},
     }
+    if is_un_locode:
+        feature["properties"]["countries"] = [country_value]
+        feature["properties"]["source_country"] = country_value
+        feature["properties"]["country_match_method"] = "un_locode_country"
     feature["properties"]["tags"] = tags
     feature["properties"]["raw"] = raw_payload(row, tags)
     feature["properties"]["references"] = [reference]

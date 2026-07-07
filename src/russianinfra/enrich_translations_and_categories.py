@@ -146,6 +146,14 @@ SUBCATEGORY_LABELS = {
     "nbc_chemical": "NBC & chemical",
     "power_station": "Power station",
     "railway": "Railway",
+    "seaport": "Seaport",
+    "inland_port": "Inland port",
+    "inland_clearance_depot": "Inland clearance depot",
+    "rail_terminal": "Rail terminal",
+    "road_terminal": "Road terminal",
+    "border_crossing": "Border crossing",
+    "airport": "Airport",
+    "fixed_transport_terminal": "Fixed transport terminal",
     "repair_maintenance": "Repair & maintenance",
     "research_design": "Research & design",
     "shipbuilding_naval_industry": "Shipbuilding & naval industry",
@@ -223,6 +231,7 @@ def classify(row: dict[str, str]) -> tuple[str, str, str]:
         "energy_oil": ("energy_oil_pipeline", 1.0, "map layer"),
         "power_lines": ("power_line", 1.0, "map layer"),
         "transport_rail": ("railway", 1.0, "map layer"),
+        "transport_ports_logistics": (asset_type or "fixed_transport_terminal", "1.0", "UN/LOCODE function"),
         "transport_other": ("transport_bridge", 1.0, "asset type"),
     }
     if layer in direct:

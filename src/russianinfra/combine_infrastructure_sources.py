@@ -12,6 +12,7 @@ OUT_DIR = Path("data")
 RUSSIA_OIL_POWER_CSV = OUT_DIR / "russia_oil_power_infrastructure.csv"
 OSINT_VARTA_CSV = OUT_DIR / "osint_varta_map_points_archived.csv"
 NIGHTWATCH_CSV = OUT_DIR / "nightwatch_map.csv"
+UN_LOCODE_CSV = OUT_DIR / "extracted" / "un_locode_locations.csv"
 COMBINED_CSV = OUT_DIR / "combined_infrastructure_sources.csv"
 
 
@@ -19,6 +20,7 @@ SOURCES = [
     (RUSSIA_OIL_POWER_CSV, "Russia Oil & Power Infrastructure Map"),
     (OSINT_VARTA_CSV, "OSINT Varta archived map points"),
     (NIGHTWATCH_CSV, "Nightwatch map"),
+    (UN_LOCODE_CSV, "UN/LOCODE Codelist"),
 ]
 
 

@@ -48,6 +48,7 @@ class BuildPipelineTests(unittest.TestCase):
 
         derive_index = step_names.index("russianinfra.derive_countries_from_boundaries")
         change_index = step_names.index("russianinfra.generate_change_report")
+        self.assertLess(step_names.index("russianinfra.extract_un_locode"), step_names.index("russianinfra.combine_infrastructure_sources"))
         self.assertLess(step_names.index("russianinfra.enrich_translations_and_categories"), derive_index)
         self.assertLess(derive_index, change_index)
         self.assertLess(change_index, step_names.index("russianinfra.prepare_web_data"))
@@ -238,6 +239,57 @@ class CountryBoundaryTests(unittest.TestCase):
         }
 
         self.assertEqual(countries.derive_feature_countries(feature, boundaries), (["Testland"], "geometry_sample_in_boundary"))
+
+    def test_un_locode_country_source_is_not_overwritten_by_boundaries(self):
+        boundary_payload = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"ADMIN": "Russia"},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[
+                            [29.0, 59.0],
+                            [31.0, 59.0],
+                            [31.0, 60.5],
+                            [29.0, 60.5],
+                            [29.0, 59.0],
+                        ]],
+                    },
+                },
+            ],
+        }
+        feature_collection = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [30.316667, 59.933333]},
+                    "properties": {
+                        "source": "un_locode",
+                        "country": "RU",
+                        "country_code": "RU",
+                        "country_source": "un_locode",
+                    },
+                },
+            ],
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            boundary_path = Path(tmpdir) / "countries.geojson"
+            data_path = Path(tmpdir) / "data.geojson"
+            boundary_path.write_text(json.dumps(boundary_payload), encoding="utf-8")
+            data_path.write_text(json.dumps(feature_collection), encoding="utf-8")
+            boundaries = countries.load_boundaries(boundary_path)
+
+            countries.enrich_file(data_path, boundaries, write=True)
+            enriched = json.loads(data_path.read_text(encoding="utf-8"))
+
+        props = enriched["features"][0]["properties"]
+        self.assertEqual(props["country"], "RU")
+        self.assertEqual(props["countries"], ["RU"])
+        self.assertEqual(props["country_match_method"], "un_locode_country")
 
 
 class NightwatchExtractorTests(unittest.TestCase):

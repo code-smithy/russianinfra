@@ -11,6 +11,7 @@ import sys
 
 LOCAL_STEPS = [
     ["russianinfra.extract_nightwatch_map"],
+    ["russianinfra.extract_un_locode"],
     ["russianinfra.combine_infrastructure_sources"],
     ["russianinfra.normalize_infrastructure_data"],
     ["russianinfra.enrich_translations_and_categories"],
@@ -23,6 +24,7 @@ REMOTE_STEPS = [
     ["russianinfra.extract_russia_oil_power_map"],
     ["russianinfra.extract_osint_varta_archive"],
     ["russianinfra.extract_nightwatch_map", "--refresh"],
+    ["russianinfra.extract_un_locode", "--refresh"],
 ]
 
 
