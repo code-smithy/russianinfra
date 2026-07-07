@@ -124,6 +124,14 @@ const ESTIMATOR_BLOCKS = [
   { key: "categoryAssumptions", label: "Category assumptions" },
   { key: "estimate", label: "Estimate" },
 ];
+const CAMPAIGN_BLOCKS = [
+  { key: "campaignSettings", label: "Settings" },
+  { key: "campaignLayerAllocation", label: "Layer priority and allocation" },
+  { key: "campaignCapacity", label: "Capacity" },
+  { key: "campaignSupply", label: "Supply and production" },
+  { key: "campaignCosts", label: "Resource costs" },
+  { key: "campaignProfiles", label: "Profiles" },
+];
 const CAMPAIGN_ALLOCATION_MODES = ["weighted", "sequential"];
 const CAMPAIGN_SUBSTITUTION_MODES = ["off", "priority", "weighted", "split_evenly"];
 const DEFAULT_RESOURCE_SUBSTITUTION_SETTINGS = { enabled: false, mode: "off", preserveRangeBand: true, substitutePriorityOrder: [], substituteWeights: {} };
@@ -475,14 +483,29 @@ const els = {
   tabCampaignBtn: document.getElementById("tabCampaignBtn"),
   campaignScopeSummary: document.getElementById("campaignScopeSummary"),
   campaignStatus: document.getElementById("campaignStatus"),
+  campaignSettingsBlock: document.getElementById("campaignSettingsBlock"),
+  campaignSettingsBody: document.getElementById("campaignSettingsBody"),
+  campaignSettingsToggle: document.getElementById("campaignSettingsToggle"),
   campaignSettings: document.getElementById("campaignSettings"),
+  campaignLayerAllocationBlock: document.getElementById("campaignLayerAllocationBlock"),
+  campaignLayerAllocationBody: document.getElementById("campaignLayerAllocationBody"),
+  campaignLayerAllocationToggle: document.getElementById("campaignLayerAllocationToggle"),
   campaignLayerAllocation: document.getElementById("campaignLayerAllocation"),
+  campaignCapacityBlock: document.getElementById("campaignCapacityBlock"),
+  campaignCapacityBody: document.getElementById("campaignCapacityBody"),
+  campaignCapacityToggle: document.getElementById("campaignCapacityToggle"),
   campaignCapacity: document.getElementById("campaignCapacity"),
+  campaignSupplyBlock: document.getElementById("campaignSupplyBlock"),
+  campaignSupplyBody: document.getElementById("campaignSupplyBody"),
+  campaignSupplyToggle: document.getElementById("campaignSupplyToggle"),
   campaignSupply: document.getElementById("campaignSupply"),
   campaignCostsBlock: document.getElementById("campaignCostsBlock"),
   campaignCostsBody: document.getElementById("campaignCostsBody"),
   campaignCostsToggle: document.getElementById("campaignCostsToggle"),
   campaignCosts: document.getElementById("campaignCosts"),
+  campaignProfilesBlock: document.getElementById("campaignProfilesBlock"),
+  campaignProfilesBody: document.getElementById("campaignProfilesBody"),
+  campaignProfilesToggle: document.getElementById("campaignProfilesToggle"),
   campaignPlayer: document.getElementById("campaignPlayer"),
   campaignDashboard: document.getElementById("campaignDashboard"),
   campaignDailyTable: document.getElementById("campaignDailyTable"),
@@ -1108,6 +1131,12 @@ function savedEstimatorBlockSet() {
   return new Set(Array.isArray(saved) ? saved.filter((key) => validKeys.has(key)) : []);
 }
 
+function savedCampaignBlockSet() {
+  const validKeys = new Set(CAMPAIGN_BLOCKS.map((block) => block.key));
+  const saved = state.savedPreferences?.collapsedCampaignBlocks;
+  return new Set(Array.isArray(saved) ? saved.filter((key) => validKeys.has(key)) : []);
+}
+
 function serializeRadius() {
   if (!state.radiusOrigin || !Number.isFinite(state.radiusKm)) return null;
   return {
@@ -1143,6 +1172,9 @@ function currentPreferences() {
     ])),
     collapsedLayers,
     collapsedEstimatorBlocks: ESTIMATOR_BLOCKS
+      .filter((block) => els[`${block.key}Body`]?.hidden)
+      .map((block) => block.key),
+    collapsedCampaignBlocks: CAMPAIGN_BLOCKS
       .filter((block) => els[`${block.key}Body`]?.hidden)
       .map((block) => block.key),
     countries: [...state.countryFilters],
@@ -3130,8 +3162,12 @@ function fitLoadedLayers() {
 function applySavedInterfaceState() {
   const prefs = state.savedPreferences;
   const collapsedEstimatorBlocks = savedEstimatorBlockSet();
+  const collapsedCampaignBlocks = savedCampaignBlockSet();
   for (const block of ESTIMATOR_BLOCKS) {
     setEstimatorBlockCollapsed(block.key, collapsedEstimatorBlocks.has(block.key), false);
+  }
+  for (const block of CAMPAIGN_BLOCKS) {
+    setCampaignBlockCollapsed(block.key, collapsedCampaignBlocks.has(block.key), false);
   }
   for (const panel of COLLAPSIBLE_PANELS) {
     setCollapsiblePanelCollapsed(panel.key, prefs?.[panel.preferenceKey] === true, false);
@@ -3198,6 +3234,19 @@ function setEstimatorBlockCollapsed(key, collapsed, persist = true) {
   body.hidden = collapsed;
   toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
   toggle.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} ${block.label}`);
+  if (persist) queueSavePreferences();
+}
+
+function setCampaignBlockCollapsed(key, collapsed, persist = true) {
+  const block = CAMPAIGN_BLOCKS.find((item) => item.key === key);
+  if (!block) return;
+  const blockElement = els[`${key}Block`];
+  const body = els[`${key}Body`];
+  const toggle = els[`${key}Toggle`];
+  blockElement?.classList.toggle("collapsed", collapsed);
+  if (body) body.hidden = collapsed;
+  toggle?.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  toggle?.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} ${block.label}`);
   if (persist) queueSavePreferences();
 }
 
@@ -5034,12 +5083,11 @@ els.importCampaignProfileBtn?.addEventListener("click", () => { els.campaignImpo
 els.campaignImportInput?.addEventListener("change", async () => { const file = els.campaignImportInput.files?.[0]; if (!file) return; try { importCampaignProfileFromText(await file.text()); } catch (error) { alert(`Could not import campaign profile: ${error.message}`); } });
 els.exportCampaignTimelineCsvBtn?.addEventListener("click", exportCampaignTimelineCsv);
 els.exportCampaignTimelineJsonBtn?.addEventListener("click", exportCampaignTimelineJson);
-els.campaignCostsToggle?.addEventListener("click", () => {
-  const collapsed = els.campaignCostsBody?.hidden !== true;
-  if (els.campaignCostsBody) els.campaignCostsBody.hidden = collapsed;
-  els.campaignCostsBlock?.classList.toggle("collapsed", collapsed);
-  els.campaignCostsToggle?.setAttribute("aria-expanded", collapsed ? "false" : "true");
-});
+for (const block of CAMPAIGN_BLOCKS) {
+  els[`${block.key}Toggle`]?.addEventListener("click", () => {
+    setCampaignBlockCollapsed(block.key, !els[`${block.key}Body`]?.hidden);
+  });
+}
 els.searchInput.addEventListener("input", () => {
   renderSearch();
   queueSavePreferences();

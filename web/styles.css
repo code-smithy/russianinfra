@@ -1661,6 +1661,9 @@ input {
 .campaign-section-title {
   margin-bottom:.65rem;
 }
+.campaign-section-title .panel-collapse-btn {
+  flex:1;
+}
 .campaign-section-title h3 {
   margin:0;
   color:#d9d5ce;

@@ -200,33 +200,53 @@
           <header class="campaign-header"><h2>Campaign Timeline Planner</h2><p id="campaignScopeSummary" class="muted">0 entries from current radius</p><p id="campaignStatus" class="muted">Draw a radius on the map to define the campaign scope.</p></header>
           <div class="campaign-grid">
             <div class="campaign-column">
-              <section class="panel">
+              <section id="campaignSettingsBlock" class="panel">
                 <div class="campaign-section-title heading-with-info">
-                  <h3>Settings</h3>
+                  <button id="campaignSettingsToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="campaignSettingsBody" aria-label="Collapse Settings">
+                    <span aria-hidden="true"></span>
+                    <h3>Settings</h3>
+                  </button>
                   <button id="campaignSettingsInfoBtn" class="info-btn" type="button" data-info-topic="campaignSettings" aria-label="Information about Campaign settings" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
                 </div>
-                <div id="campaignSettings" class="campaign-form"></div>
+                <div id="campaignSettingsBody">
+                  <div id="campaignSettings" class="campaign-form"></div>
+                </div>
               </section>
-              <section class="panel">
+              <section id="campaignLayerAllocationBlock" class="panel">
                 <div class="campaign-section-title heading-with-info">
-                  <h3>Layer priority and allocation</h3>
+                  <button id="campaignLayerAllocationToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="campaignLayerAllocationBody" aria-label="Collapse Layer priority and allocation">
+                    <span aria-hidden="true"></span>
+                    <h3>Layer priority and allocation</h3>
+                  </button>
                   <button id="campaignLayerAllocationInfoBtn" class="info-btn" type="button" data-info-topic="campaignLayerAllocation" aria-label="Information about Campaign layer priority and allocation" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
                 </div>
-                <div id="campaignLayerAllocation"></div>
+                <div id="campaignLayerAllocationBody">
+                  <div id="campaignLayerAllocation"></div>
+                </div>
               </section>
-              <section class="panel">
+              <section id="campaignCapacityBlock" class="panel">
                 <div class="campaign-section-title heading-with-info">
-                  <h3>Capacity</h3>
+                  <button id="campaignCapacityToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="campaignCapacityBody" aria-label="Collapse Capacity">
+                    <span aria-hidden="true"></span>
+                    <h3>Capacity</h3>
+                  </button>
                   <button id="campaignCapacityInfoBtn" class="info-btn" type="button" data-info-topic="campaignCapacity" aria-label="Information about Campaign capacity" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
                 </div>
-                <div id="campaignCapacity" class="campaign-form"></div>
+                <div id="campaignCapacityBody">
+                  <div id="campaignCapacity" class="campaign-form"></div>
+                </div>
               </section>
-              <section class="panel">
+              <section id="campaignSupplyBlock" class="panel">
                 <div class="campaign-section-title heading-with-info">
-                  <h3>Supply and production</h3>
+                  <button id="campaignSupplyToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="campaignSupplyBody" aria-label="Collapse Supply and production">
+                    <span aria-hidden="true"></span>
+                    <h3>Supply and production</h3>
+                  </button>
                   <button id="campaignSupplyInfoBtn" class="info-btn" type="button" data-info-topic="campaignSupply" aria-label="Information about Campaign supply and production" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
                 </div>
-                <div id="campaignSupply"></div>
+                <div id="campaignSupplyBody">
+                  <div id="campaignSupply"></div>
+                </div>
               </section>
               <section id="campaignCostsBlock" class="panel">
                 <div class="campaign-section-title heading-with-info">
@@ -240,7 +260,17 @@
                   <div id="campaignCosts"></div>
                 </div>
               </section>
-              <section class="panel"><h3>Profiles</h3><div class="actions-row"><select id="campaignProfileSelect" aria-label="Campaign profile"></select><button id="saveCampaignProfileBtn" type="button" class="text-btn">Save profile</button><button id="loadCampaignProfileBtn" type="button" class="text-btn">Load</button><button id="deleteCampaignProfileBtn" type="button" class="text-btn">Delete</button><button id="exportCampaignProfileBtn" type="button" class="text-btn">Export profile JSON</button><button id="importCampaignProfileBtn" type="button" class="text-btn">Import profile JSON</button><input id="campaignImportInput" type="file" accept="application/json,.json" hidden></div></section>
+              <section id="campaignProfilesBlock" class="panel">
+                <div class="campaign-section-title heading-with-info">
+                  <button id="campaignProfilesToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="campaignProfilesBody" aria-label="Collapse Profiles">
+                    <span aria-hidden="true"></span>
+                    <h3>Profiles</h3>
+                  </button>
+                </div>
+                <div id="campaignProfilesBody">
+                  <div class="actions-row"><select id="campaignProfileSelect" aria-label="Campaign profile"></select><button id="saveCampaignProfileBtn" type="button" class="text-btn">Save profile</button><button id="loadCampaignProfileBtn" type="button" class="text-btn">Load</button><button id="deleteCampaignProfileBtn" type="button" class="text-btn">Delete</button><button id="exportCampaignProfileBtn" type="button" class="text-btn">Export profile JSON</button><button id="importCampaignProfileBtn" type="button" class="text-btn">Import profile JSON</button><input id="campaignImportInput" type="file" accept="application/json,.json" hidden></div>
+                </div>
+              </section>
             </div>
             <div class="campaign-column">
               <section class="panel">

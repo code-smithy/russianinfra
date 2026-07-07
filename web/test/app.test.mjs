@@ -71,6 +71,7 @@ globalThis.__api = {
   playCampaign,
   pauseCampaign,
   resetCampaignPlayback,
+  setCampaignBlockCollapsed,
   setCountriesPanelCollapsed,
   setChangeReportPanelCollapsed,
   setEstimatorBlockCollapsed,
@@ -526,6 +527,31 @@ test("saves and restores collapsed estimator assumption sections", async () => {
   assert.equal(second.__api.els.rangeBandsToggle.getAttribute("aria-expanded"), "false");
   assert.equal(second.__api.els.resourceTypesBody.hidden, false);
   assert.equal(second.__api.els.categoryAssumptionsBody.hidden, true);
+});
+
+test("saves and restores collapsed campaign left column groups", async () => {
+  const first = createAppContext();
+  await first.__initPromise;
+
+  first.__api.setCampaignBlockCollapsed("campaignCapacity", true);
+  first.__api.setCampaignBlockCollapsed("campaignSupply", true);
+  first.__api.setCampaignBlockCollapsed("campaignProfiles", true);
+  first.__api.savePreferencesNow();
+
+  const savedRaw = first.localStorage.getItem(STORAGE_KEY);
+  const saved = JSON.parse(savedRaw);
+  assert.deepEqual(saved.collapsedCampaignBlocks, ["campaignCapacity", "campaignSupply", "campaignProfiles"]);
+
+  const second = createAppContext({ [STORAGE_KEY]: savedRaw });
+  await second.__initPromise;
+
+  assert.equal(second.__api.els.campaignCapacityBody.hidden, true);
+  assert.equal(second.__api.els.campaignCapacityBlock.classList.contains("collapsed"), true);
+  assert.equal(second.__api.els.campaignCapacityToggle.getAttribute("aria-expanded"), "false");
+  assert.equal(second.__api.els.campaignSupplyBody.hidden, true);
+  assert.equal(second.__api.els.campaignProfilesBody.hidden, true);
+  assert.equal(second.__api.els.campaignSettingsBody.hidden, false);
+  assert.equal(second.__api.els.campaignCostsBody.hidden, false);
 });
 
 test("saves country selections and applies them to active filters", async () => {
