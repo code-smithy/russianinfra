@@ -1,5 +1,5 @@
 const DATA_DIR = "data/";
-const APP_VERSION = "0.14.0";
+const APP_VERSION = "0.15.0";
 const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
@@ -96,11 +96,12 @@ const DEFAULT_ESTIMATOR_ASSUMPTIONS = {
     { id: "band_open", maxKm: null },
   ],
   resources: [
-    { id: "resource_a", label: "Resource A", completionRate: 80 },
-    { id: "resource_b", label: "Resource B", completionRate: 65 },
-    { id: "resource_c", label: "Resource C", completionRate: 50 },
+    { id: "resource_a", label: "Resource A", completionRate: 80, penetration: 0 },
+    { id: "resource_b", label: "Resource B", completionRate: 65, penetration: 0 },
+    { id: "resource_c", label: "Resource C", completionRate: 50, penetration: 0 },
   ],
   categoryRequirements: {},
+  categoryHardness: {},
   profiles: [],
   summaryDisplay: {
     compactTotals: false,
@@ -141,10 +142,11 @@ const INFO_TOPICS = {
   app: {
     title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
     paragraphs: [
-      "Version 0.14.0 adds Campaign resource cost inputs and cost reporting. Version 0.13.0 adds Campaign help explanations for settings, layer allocation, capacity, and supply inputs.",
+      "Version 0.15.0 adds target hardness and resource penetration assumptions to Scenario Estimator and Campaign execution. Version 0.14.0 adds Campaign resource cost inputs and cost reporting.",
       "Highlights include Nightwatch military map scraping, resilient OSINT Varta archive capture selection, automatic country-boundary bootstrapping, and a durable compressed comparison baseline for scheduled builds.",
     ],
     history: [
+      { version: "0.15.0", date: "2026-07-07", notes: ["Adds resource penetration and category hardness inputs to Scenario Estimator assumptions.", "Persists hardness and penetration in saved settings, estimator profiles, imports, and exports.", "Blocks Campaign target execution when native or substituted resources cannot meet a target layer hardness value."] },
       { version: "0.14.0", date: "2026-07-07", notes: ["Adds a Resource costs Campaign input mask with unit cost entries by range band and resource type.", "Calculates Campaign cost from actual expended resources after simulation, including substituted-in resources charged at their own unit cost.", "Adds cost totals to the Campaign dashboard, daily timeline, CSV export, JSON export, saved settings, and campaign profiles."] },
       { version: "0.13.0", date: "2026-07-07", notes: ["Adds information popovers to Campaign Settings, Layer priority and allocation, Capacity, Supply and production, Player, Dashboard, and Daily timeline.", "Explains allocation modes, layer priorities and weights, command/fire capacity, initial stock, monthly production, range-band separation, resource substitution, playback, dashboard metrics, and daily timeline outputs.", "Adds coverage so new Campaign sections are expected to include matching information explanations."] },
       { version: "0.12.0", date: "2026-07-07", notes: ["Adds Resource type creation and removal controls to the Scenario Estimator.", "Persists arbitrary resource type lists in estimator settings and profiles instead of forcing the three default resources.", "Re-shapes Campaign capacity, stock, production, and substitution settings when resource types change."] },
@@ -218,6 +220,7 @@ const INFO_TOPICS = {
     paragraphs: [
       "Defines the effector types used in the estimate.",
       "The text field is the effector type label. The percent field is the assumed survivability of that effector; lower survivability increases the required count.",
+      "Penetration is compared against category hardness in Campaign simulation. A resource can execute or substitute only when its penetration is at least the target layer hardness.",
     ],
   },
   categoryAssumptions: {
@@ -225,6 +228,7 @@ const INFO_TOPICS = {
     paragraphs: [
       "Defines the assumption for how many effectors are needed per target in each layer/category.",
       "This factor is multiplied by the number of targets in the radius before the survivability correction is applied.",
+      "Hardness is compared against resource penetration in Campaign simulation. Targets whose layer hardness is higher than the available resource penetration are deferred.",
     ],
   },
   estimate: {
@@ -1260,9 +1264,9 @@ function nextResourceTemplate(resources = state.estimator.resources) {
   for (let index = 0; index < 52; index += 1) {
     const label = resourceFallbackLabel(index);
     const id = resourceIdFromLabel(label, index);
-    if (!seen.has(id)) return { id, label, completionRate: 100 };
+    if (!seen.has(id)) return { id, label, completionRate: 100, penetration: 0 };
   }
-  return { id: `resource_${Date.now()}`, label: `Resource ${resources.length + 1}`, completionRate: 100 };
+  return { id: `resource_${Date.now()}`, label: `Resource ${resources.length + 1}`, completionRate: 100, penetration: 0 };
 }
 
 function estimatorProfileSnapshot(name) {
@@ -1274,8 +1278,10 @@ function estimatorProfileSnapshot(name) {
       id: resource.id,
       label: resource.label,
       completionRate: resource.completionRate,
+      penetration: resource.penetration,
     })),
     categoryRequirements: { ...state.estimator.categoryRequirements },
+    categoryHardness: { ...state.estimator.categoryHardness },
   };
 }
 
@@ -1291,6 +1297,7 @@ function normalizeEstimatorProfiles(savedProfiles) {
       rangeBands: item?.rangeBands,
       resources: item?.resources,
       categoryRequirements: item?.categoryRequirements,
+      categoryHardness: item?.categoryHardness,
     });
     profiles.push({
       id,
@@ -1300,8 +1307,10 @@ function normalizeEstimatorProfiles(savedProfiles) {
         id: resource.id,
         label: resource.label,
         completionRate: resource.completionRate,
+        penetration: resource.penetration,
       })),
       categoryRequirements: { ...normalized.categoryRequirements },
+      categoryHardness: { ...normalized.categoryHardness },
     });
     seen.add(id);
   }
@@ -1333,17 +1342,25 @@ function normalizeEstimatorAssumptions(saved) {
         id: uniqueResourceId(resource?.id || defaultResource.id, label, index, seenResourceIds),
         label,
         completionRate: boundedNumber(resource?.completionRate, defaultResource.completionRate ?? 100, 0, 100),
+        penetration: boundedNumber(resource?.penetration, defaultResource.penetration ?? 0, 0, 1000000),
       };
     })
     .filter((resource) => resource.label);
   if (!resources.length) resources.push(nextResourceTemplate([]));
 
   const categoryRequirements = {};
+  const categoryHardness = {};
   const savedRequirements = saved?.categoryRequirements && typeof saved.categoryRequirements === "object"
     ? saved.categoryRequirements
     : {};
   for (const [layerId, value] of Object.entries(savedRequirements)) {
     categoryRequirements[layerId] = boundedNumber(value, 1, 0, 1000000);
+  }
+  const savedHardness = saved?.categoryHardness && typeof saved.categoryHardness === "object"
+    ? saved.categoryHardness
+    : {};
+  for (const [layerId, value] of Object.entries(savedHardness)) {
+    categoryHardness[layerId] = boundedNumber(value, 0, 0, 1000000);
   }
 
   const savedSummaryDisplay = saved?.summaryDisplay && typeof saved.summaryDisplay === "object"
@@ -1369,6 +1386,7 @@ function normalizeEstimatorAssumptions(saved) {
     rangeBands,
     resources,
     categoryRequirements,
+    categoryHardness,
     profiles: normalizeEstimatorProfiles(saved?.profiles),
     summaryDisplay,
   };
@@ -1382,8 +1400,10 @@ function serializeEstimatorAssumptions() {
       id: resource.id,
       label: resource.label,
       completionRate: resource.completionRate,
+      penetration: resource.penetration,
     })),
     categoryRequirements: { ...state.estimator.categoryRequirements },
+    categoryHardness: { ...state.estimator.categoryHardness },
     profiles: state.estimator.profiles.map((profile) => ({
       id: profile.id,
       name: profile.name,
@@ -1392,8 +1412,10 @@ function serializeEstimatorAssumptions() {
         id: resource.id,
         label: resource.label,
         completionRate: resource.completionRate,
+        penetration: resource.penetration,
       })),
       categoryRequirements: { ...profile.categoryRequirements },
+      categoryHardness: { ...profile.categoryHardness },
     })),
     summaryDisplay: { ...state.estimator.summaryDisplay },
   };
@@ -1488,6 +1510,16 @@ function setCategoryRequirement(layerId, value) {
   markCampaignAssumptionsChanged();
 }
 
+function categoryHardness(layerId) {
+  return boundedNumber(state.estimator.categoryHardness?.[layerId], 0, 0, 1000000);
+}
+
+function setCategoryHardness(layerId, value) {
+  if (!state.estimator.categoryHardness) state.estimator.categoryHardness = {};
+  state.estimator.categoryHardness[layerId] = boundedNumber(value, 0, 0, 1000000);
+  markCampaignAssumptionsChanged();
+}
+
 function adjustCategoryRequirement(layerId, delta) {
   setCategoryRequirement(layerId, categoryRequirement(layerId) + delta);
 }
@@ -1554,6 +1586,7 @@ function estimatorDetailRows() {
   const bands = sortedRangeBands();
   for (const group of groups) {
     const unitsPerItem = categoryRequirement(group.layerId);
+    const hardness = categoryHardness(group.layerId);
     for (let bandIndex = 0; bandIndex < bands.length; bandIndex += 1) {
       const band = bands[bandIndex];
       const bandSummary = group.bands.get(band.id);
@@ -1567,9 +1600,11 @@ function estimatorDetailRows() {
           range_band: bandLabel,
           item_count: bandSummary.count,
           units_per_item: unitsPerItem,
+          category_hardness: hardness,
           resource_id: resource.id,
           resource_label: resource.label,
           completion_rate_percent: resource.completionRate,
+          penetration_value: resource.penetration,
           estimated_units: estimateUnits(bandSummary.count, unitsPerItem, resource.completionRate),
         });
       }
@@ -1670,9 +1705,11 @@ function estimatorExportRows() {
         range_band: band.label,
         item_count: "",
         units_per_item: "",
+        category_hardness: "",
         resource_id: resource.id,
         resource_label: resource.label,
         completion_rate_percent: "",
+        penetration_value: "",
         estimated_units: band.resources.get(resource.id) || 0,
       });
     }
@@ -1686,9 +1723,11 @@ function estimatorExportRows() {
       range_band: "",
       item_count: "",
       units_per_item: "",
+      category_hardness: "",
       resource_id: resource.id,
       resource_label: resource.label,
       completion_rate_percent: "",
+      penetration_value: "",
       estimated_units: aggregate.totalByResource.get(resource.id) || 0,
     });
   }
@@ -1700,9 +1739,11 @@ function estimatorExportRows() {
     range_band: "",
     item_count: "",
     units_per_item: "",
+    category_hardness: "",
     resource_id: "",
     resource_label: "",
     completion_rate_percent: "",
+    penetration_value: "",
     estimated_units: aggregate.grandTotal,
   });
 
@@ -3368,7 +3409,7 @@ function renderResourceTypes() {
   els.resourceTypesList.innerHTML = "";
   for (const resource of state.estimator.resources) {
     const row = document.createElement("div");
-    row.className = "estimator-row three-col";
+    row.className = "estimator-row resource-type-row";
     const labelInput = document.createElement("input");
     labelInput.type = "text";
     labelInput.value = resource.label;
@@ -3380,13 +3421,20 @@ function renderResourceTypes() {
     rateInput.step = "1";
     rateInput.value = String(resource.completionRate);
     rateInput.setAttribute("aria-label", `${resource.label} completion rate percent`);
+    const penetrationInput = document.createElement("input");
+    penetrationInput.type = "number";
+    penetrationInput.min = "0";
+    penetrationInput.max = "1000000";
+    penetrationInput.step = "1";
+    penetrationInput.value = String(resource.penetration ?? 0);
+    penetrationInput.setAttribute("aria-label", `${resource.label} penetration value`);
     const removeButton = document.createElement("button");
     removeButton.type = "button";
     removeButton.className = "icon-btn";
     removeButton.innerHTML = `<span aria-hidden="true">&times;</span>`;
     removeButton.setAttribute("aria-label", `Remove ${resource.label}`);
     removeButton.disabled = state.estimator.resources.length <= 1;
-    row.append(labelInput, rateInput, removeButton);
+    row.append(labelInput, rateInput, penetrationInput, removeButton);
     els.resourceTypesList.appendChild(row);
 
     labelInput.addEventListener("input", () => {
@@ -3398,6 +3446,11 @@ function renderResourceTypes() {
     rateInput.addEventListener("input", () => {
       resource.completionRate = boundedNumber(rateInput.value, resource.completionRate, 0, 100);
       renderEstimatorResults();
+      markCampaignAssumptionsChanged();
+      queueSavePreferences();
+    });
+    penetrationInput.addEventListener("input", () => {
+      resource.penetration = boundedNumber(penetrationInput.value, resource.penetration ?? 0, 0, 1000000);
       markCampaignAssumptionsChanged();
       queueSavePreferences();
     });
@@ -3422,11 +3475,14 @@ function renderCategoryAssumptions() {
     if (!Object.prototype.hasOwnProperty.call(state.estimator.categoryRequirements, layerInfo.id)) {
       state.estimator.categoryRequirements[layerInfo.id] = 1;
     }
+    if (!Object.prototype.hasOwnProperty.call(state.estimator.categoryHardness, layerInfo.id)) {
+      state.estimator.categoryHardness[layerInfo.id] = 0;
+    }
     const row = document.createElement("div");
     row.className = "estimator-row category-assumption-row";
     const label = document.createElement("span");
     label.className = "estimator-label";
-    label.innerHTML = `<strong>${escapeHtml(layerInfo.label)}</strong><span>Units per item</span>`;
+    label.innerHTML = `<strong>${escapeHtml(layerInfo.label)}</strong><span>Units / hardness</span>`;
     const input = document.createElement("input");
     input.type = "number";
     input.min = "0";
@@ -3435,12 +3491,24 @@ function renderCategoryAssumptions() {
     input.inputMode = "numeric";
     input.value = String(categoryRequirement(layerInfo.id));
     input.setAttribute("aria-label", `${layerInfo.label} units per item`);
-    row.append(label, input);
+    const hardnessInput = document.createElement("input");
+    hardnessInput.type = "number";
+    hardnessInput.min = "0";
+    hardnessInput.max = "1000000";
+    hardnessInput.step = "1";
+    hardnessInput.inputMode = "numeric";
+    hardnessInput.value = String(categoryHardness(layerInfo.id));
+    hardnessInput.setAttribute("aria-label", `${layerInfo.label} hardness value`);
+    row.append(label, input, hardnessInput);
     els.categoryAssumptionsList.appendChild(row);
 
     input.addEventListener("input", () => {
       setCategoryRequirement(layerInfo.id, input.value);
       renderEstimatorResults();
+      queueSavePreferences();
+    });
+    hardnessInput.addEventListener("input", () => {
+      setCategoryHardness(layerInfo.id, hardnessInput.value);
       queueSavePreferences();
     });
   }
@@ -3501,10 +3569,12 @@ function loadEstimatorProfile() {
     rangeBands: profile.rangeBands,
     resources: profile.resources,
     categoryRequirements: profile.categoryRequirements,
+    categoryHardness: profile.categoryHardness,
   });
   state.estimator.rangeBands = normalized.rangeBands;
   state.estimator.resources = normalized.resources;
   state.estimator.categoryRequirements = normalized.categoryRequirements;
+  state.estimator.categoryHardness = normalized.categoryHardness;
   renderRangeBands();
   refreshRadiusRangeOverlay();
   renderResourceTypes();
@@ -3682,6 +3752,7 @@ function renderDetailedEstimatorCards(detailRows) {
         <span class="estimate-count">${group.count.toLocaleString()}</span>
       </div>
       <span>Category factor: ${numberFmt(unitsPerItem, 2)} per item</span>
+      <span>Hardness: ${numberFmt(categoryHardness(group.layerId), 2)}</span>
       <div class="estimate-lines">${resourceLines}</div>
       <div class="estimate-subcategories">${escapeHtml(bandLines || "No range-band split")}</div>
       ${subcategories ? `<div class="estimate-subcategories">${escapeHtml(subcategories)}</div>` : ""}
@@ -4234,6 +4305,8 @@ function updateCampaignLayerPriority(id, value) {
 function syncCampaignLayersFromScope() { state.campaign = normalizeCampaignSettings(state.campaign || state.savedPreferences?.campaign); state.campaignRun.stale = true; state.campaignRun.days = []; state.campaignRun.currentDayIndex = -1; renderCampaign(); }
 function syncCampaignResourceShape() { state.campaign = normalizeCampaignSettings(state.campaign || state.savedPreferences?.campaign); state.campaignRun.stale = true; renderCampaign(); }
 function categoryRequirement(layerId) { return boundedNumber(state.estimator.categoryRequirements?.[layerId], 1, 0, 1000000); }
+function resourcePenetration(resourceId) { return boundedNumber(state.estimator.resources.find((resource) => resource.id === resourceId)?.penetration, 0, 0, 1000000); }
+function resourceCanPenetrate(resourceId, hardness) { return resourcePenetration(resourceId) + 1e-9 >= boundedNumber(hardness, 0, 0, 1000000); }
 function dailyProductionForDate(bandId, resourceId, dateString, settings = state.campaign) {
   if (dateString === undefined) {
     dateString = resourceId;
@@ -4255,11 +4328,12 @@ function effectiveSubstitutePriorityOrder(settings) {
   for (const id of campaignResourceIds()) if (!order.includes(id)) order.push(id);
   return order;
 }
-function eligibleSubstituteResources(sourceResourceId, bandId, stock, fireRemaining, settings, consumption = {}) {
+function eligibleSubstituteResources(sourceResourceId, bandId, stock, fireRemaining, settings, consumption = {}, hardness = 0) {
   const stockRow = stock?.[bandId] || {};
   const fireRow = fireRemaining?.[bandId] || {};
   return campaignResourceIds().filter((resourceId) => (
     resourceId !== sourceResourceId &&
+    resourceCanPenetrate(resourceId, hardness) &&
     resourceCapacityAfterPlan(resourceId, stockRow, fireRow, consumption) > 1e-9
   ));
 }
@@ -4272,12 +4346,13 @@ function addSubstitutionAllocation(plan, sourceResourceId, substituteResourceId,
   if (!plan.substitutionPairs[sourceResourceId]) plan.substitutionPairs[sourceResourceId] = {};
   plan.substitutionPairs[sourceResourceId][substituteResourceId] = (plan.substitutionPairs[sourceResourceId][substituteResourceId] || 0) + value;
 }
-function allocatePrioritySubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings) {
+function allocatePrioritySubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings, hardness = 0) {
   let remaining = deficit;
   const stockRow = stock?.[bandId] || {};
   const fireRow = fireRemaining?.[bandId] || {};
   for (const resourceId of effectiveSubstitutePriorityOrder(settings)) {
     if (resourceId === sourceResourceId) continue;
+    if (!resourceCanPenetrate(resourceId, hardness)) continue;
     const capacity = resourceCapacityAfterPlan(resourceId, stockRow, fireRow, plan.consumption);
     const take = Math.min(remaining, capacity);
     addSubstitutionAllocation(plan, sourceResourceId, resourceId, take);
@@ -4286,13 +4361,13 @@ function allocatePrioritySubstitution(plan, sourceResourceId, deficit, bandId, s
   }
   return Math.max(0, remaining);
 }
-function allocateWeightedSubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings) {
+function allocateWeightedSubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings, hardness = 0) {
   const weights = settings.resourceSubstitution?.substituteWeights || {};
   let remaining = deficit;
   const stockRow = stock?.[bandId] || {};
   const fireRow = fireRemaining?.[bandId] || {};
   while (remaining > 1e-9) {
-    const eligible = eligibleSubstituteResources(sourceResourceId, bandId, stock, fireRemaining, settings, plan.consumption)
+    const eligible = eligibleSubstituteResources(sourceResourceId, bandId, stock, fireRemaining, settings, plan.consumption, hardness)
       .filter((resourceId) => (weights[resourceId] || 0) > 0);
     const totalWeight = eligible.reduce((sum, resourceId) => sum + (weights[resourceId] || 0), 0);
     if (totalWeight <= 0) break;
@@ -4309,12 +4384,12 @@ function allocateWeightedSubstitution(plan, sourceResourceId, deficit, bandId, s
   }
   return Math.max(0, remaining);
 }
-function allocateEvenSubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings) {
+function allocateEvenSubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings, hardness = 0) {
   let remaining = deficit;
   const stockRow = stock?.[bandId] || {};
   const fireRow = fireRemaining?.[bandId] || {};
   while (remaining > 1e-9) {
-    const eligible = eligibleSubstituteResources(sourceResourceId, bandId, stock, fireRemaining, settings, plan.consumption);
+    const eligible = eligibleSubstituteResources(sourceResourceId, bandId, stock, fireRemaining, settings, plan.consumption, hardness);
     if (!eligible.length) break;
     const share = remaining / eligible.length;
     let progress = 0;
@@ -4329,7 +4404,7 @@ function allocateEvenSubstitution(plan, sourceResourceId, deficit, bandId, stock
   }
   return Math.max(0, remaining);
 }
-function buildSubstitutionPlan(deficitByResource, bandId, layerId, stock, fireRemaining, settings, plan) {
+function buildSubstitutionPlan(deficitByResource, bandId, layerId, stock, fireRemaining, settings, plan, hardness = 0) {
   const subSettings = settings.resourceSubstitution || DEFAULT_RESOURCE_SUBSTITUTION_SETTINGS;
   let mode = subSettings.mode;
   if (mode === "weighted") {
@@ -4338,9 +4413,9 @@ function buildSubstitutionPlan(deficitByResource, bandId, layerId, stock, fireRe
   }
   for (const [sourceResourceId, deficit] of Object.entries(deficitByResource)) {
     let remaining = deficit;
-    if (mode === "priority") remaining = allocatePrioritySubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings);
-    else if (mode === "weighted") remaining = allocateWeightedSubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings);
-    else if (mode === "split_evenly") remaining = allocateEvenSubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings);
+    if (mode === "priority") remaining = allocatePrioritySubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings, hardness);
+    else if (mode === "weighted") remaining = allocateWeightedSubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings, hardness);
+    else if (mode === "split_evenly") remaining = allocateEvenSubstitution(plan, sourceResourceId, deficit, bandId, stock, fireRemaining, settings, hardness);
     if (remaining > 1e-9) plan.executable = false;
   }
   if (plan.executable) {
@@ -4364,6 +4439,7 @@ function buildConsumptionPlan(incrementalDemand, bandId, layerId, stock, fireRem
   const fireRow = fireRemaining?.[bandId] || {};
   const subSettings = settings.resourceSubstitution || DEFAULT_RESOURCE_SUBSTITUTION_SETTINGS;
   const substitutionEnabled = subSettings.enabled === true && subSettings.mode !== "off";
+  const hardness = categoryHardness(layerId);
   const plan = {
     executable: true,
     consumption: Object.fromEntries(campaignResourceIds().map((id) => [id, 0])),
@@ -4380,7 +4456,9 @@ function buildConsumptionPlan(incrementalDemand, bandId, layerId, stock, fireRem
       return plan;
     }
     if (required <= 0) continue;
-    const nativeTake = Math.min(required, stockRow[resourceId] || 0, fireRow[resourceId] || 0);
+    const nativeTake = resourceCanPenetrate(resourceId, hardness)
+      ? Math.min(required, stockRow[resourceId] || 0, fireRow[resourceId] || 0)
+      : 0;
     plan.consumption[resourceId] = nativeTake;
     const deficit = required - nativeTake;
     if (deficit > 1e-9) deficitByResource[resourceId] = deficit;
@@ -4390,7 +4468,7 @@ function buildConsumptionPlan(incrementalDemand, bandId, layerId, stock, fireRem
     plan.executable = false;
     return plan;
   }
-  return buildSubstitutionPlan(deficitByResource, bandId, layerId, stock, fireRemaining, settings, plan);
+  return buildSubstitutionPlan(deficitByResource, bandId, layerId, stock, fireRemaining, settings, plan, hardness);
 }
 function applyConsumptionPlan(plan, bandId, layerId, stock, fireRemaining, trackingMaps) {
   if (!plan.executable) return;
@@ -4896,9 +4974,11 @@ function buildEstimatorCsv() {
     "range_band",
     "item_count",
     "units_per_item",
+    "category_hardness",
     "resource_id",
     "resource_label",
     "completion_rate_percent",
+    "penetration_value",
     "estimated_units",
   ];
   const lines = [fields.join(",")];

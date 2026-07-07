@@ -963,12 +963,16 @@ input {
   grid-template-columns: minmax(0, 1fr) 76px 34px;
 }
 
+.estimator-row.resource-type-row {
+  grid-template-columns: minmax(0, 1fr) 70px 70px 34px;
+}
+
 .estimator-row.range-band-row {
   grid-template-columns: minmax(0, 1fr) 76px 34px 34px;
 }
 
 .estimator-row.category-assumption-row {
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) 70px 70px;
 }
 
 .estimator-row:hover {

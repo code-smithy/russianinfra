@@ -437,7 +437,7 @@ test("feedback button opens a private feedback dialog", async () => {
     contact: "analyst@example.test",
     message: "Please add a data correction workflow.",
     page: "",
-    version: "0.14.0",
+    version: "0.15.0",
   });
 
   api.closeFeedbackDialog();
@@ -475,15 +475,15 @@ test("campaign input masks have matching information explanations", () => {
   assert.match(html, /id="campaignDailyTable"/);
 });
 
-test("version metadata includes the campaign resource cost release", () => {
+test("version metadata includes the campaign hardness and penetration release", () => {
   const html = fs.readFileSync("web/index.html", "utf8");
   const js = fs.readFileSync("web/app.js", "utf8");
   const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
 
-  assert.equal(packageJson.version, "0.14.0");
-  assert.match(js, /const APP_VERSION = "0\.14\.0"/);
-  assert.match(html, /id="appVersion"[^>]*>v0\.14\.0</);
-  assert.match(js, /version: "0\.14\.0"[\s\S]*Adds a Resource costs Campaign input mask/);
+  assert.equal(packageJson.version, "0.15.0");
+  assert.match(js, /const APP_VERSION = "0\.15\.0"/);
+  assert.match(html, /id="appVersion"[^>]*>v0\.15\.0</);
+  assert.match(js, /version: "0\.15\.0"[\s\S]*Adds resource penetration and category hardness inputs/);
 });
 
 test("saves and restores resized menu widths", async () => {
@@ -1132,10 +1132,13 @@ test("scenario estimator imports and persists editable assumptions", async () =>
         { id: "medium", maxKm: 900 },
       ],
       resources: [
-        { id: "resource_a", label: "Planning Resource", completionRate: 75 },
+        { id: "resource_a", label: "Planning Resource", completionRate: 75, penetration: 8 },
       ],
       categoryRequirements: {
         energy_facilities: 3,
+      },
+      categoryHardness: {
+        energy_facilities: 5,
       },
     },
   }));
@@ -1144,7 +1147,9 @@ test("scenario estimator imports and persists editable assumptions", async () =>
   assert.deepEqual(JSON.parse(JSON.stringify(saved.rangeBands.map((band) => band.maxKm))), [100, 900, null]);
   assert.equal(saved.resources[0].label, "Planning Resource");
   assert.equal(saved.resources[0].completionRate, 75);
+  assert.equal(saved.resources[0].penetration, 8);
   assert.equal(saved.categoryRequirements.energy_facilities, 3);
+  assert.equal(saved.categoryHardness.energy_facilities, 5);
 });
 
 test("scenario estimator preserves imported resource lists beyond the defaults", async () => {
@@ -1183,7 +1188,9 @@ test("scenario estimator clear all restores default assumptions", async () => {
   api.state.estimator.rangeBands = [{ id: "custom", maxKm: 100 }, { id: "band_open", maxKm: null }];
   api.state.estimator.resources[0].label = "Changed";
   api.state.estimator.resources[0].completionRate = 10;
+  api.state.estimator.resources[0].penetration = 9;
   api.state.estimator.categoryRequirements.energy_facilities = 9;
+  api.state.estimator.categoryHardness.energy_facilities = 8;
 
   api.els.resetEstimatorBtn.listeners.click[0]();
 
@@ -1191,7 +1198,9 @@ test("scenario estimator clear all restores default assumptions", async () => {
   assert.deepEqual(JSON.parse(JSON.stringify(saved.rangeBands.map((band) => band.maxKm))), [500, 2500, null]);
   assert.equal(saved.resources[0].label, "Resource A");
   assert.equal(saved.resources[0].completionRate, 80);
+  assert.equal(saved.resources[0].penetration, 0);
   assert.equal(saved.categoryRequirements.energy_facilities, 1);
+  assert.equal(saved.categoryHardness.energy_facilities, 0);
 });
 
 test("scenario estimator saves loads and deletes range/resource profiles", async () => {
@@ -1205,8 +1214,10 @@ test("scenario estimator saves loads and deletes range/resource profiles", async
   ];
   api.state.estimator.resources[0].label = "Effector Alpha";
   api.state.estimator.resources[0].completionRate = 70;
+  api.state.estimator.resources[0].penetration = 12;
   api.state.estimator.categoryRequirements.energy_facilities = 4;
   api.state.estimator.categoryRequirements.military_sites = 2;
+  api.state.estimator.categoryHardness.energy_facilities = 6;
   app.prompt = () => "Strike profile";
 
   api.els.saveEstimatorProfileBtn.listeners.click[0]();
@@ -1221,16 +1232,21 @@ test("scenario estimator saves loads and deletes range/resource profiles", async
   ];
   api.state.estimator.resources[0].label = "Changed";
   api.state.estimator.resources[0].completionRate = 25;
+  api.state.estimator.resources[0].penetration = 1;
   api.state.estimator.categoryRequirements.energy_facilities = 1;
   api.state.estimator.categoryRequirements.military_sites = 1;
+  api.state.estimator.categoryHardness.energy_facilities = 1;
   api.els.loadEstimatorProfileBtn.listeners.click[0]();
 
   assert.deepEqual(JSON.parse(JSON.stringify(api.state.estimator.rangeBands.map((band) => band.maxKm))), [750, null]);
   assert.equal(api.state.estimator.resources[0].label, "Effector Alpha");
   assert.equal(api.state.estimator.resources[0].completionRate, 70);
+  assert.equal(api.state.estimator.resources[0].penetration, 12);
   assert.equal(api.state.estimator.categoryRequirements.energy_facilities, 4);
   assert.equal(api.state.estimator.categoryRequirements.military_sites, 2);
+  assert.equal(api.state.estimator.categoryHardness.energy_facilities, 6);
   assert.equal(api.currentPreferences().estimator.profiles[0].categoryRequirements.energy_facilities, 4);
+  assert.equal(api.currentPreferences().estimator.profiles[0].categoryHardness.energy_facilities, 6);
 
   api.els.resetEstimatorBtn.listeners.click[0]();
   assert.equal(api.state.estimator.profiles.length, 1);
@@ -1278,12 +1294,15 @@ test("resource type controls add remove and re-shape campaign settings", async (
   addedRow.children[0].listeners.input[0]();
   addedRow.children[1].value = "88";
   addedRow.children[1].listeners.input[0]();
+  addedRow.children[2].value = "4";
+  addedRow.children[2].listeners.input[0]();
   assert.equal(api.state.estimator.resources[3].label, "Drone");
   assert.equal(api.state.estimator.resources[3].completionRate, 88);
+  assert.equal(api.state.estimator.resources[3].penetration, 4);
   assert.equal(api.state.campaignRun.stale, true);
 
   const secondRow = api.els.resourceTypesList.children[1];
-  secondRow.children[2].listeners.click[0]();
+  secondRow.children[3].listeners.click[0]();
 
   assert.deepEqual(JSON.parse(JSON.stringify(api.state.estimator.resources.map((resource) => resource.id))), [
     "resource_a",
@@ -1308,17 +1327,25 @@ test("category assumptions use number inputs", async () => {
   const api = app.__api;
   const row = api.els.categoryAssumptionsList.children.find((child) => child.children[0].innerHTML.includes("Oil/Gas Facilities"));
   assert.ok(row);
-  assert.equal(row.children.length, 2);
+  assert.equal(row.children.length, 3);
 
   const input = row.children[1];
   assert.equal(input.type, "number");
   assert.equal(input.min, "0");
   assert.equal(input.step, "1");
   assert.equal(input.value, "1");
+  const hardnessInput = row.children[2];
+  assert.equal(hardnessInput.type, "number");
+  assert.equal(hardnessInput.min, "0");
+  assert.equal(hardnessInput.step, "1");
+  assert.equal(hardnessInput.value, "0");
 
   input.value = "4";
   input.listeners.input[0]();
   assert.equal(api.state.estimator.categoryRequirements.energy_facilities, 4);
+  hardnessInput.value = "7";
+  hardnessInput.listeners.input[0]();
+  assert.equal(api.state.estimator.categoryHardness.energy_facilities, 7);
 });
 
 test("range band edits update one band without adding extra bands", async () => {
@@ -1975,6 +2002,57 @@ test("campaign simulation applies fire capacity per range band", async () => {
   assert.equal(day.executedTargetsByLayer.energy_facilities || 0, 0);
   assert.equal(day.deferredTargetsByBand[shortBandId], 1);
   assert.equal(day.fireCapacityRemainingByBandResource[midBandId].resource_a, 10);
+});
+
+test("campaign simulation defers targets when resource penetration is below category hardness", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const bandId = configureSingleTargetCampaign(api);
+  api.state.estimator.categoryHardness.energy_facilities = 5;
+  for (const resource of api.state.estimator.resources) {
+    resource.penetration = resource.id === "resource_a" ? 4 : 6;
+    setCampaignBandResource(api, bandId, resource.id, 10, 10);
+  }
+
+  const day = api.recalculateCampaign().days[0];
+
+  assert.equal(day.executedTargetsByLayer.energy_facilities || 0, 0);
+  assert.equal(day.deferredTargetsByLayer.energy_facilities, 1);
+  assert.equal(day.expendedByBandResource[bandId].resource_a, 0);
+  assert.equal(day.endingStockByBandResource[bandId].resource_a, 10);
+});
+
+test("campaign substitution only uses resources that meet target hardness", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const bandId = configureSingleTargetCampaign(api, {
+    resourceSubstitution: {
+      enabled: true,
+      mode: "priority",
+      preserveRangeBand: true,
+      substitutePriorityOrder: ["resource_b", "resource_c"],
+      substituteWeights: {},
+    },
+  });
+  api.state.estimator.categoryHardness.energy_facilities = 5;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 4;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_b").penetration = 3;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_c").penetration = 6;
+  setCampaignBandResource(api, bandId, "resource_a", 10, 10);
+  setCampaignBandResource(api, bandId, "resource_b", 10, 10);
+  setCampaignBandResource(api, bandId, "resource_c", 10, 10);
+
+  const day = api.recalculateCampaign().days[0];
+
+  assert.equal(day.executedTargetsByLayer.energy_facilities, 1);
+  assert.equal(day.expendedByBandResource[bandId].resource_a, 0);
+  assert.equal(day.expendedByBandResource[bandId].resource_b, 0);
+  assert.equal(day.expendedByBandResource[bandId].resource_c, 3);
+  assert.equal(day.substitutionByBandResource[bandId].resource_a.substitutedOut, 1);
+  assert.equal(day.substitutionByBandResource[bandId].resource_b.substitutedOut, 1);
+  assert.equal(day.substitutionByBandResource[bandId].resource_c.substitutedIn, 2);
 });
 
 test("campaign substitution disabled preserves strict resource availability behavior", async () => {
