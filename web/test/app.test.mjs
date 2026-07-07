@@ -2092,6 +2092,32 @@ test("campaign daily timeline requested delta only displays deficits", async () 
   assert.doesNotMatch(api.els.campaignDailyTable.innerHTML, /Resource C: 9/);
 });
 
+test("campaign dashboard requested delta nullifies positive surpluses", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const bandId = configureSingleTargetCampaign(api);
+  setCampaignBandResource(api, bandId, "resource_a", 10, 10);
+  setCampaignBandResource(api, bandId, "resource_b", 0, 10);
+  setCampaignBandResource(api, bandId, "resource_c", 10, 10);
+
+  const day = api.recalculateCampaign().days[0];
+
+  assert.equal(day.requestedSupplyDeltaByBandResource[bandId].resource_a, 9);
+  assert.equal(day.requestedSupplyDeltaByBandResource[bandId].resource_b, -1);
+  assert.equal(day.requestedSupplyDeltaByBandResource[bandId].resource_c, 9);
+
+  const requestedDeltaByResource = Object.fromEntries(
+    [...api.els.campaignDashboard.innerHTML.matchAll(/<tr><td>[^<]+<br><small>([^<]+)<\/small><\/td><td>(Resource [ABC])<\/td><td>[^<]*<\/td><td>[^<]*<\/td><td>[^<]*<\/td><td>[^<]*<\/td><td>[^<]*<\/td><td>[^<]*<\/td><td>([^<]*)<\/td>/g)]
+      .filter(([, rowBandId]) => rowBandId === bandId)
+      .map(([, , resource, requestedDelta]) => [resource, requestedDelta])
+  );
+
+  assert.equal(requestedDeltaByResource["Resource A"], "0");
+  assert.equal(requestedDeltaByResource["Resource B"], "-1");
+  assert.equal(requestedDeltaByResource["Resource C"], "0");
+});
+
 test("campaign priority substitution executes with substitute stock and tracks notes", async () => {
   const app = createAppContext();
   await app.__initPromise;
