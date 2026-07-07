@@ -31,7 +31,7 @@
               <h1>Infrastructure Explorer</h1>
               <span id="appVersion" class="app-version" aria-label="Application version">v0.15.0</span>
               <button id="appInfoBtn" class="info-btn" type="button" data-info-topic="app" aria-label="Version history" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
-              <button id="feedbackBtn" class="text-btn feedback-header-btn" type="button" aria-haspopup="dialog" aria-controls="feedbackDialog">Feedback</button>
+              <span class="feedback-issue-note">Feedback: <a href="https://github.com/code-smithy/russianinfra/issues/new" target="_blank" rel="noopener noreferrer">open a GitHub issue</a></span>
             </div>
             <p id="datasetSummary">Loading manifest...</p>
           </div>
@@ -426,35 +426,6 @@
       <h2 id="infoPopoverTitle">Information</h2>
       <div id="infoPopoverBody" class="info-popover-body"></div>
     </aside>
-
-    <div id="feedbackBackdrop" class="modal-backdrop" hidden></div>
-    <section id="feedbackDialog" class="feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle" hidden>
-      <form id="feedbackForm" class="feedback-form">
-        <div class="feedback-dialog-header">
-          <div>
-            <h2 id="feedbackTitle">Send feedback</h2>
-            <p>Share suggestions, bugs, data notes, or ideas for the tool.</p>
-          </div>
-          <button id="feedbackCloseBtn" class="icon-btn" type="button" aria-label="Close feedback form">&times;</button>
-        </div>
-        <label>
-          <span>Name</span>
-          <input id="feedbackName" name="name" autocomplete="name" maxlength="120" placeholder="Optional" />
-        </label>
-        <label>
-          <span>Reply contact</span>
-          <input id="feedbackContact" name="contact" autocomplete="email" maxlength="180" placeholder="Optional email or handle" />
-        </label>
-        <label>
-          <span>Message</span>
-          <textarea id="feedbackMessage" name="message" maxlength="4000" required placeholder="What should be improved, fixed, or added?"></textarea>
-        </label>
-        <div class="feedback-actions">
-          <span id="feedbackStatus" class="feedback-status" role="status" aria-live="polite"></span>
-          <button id="feedbackSubmitBtn" class="text-btn" type="submit">Send feedback</button>
-        </div>
-      </form>
-    </section>
 
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"

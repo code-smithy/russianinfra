@@ -42,7 +42,6 @@ globalThis.__api = {
   featureDistanceToPointKm,
   featurePassesActiveFilters,
   featurePassesTemporalFilters,
-  feedbackPayload,
   groupedLayerInfos,
   handleSubcategoryChange,
   importEstimatorAssumptionsFromText,
@@ -56,13 +55,10 @@ globalThis.__api = {
   onRadiusMouseDown,
   renderEstimatorResults,
   renderRadiusResults,
-  openFeedbackDialog,
   recalculateCampaign,
   renderCampaignMapStatus,
   resetRadius,
   resetEstimatorAssumptions,
-  closeFeedbackDialog,
-  submitFeedback,
   savePreferencesNow,
   setCampaignDay,
   setSelectedTab,
@@ -413,37 +409,15 @@ test("places Timeline and Build comparison at the bottom of their sidebars", () 
   assert.ok(html.indexOf('id="changeReportPanel"') > html.indexOf('id="estimatorPanel"'));
 });
 
-test("feedback button opens a private feedback dialog", async () => {
+test("feedback prompt links to GitHub issues instead of a local form", () => {
   const html = fs.readFileSync("web/index.html", "utf8");
-  assert.match(html, /id="feedbackBtn"[^>]*>Feedback</);
-  assert.match(html, /id="feedbackDialog"[^>]*role="dialog"/);
-  assert.match(html, /id="feedbackMessage"[^>]*required/);
+  assert.match(html, /Feedback: <a href="https:\/\/github\.com\/code-smithy\/russianinfra\/issues\/new"/);
+  assert.match(html, /target="_blank"/);
+  assert.match(html, /rel="noopener noreferrer"/);
+  assert.doesNotMatch(html, /id="feedbackDialog"/);
+  assert.doesNotMatch(html, /id="feedbackForm"/);
+  assert.doesNotMatch(html, /id="feedbackMessage"/);
   assert.doesNotMatch(html, /mailto:/i);
-
-  const app = createAppContext();
-  await app.__initPromise;
-  const api = app.__api;
-
-  assert.equal(api.els.feedbackBtn.getAttribute("aria-expanded"), "false");
-  api.els.feedbackName.value = "Analyst";
-  api.els.feedbackContact.value = "analyst@example.test";
-  api.els.feedbackMessage.value = "Please add a data correction workflow.";
-  api.openFeedbackDialog();
-
-  assert.equal(api.els.feedbackDialog.hidden, false);
-  assert.equal(api.els.feedbackBackdrop.hidden, false);
-  assert.equal(api.els.feedbackBtn.getAttribute("aria-expanded"), "true");
-  assert.deepEqual(JSON.parse(JSON.stringify(api.feedbackPayload())), {
-    name: "Analyst",
-    contact: "analyst@example.test",
-    message: "Please add a data correction workflow.",
-    page: "",
-    version: "0.15.0",
-  });
-
-  api.closeFeedbackDialog();
-  assert.equal(api.els.feedbackDialog.hidden, true);
-  assert.equal(api.els.feedbackBackdrop.hidden, true);
 });
 
 test("campaign input masks have matching information explanations", () => {

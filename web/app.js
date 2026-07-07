@@ -382,16 +382,6 @@ const els = {
   leftResizeHandle: document.getElementById("leftResizeHandle"),
   rightResizeHandle: document.getElementById("rightResizeHandle"),
   appVersion: document.getElementById("appVersion"),
-  feedbackBtn: document.getElementById("feedbackBtn"),
-  feedbackBackdrop: document.getElementById("feedbackBackdrop"),
-  feedbackDialog: document.getElementById("feedbackDialog"),
-  feedbackForm: document.getElementById("feedbackForm"),
-  feedbackCloseBtn: document.getElementById("feedbackCloseBtn"),
-  feedbackName: document.getElementById("feedbackName"),
-  feedbackContact: document.getElementById("feedbackContact"),
-  feedbackMessage: document.getElementById("feedbackMessage"),
-  feedbackStatus: document.getElementById("feedbackStatus"),
-  feedbackSubmitBtn: document.getElementById("feedbackSubmitBtn"),
   datasetSummary: document.getElementById("datasetSummary"),
   layersCount: document.getElementById("layersCount"),
   layersList: document.getElementById("layersList"),
@@ -521,81 +511,6 @@ const els = {
 };
 
 let activeInfoButton = null;
-
-function setFeedbackStatus(message, mode = "") {
-  if (!els.feedbackStatus) return;
-  els.feedbackStatus.textContent = message;
-  els.feedbackStatus.classList.toggle("error", mode === "error");
-  els.feedbackStatus.classList.toggle("success", mode === "success");
-}
-
-function openFeedbackDialog() {
-  if (!els.feedbackDialog || !els.feedbackBackdrop) return;
-  closeInfoPopover();
-  els.feedbackBackdrop.hidden = false;
-  els.feedbackDialog.hidden = false;
-  setFeedbackStatus("");
-  els.feedbackBtn?.setAttribute("aria-expanded", "true");
-  setTimeout(() => els.feedbackMessage?.focus?.(), 0);
-}
-
-function closeFeedbackDialog() {
-  if (!els.feedbackDialog || !els.feedbackBackdrop) return;
-  els.feedbackDialog.hidden = true;
-  els.feedbackBackdrop.hidden = true;
-  els.feedbackBtn?.setAttribute("aria-expanded", "false");
-}
-
-function feedbackPayload() {
-  return {
-    name: els.feedbackName?.value?.trim() || "",
-    contact: els.feedbackContact?.value?.trim() || "",
-    message: els.feedbackMessage?.value?.trim() || "",
-    page: window.location?.href || "",
-    version: APP_VERSION,
-  };
-}
-
-async function submitFeedback(event) {
-  event?.preventDefault?.();
-  const payload = feedbackPayload();
-  if (!payload.message) {
-    setFeedbackStatus("Add a message before sending.", "error");
-    els.feedbackMessage?.focus?.();
-    return;
-  }
-
-  els.feedbackSubmitBtn.disabled = true;
-  setFeedbackStatus("Sending...");
-  try {
-    const response = await fetch("/api/feedback", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(body.error || "Feedback could not be sent.");
-    }
-    els.feedbackForm?.reset?.();
-    setFeedbackStatus("Feedback sent. Thank you.", "success");
-  } catch (error) {
-    setFeedbackStatus(error.message || "Feedback could not be sent.", "error");
-  } finally {
-    els.feedbackSubmitBtn.disabled = false;
-  }
-}
-
-function setupFeedbackDialog() {
-  els.feedbackBtn?.setAttribute("aria-expanded", "false");
-  els.feedbackBtn?.addEventListener("click", openFeedbackDialog);
-  els.feedbackCloseBtn?.addEventListener("click", closeFeedbackDialog);
-  els.feedbackBackdrop?.addEventListener("click", closeFeedbackDialog);
-  els.feedbackForm?.addEventListener("submit", submitFeedback);
-  document.addEventListener?.("keydown", (event) => {
-    if (event.key === "Escape" && !els.feedbackDialog?.hidden) closeFeedbackDialog();
-  });
-}
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -5071,7 +4986,6 @@ async function init() {
 }
 
 setupInfoButtons();
-setupFeedbackDialog();
 setupResizableMenus();
 els.tabMapBtn?.addEventListener("click", () => setSelectedTab("map"));
 els.tabCampaignBtn?.addEventListener("click", () => setSelectedTab("campaign"));

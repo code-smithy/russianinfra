@@ -134,10 +134,20 @@ input {
   align-self: center;
 }
 
-.feedback-header-btn {
-  min-height: 26px;
-  padding: 3px 8px;
+.feedback-issue-note {
+  align-self: center;
+  color: var(--muted);
   font-size: 12px;
+}
+
+.feedback-issue-note a {
+  color: var(--accent-2);
+  text-decoration: none;
+}
+
+.feedback-issue-note a:hover,
+.feedback-issue-note a:focus-visible {
+  text-decoration: underline;
 }
 
 .app-header p {
@@ -1309,111 +1319,6 @@ input {
 
 .info-popover-body p {
   margin: 0;
-}
-
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1300;
-  background: rgba(0, 0, 0, 0.58);
-}
-
-.feedback-dialog {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  z-index: 1310;
-  width: min(440px, calc(100vw - 24px));
-  max-height: calc(100vh - 24px);
-  overflow: auto;
-  transform: translate(-50%, -50%);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel-2);
-  box-shadow: var(--shadow);
-}
-
-.feedback-form {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-}
-
-.feedback-dialog-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 34px;
-  gap: 10px;
-  align-items: start;
-}
-
-.feedback-dialog h2 {
-  margin: 0;
-  color: #d9d5ce;
-  font-size: 15px;
-}
-
-.feedback-dialog p {
-  margin: 3px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.feedback-form label {
-  display: grid;
-  gap: 5px;
-}
-
-.feedback-form label span {
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.feedback-form input,
-.feedback-form textarea {
-  width: 100%;
-  min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  background: #101010;
-  outline: none;
-}
-
-.feedback-form input {
-  height: 34px;
-  padding: 0 9px;
-}
-
-.feedback-form textarea {
-  min-height: 150px;
-  resize: vertical;
-  padding: 9px;
-}
-
-.feedback-form input:focus,
-.feedback-form textarea:focus {
-  border-color: var(--accent-2);
-}
-
-.feedback-actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-}
-
-.feedback-status {
-  min-width: 0;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.feedback-status.error {
-  color: #e36b5a;
-}
-
-.feedback-status.success {
-  color: var(--green);
 }
 
 .version-history {
