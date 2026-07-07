@@ -42,6 +42,7 @@ globalThis.__api = {
   featureDistanceToPointKm,
   featurePassesActiveFilters,
   featurePassesTemporalFilters,
+  feedbackPayload,
   groupedLayerInfos,
   handleSubcategoryChange,
   importEstimatorAssumptionsFromText,
@@ -55,10 +56,13 @@ globalThis.__api = {
   onRadiusMouseDown,
   renderEstimatorResults,
   renderRadiusResults,
+  openFeedbackDialog,
   recalculateCampaign,
   renderCampaignMapStatus,
   resetRadius,
   resetEstimatorAssumptions,
+  closeFeedbackDialog,
+  submitFeedback,
   savePreferencesNow,
   setCampaignDay,
   setSelectedTab,
@@ -408,6 +412,39 @@ test("places Timeline and Build comparison at the bottom of their sidebars", () 
   assert.ok(html.indexOf('id="changeReportPanel"') > html.indexOf('id="estimatorPanel"'));
 });
 
+test("feedback button opens a private feedback dialog", async () => {
+  const html = fs.readFileSync("web/index.html", "utf8");
+  assert.match(html, /id="feedbackBtn"[^>]*>Feedback</);
+  assert.match(html, /id="feedbackDialog"[^>]*role="dialog"/);
+  assert.match(html, /id="feedbackMessage"[^>]*required/);
+  assert.doesNotMatch(html, /mailto:/i);
+
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+
+  assert.equal(api.els.feedbackBtn.getAttribute("aria-expanded"), "false");
+  api.els.feedbackName.value = "Analyst";
+  api.els.feedbackContact.value = "analyst@example.test";
+  api.els.feedbackMessage.value = "Please add a data correction workflow.";
+  api.openFeedbackDialog();
+
+  assert.equal(api.els.feedbackDialog.hidden, false);
+  assert.equal(api.els.feedbackBackdrop.hidden, false);
+  assert.equal(api.els.feedbackBtn.getAttribute("aria-expanded"), "true");
+  assert.deepEqual(JSON.parse(JSON.stringify(api.feedbackPayload())), {
+    name: "Analyst",
+    contact: "analyst@example.test",
+    message: "Please add a data correction workflow.",
+    page: "",
+    version: "0.14.0",
+  });
+
+  api.closeFeedbackDialog();
+  assert.equal(api.els.feedbackDialog.hidden, true);
+  assert.equal(api.els.feedbackBackdrop.hidden, true);
+});
+
 test("campaign input masks have matching information explanations", () => {
   const html = fs.readFileSync("web/index.html", "utf8");
   const js = fs.readFileSync("web/app.js", "utf8");
@@ -416,6 +453,7 @@ test("campaign input masks have matching information explanations", () => {
     ["campaignLayerAllocation", "campaignLayerAllocationInfoBtn"],
     ["campaignCapacity", "campaignCapacityInfoBtn"],
     ["campaignSupply", "campaignSupplyInfoBtn"],
+    ["campaignCosts", "campaignCostsInfoBtn"],
     ["campaignPlayer", "campaignPlayerInfoBtn"],
     ["campaignDashboard", "campaignDashboardInfoBtn"],
     ["campaignDailyTimeline", "campaignDailyTimelineInfoBtn"],
@@ -431,20 +469,21 @@ test("campaign input masks have matching information explanations", () => {
   assert.match(html, /id="campaignLayerAllocation"/);
   assert.match(html, /id="campaignCapacity"/);
   assert.match(html, /id="campaignSupply"/);
+  assert.match(html, /id="campaignCosts"/);
   assert.match(html, /id="campaignPlayer"/);
   assert.match(html, /id="campaignDashboard"/);
   assert.match(html, /id="campaignDailyTable"/);
 });
 
-test("version metadata includes the campaign explanation release", () => {
+test("version metadata includes the campaign resource cost release", () => {
   const html = fs.readFileSync("web/index.html", "utf8");
   const js = fs.readFileSync("web/app.js", "utf8");
   const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
 
-  assert.equal(packageJson.version, "0.13.0");
-  assert.match(js, /const APP_VERSION = "0\.13\.0"/);
-  assert.match(html, /id="appVersion"[^>]*>v0\.13\.0</);
-  assert.match(js, /version: "0\.13\.0"[\s\S]*Adds information popovers to Campaign Settings/);
+  assert.equal(packageJson.version, "0.14.0");
+  assert.match(js, /const APP_VERSION = "0\.14\.0"/);
+  assert.match(html, /id="appVersion"[^>]*>v0\.14\.0</);
+  assert.match(js, /version: "0\.14\.0"[\s\S]*Adds a Resource costs Campaign input mask/);
 });
 
 test("saves and restores resized menu widths", async () => {
@@ -1209,6 +1248,7 @@ test("resource type controls add remove and re-shape campaign settings", async (
   const api = app.__api;
   const firstBandId = api.campaignBandIds()[0];
   api.state.campaign.initialStockByBand[firstBandId].resource_b = 22;
+  api.state.campaign.resourceUnitCostByBand[firstBandId].resource_b = 44;
   api.state.campaign.resourceSubstitution = api.normalizeCampaignSettings({
     resourceSubstitution: {
       enabled: true,
@@ -1225,6 +1265,7 @@ test("resource type controls add remove and re-shape campaign settings", async (
   const added = api.state.estimator.resources[3];
   assert.equal(added.id, "resource_d");
   assert.equal(api.state.campaign.initialStockByBand[firstBandId].resource_d, 0);
+  assert.equal(api.state.campaign.resourceUnitCostByBand[firstBandId].resource_d, 0);
   assert.deepEqual(JSON.parse(JSON.stringify(api.state.campaign.resourceSubstitution.substitutePriorityOrder)), [
     "resource_b",
     "resource_c",
@@ -1251,6 +1292,8 @@ test("resource type controls add remove and re-shape campaign settings", async (
   ]);
   assert.equal(api.state.campaign.initialStockByBand[firstBandId].resource_b, undefined);
   assert.equal(api.state.campaign.initialStockByBand[firstBandId].resource_d, 0);
+  assert.equal(api.state.campaign.resourceUnitCostByBand[firstBandId].resource_b, undefined);
+  assert.equal(api.state.campaign.resourceUnitCostByBand[firstBandId].resource_d, 0);
   assert.deepEqual(JSON.parse(JSON.stringify(api.state.campaign.resourceSubstitution.substitutePriorityOrder)), [
     "resource_c",
     "resource_a",
@@ -1715,6 +1758,7 @@ test("campaign settings normalize persist and calendar production uses real mont
   api.state.campaign.fireCapacityPerDayByBand[firstBandId].resource_a = 11;
   api.state.campaign.initialStockByBand[firstBandId].resource_a = 22;
   api.state.campaign.productionMonthlyByBand[firstBandId].resource_a = 280;
+  api.state.campaign.resourceUnitCostByBand[firstBandId].resource_a = 123.45;
   api.savePreferencesNow();
   assert.equal(api.dailyProductionForDate(firstBandId, "resource_a", "2026-02-01"), 10);
   api.state.campaign.productionMonthlyByBand[firstBandId].resource_a = 290;
@@ -1725,6 +1769,7 @@ test("campaign settings normalize persist and calendar production uses real mont
   const saved = api.currentPreferences().campaign;
   assert.equal(saved.startDate, "2026-02-01");
   assert.equal(saved.initialStockByBand[firstBandId].resource_a, 22);
+  assert.equal(saved.resourceUnitCostByBand[firstBandId].resource_a, 123.45);
   assert.deepEqual(JSON.parse(JSON.stringify(saved.resourceSubstitution)), {
     enabled: false,
     mode: "off",
@@ -1736,6 +1781,7 @@ test("campaign settings normalize persist and calendar production uses real mont
   await second.__initPromise;
   assert.equal(second.__api.state.campaign.startDate, "2026-02-01");
   assert.equal(second.__api.state.campaign.initialStockByBand[firstBandId].resource_a, 22);
+  assert.equal(second.__api.state.campaign.resourceUnitCostByBand[firstBandId].resource_a, 123.45);
 });
 
 test("campaign band-resource normalization migrates legacy flat settings and prunes stale keys", async () => {
@@ -1763,11 +1809,15 @@ test("campaign band-resource normalization migrates legacy flat settings and pru
     productionMonthlyByBand: {
       [secondBandId]: { resource_a: 31 },
     },
+    resourceUnitCostByBand: {
+      [secondBandId]: { resource_a: 500 },
+    },
   });
 
   assert.equal(nested.initialStockByBand[firstBandId].resource_a, 3);
   assert.equal(nested.initialStockByBand.stale_band, undefined);
   assert.equal(nested.productionMonthlyByBand[secondBandId].resource_a, 31);
+  assert.equal(nested.resourceUnitCostByBand[secondBandId].resource_a, 500);
 });
 
 test("campaign scope comes only from radius results and demand reuses estimator formula", async () => {
@@ -1992,6 +2042,41 @@ test("campaign priority substitution executes with substitute stock and tracks n
   assert.match(day.notes.join("\n"), /Substituted 1 Resource A demand with Resource B/);
 });
 
+test("campaign costs charge actual expended substituted resources", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const bandId = configureSingleTargetCampaign(api, {
+    resourceSubstitution: {
+      enabled: true,
+      mode: "priority",
+      preserveRangeBand: true,
+      substitutePriorityOrder: ["resource_b", "resource_c"],
+      substituteWeights: {},
+    },
+  });
+  setCampaignBandResource(api, bandId, "resource_a", 0, 10);
+  setCampaignBandResource(api, bandId, "resource_b", 2, 2);
+  setCampaignBandResource(api, bandId, "resource_c", 1, 1);
+  api.state.campaign.resourceUnitCostByBand[bandId].resource_a = 100;
+  api.state.campaign.resourceUnitCostByBand[bandId].resource_b = 5;
+
+  const run = api.recalculateCampaign();
+  const json = api.buildCampaignTimelineJson();
+  const csv = api.buildCampaignTimelineCsv();
+
+  assert.equal(run.days[0].expendedByBandResource[bandId].resource_a, 0);
+  assert.equal(run.days[0].expendedByBandResource[bandId].resource_b, 2);
+  assert.equal(json.dailySnapshots[0].costByBandResource[bandId].resource_a, 0);
+  assert.equal(json.dailySnapshots[0].costByBandResource[bandId].resource_b, 10);
+  assert.equal(json.summary.totalCost, 10);
+  assert.match(api.els.campaignDashboard.innerHTML, /Total cost/);
+  assert.match(api.els.campaignDashboard.innerHTML, />10<\/td>/);
+  assert.match(api.els.campaignDailyTable.innerHTML, /Range\/resource cost/);
+  assert.match(csv, /unit_cost,cost/);
+  assert.match(csv, /resource_b,Resource B,[^\r\n]*,5,10,/);
+});
+
 test("campaign weighted substitution distributes and redistributes by capacity", async () => {
   const app = createAppContext();
   await app.__initPromise;
@@ -2165,6 +2250,8 @@ test("campaign profile import validates payloads and accepts wrapped settings", 
   assert.equal(api.state.campaign.initialStockByBand[firstBandId].resource_a, 44);
   assert.equal(api.state.campaign.productionMonthlyByBand[firstBandId].resource_a, 31);
   assert.equal(api.state.campaign.fireCapacityPerDayByBand[firstBandId].resource_a, 3);
+  api.importCampaignProfileFromText(JSON.stringify({ campaign: { resourceUnitCost: { resource_a: 99 } } }));
+  assert.equal(api.state.campaign.resourceUnitCostByBand[firstBandId].resource_a, 99);
   api.importCampaignProfileFromText(JSON.stringify({ campaign: { resourceSubstitution: { enabled: true, mode: "priority", preserveRangeBand: true, substitutePriorityOrder: ["resource_b"] } } }));
   assert.equal(api.state.campaign.resourceSubstitution.enabled, true);
   assert.equal(api.state.campaign.resourceSubstitution.mode, "priority");
