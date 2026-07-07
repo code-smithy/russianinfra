@@ -230,9 +230,29 @@
               <section class="panel"><h3>Profiles</h3><div class="actions-row"><select id="campaignProfileSelect" aria-label="Campaign profile"></select><button id="saveCampaignProfileBtn" type="button" class="text-btn">Save profile</button><button id="loadCampaignProfileBtn" type="button" class="text-btn">Load</button><button id="deleteCampaignProfileBtn" type="button" class="text-btn">Delete</button><button id="exportCampaignProfileBtn" type="button" class="text-btn">Export profile JSON</button><button id="importCampaignProfileBtn" type="button" class="text-btn">Import profile JSON</button><input id="campaignImportInput" type="file" accept="application/json,.json" hidden></div></section>
             </div>
             <div class="campaign-column">
-              <section class="panel"><h3>Player</h3><div id="campaignPlayer"></div><div class="campaign-map-legend"><span class="campaign-status-executed">Executed</span><span class="campaign-status-current-day">Current day</span><span class="campaign-status-deferred">Deferred</span></div></section>
-              <section class="panel"><h3>Dashboard</h3><div id="campaignDashboard"></div><div class="actions-row"><button id="exportCampaignTimelineCsvBtn" type="button" class="text-btn">Export timeline CSV</button><button id="exportCampaignTimelineJsonBtn" type="button" class="text-btn">Export timeline JSON</button></div></section>
-              <section class="panel"><h3>Daily timeline</h3><div id="campaignDailyTable" class="campaign-table"></div></section>
+              <section class="panel">
+                <div class="campaign-section-title heading-with-info">
+                  <h3>Player</h3>
+                  <button id="campaignPlayerInfoBtn" class="info-btn" type="button" data-info-topic="campaignPlayer" aria-label="Information about Campaign player" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+                </div>
+                <div id="campaignPlayer"></div>
+                <div class="campaign-map-legend"><span class="campaign-status-executed">Executed</span><span class="campaign-status-current-day">Current day</span><span class="campaign-status-deferred">Deferred</span></div>
+              </section>
+              <section class="panel">
+                <div class="campaign-section-title heading-with-info">
+                  <h3>Dashboard</h3>
+                  <button id="campaignDashboardInfoBtn" class="info-btn" type="button" data-info-topic="campaignDashboard" aria-label="Information about Campaign dashboard" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+                </div>
+                <div id="campaignDashboard"></div>
+                <div class="actions-row"><button id="exportCampaignTimelineCsvBtn" type="button" class="text-btn">Export timeline CSV</button><button id="exportCampaignTimelineJsonBtn" type="button" class="text-btn">Export timeline JSON</button></div>
+              </section>
+              <section class="panel">
+                <div class="campaign-section-title heading-with-info">
+                  <h3>Daily timeline</h3>
+                  <button id="campaignDailyTimelineInfoBtn" class="info-btn" type="button" data-info-topic="campaignDailyTimeline" aria-label="Information about Campaign daily timeline" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+                </div>
+                <div id="campaignDailyTable" class="campaign-table"></div>
+              </section>
             </div>
           </div>
         </div>

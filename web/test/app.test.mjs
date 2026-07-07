@@ -411,19 +411,29 @@ test("places Timeline and Build comparison at the bottom of their sidebars", () 
 test("campaign input masks have matching information explanations", () => {
   const html = fs.readFileSync("web/index.html", "utf8");
   const js = fs.readFileSync("web/app.js", "utf8");
-  const campaignInputMasks = [
+  const campaignSections = [
     ["campaignSettings", "campaignSettingsInfoBtn"],
     ["campaignLayerAllocation", "campaignLayerAllocationInfoBtn"],
     ["campaignCapacity", "campaignCapacityInfoBtn"],
     ["campaignSupply", "campaignSupplyInfoBtn"],
+    ["campaignPlayer", "campaignPlayerInfoBtn"],
+    ["campaignDashboard", "campaignDashboardInfoBtn"],
+    ["campaignDailyTimeline", "campaignDailyTimelineInfoBtn"],
   ];
 
-  for (const [topic, buttonId] of campaignInputMasks) {
+  for (const [topic, buttonId] of campaignSections) {
     assert.match(html, new RegExp(`id="${buttonId}"[^>]+data-info-topic="${topic}"`));
-    assert.match(html, new RegExp(`id="${topic}"`));
     assert.match(js, new RegExp(`${topic}: \\{[\\s\\S]*?paragraphs:`));
     assert.match(js, new RegExp(`"${buttonId}"`));
   }
+
+  assert.match(html, /id="campaignSettings"/);
+  assert.match(html, /id="campaignLayerAllocation"/);
+  assert.match(html, /id="campaignCapacity"/);
+  assert.match(html, /id="campaignSupply"/);
+  assert.match(html, /id="campaignPlayer"/);
+  assert.match(html, /id="campaignDashboard"/);
+  assert.match(html, /id="campaignDailyTable"/);
 });
 
 test("version metadata includes the campaign explanation release", () => {

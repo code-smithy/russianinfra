@@ -145,7 +145,7 @@ const INFO_TOPICS = {
       "Highlights include Nightwatch military map scraping, resilient OSINT Varta archive capture selection, automatic country-boundary bootstrapping, and a durable compressed comparison baseline for scheduled builds.",
     ],
     history: [
-      { version: "0.13.0", date: "2026-07-07", notes: ["Adds information popovers to Campaign Settings, Layer priority and allocation, Capacity, and Supply and production.", "Explains allocation modes, layer priorities and weights, command/fire capacity, initial stock, monthly production, range-band separation, and resource substitution behavior.", "Adds coverage so new Campaign input-mask sections are expected to include matching information explanations."] },
+      { version: "0.13.0", date: "2026-07-07", notes: ["Adds information popovers to Campaign Settings, Layer priority and allocation, Capacity, Supply and production, Player, Dashboard, and Daily timeline.", "Explains allocation modes, layer priorities and weights, command/fire capacity, initial stock, monthly production, range-band separation, resource substitution, playback, dashboard metrics, and daily timeline outputs.", "Adds coverage so new Campaign sections are expected to include matching information explanations."] },
       { version: "0.12.0", date: "2026-07-07", notes: ["Adds Resource type creation and removal controls to the Scenario Estimator.", "Persists arbitrary resource type lists in estimator settings and profiles instead of forcing the three default resources.", "Re-shapes Campaign capacity, stock, production, and substitution settings when resource types change."] },
       { version: "0.11.0", date: "2026-07-02", notes: ["Adds configurable Campaign resource substitution with off, priority, weighted, and split-evenly modes.", "Keeps substitution atomic per target increment and preserves same-range-band behavior by default.", "Shows substituted-in and substituted-out demand in Campaign dashboards, daily timelines, CSV export, JSON export, saved profiles, and tests."] },
       { version: "0.10.0", date: "2026-07-02", notes: ["Makes Campaign supply, production, and fire capacity range-band-specific.", "Migrates legacy flat Campaign resource settings into the first configured range band.", "Adds band-aware Campaign dashboard, daily timeline, CSV export, JSON export, and tests for no cross-band borrowing."] },
@@ -263,6 +263,30 @@ const INFO_TOPICS = {
       "Initial stock is the starting inventory for each range band and resource type.",
       "Monthly production is converted to calendar-aware daily production from the campaign start date, then added to stock as the simulation advances.",
       "Supply is separated by range band by default. Demand in one range band does not borrow stock, production, or fire capacity from another band.",
+    ],
+  },
+  campaignPlayer: {
+    title: "Player",
+    paragraphs: [
+      "Runs or replays the current campaign simulation after a radius has defined the campaign scope.",
+      "Recalculate / Run simulation rebuilds the daily results from the current settings. Stale means a setting, scope, or assumption changed since the last run.",
+      "Previous, Play, Next, and the slider move through simulated days and update the campaign map status styling.",
+    ],
+  },
+  campaignDashboard: {
+    title: "Dashboard",
+    paragraphs: [
+      "Summarizes the selected simulation day after a campaign run.",
+      "The resource table shows initial stock, cumulative production, expended supply, ending stock, requested delta, substitutions, and fire capacity used by range band and resource.",
+      "The layer table shows total, executed, remaining, allocation weight, priority, and depletion timing for each campaign layer.",
+    ],
+  },
+  campaignDailyTimeline: {
+    title: "Daily timeline",
+    paragraphs: [
+      "Lists every simulated day once a campaign run has been calculated.",
+      "Each row shows executed, deferred, and remaining targets plus range/resource expenditure, substitution, stock, and requested supply deltas.",
+      "Selecting a day updates the Player, Dashboard, and map status overlay to that day.",
     ],
   },
 };
@@ -531,6 +555,9 @@ function setupInfoButtons() {
     "campaignLayerAllocationInfoBtn",
     "campaignCapacityInfoBtn",
     "campaignSupplyInfoBtn",
+    "campaignPlayerInfoBtn",
+    "campaignDashboardInfoBtn",
+    "campaignDailyTimelineInfoBtn",
   ];
   for (const id of buttonIds) {
     const button = document.getElementById(id);
