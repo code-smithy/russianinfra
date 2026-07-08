@@ -2033,7 +2033,7 @@ test("campaign simulation defers targets when resource penetration is below cate
   const bandId = configureSingleTargetCampaign(api);
   api.state.estimator.categoryHardness.energy_facilities = 5;
   for (const resource of api.state.estimator.resources) {
-    resource.penetration = resource.id === "resource_a" ? 4 : 6;
+    resource.penetration = 4;
     setCampaignBandResource(api, bandId, resource.id, 10, 10);
   }
 
@@ -2059,10 +2059,10 @@ test("campaign substitution only uses resources that meet target hardness", asyn
     },
   });
   api.state.estimator.categoryHardness.energy_facilities = 5;
-  api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 4;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 5;
   api.state.estimator.resources.find((resource) => resource.id === "resource_b").penetration = 3;
   api.state.estimator.resources.find((resource) => resource.id === "resource_c").penetration = 6;
-  setCampaignBandResource(api, bandId, "resource_a", 10, 10);
+  setCampaignBandResource(api, bandId, "resource_a", 0, 10);
   setCampaignBandResource(api, bandId, "resource_b", 10, 10);
   setCampaignBandResource(api, bandId, "resource_c", 10, 10);
 
@@ -2071,10 +2071,36 @@ test("campaign substitution only uses resources that meet target hardness", asyn
   assert.equal(day.executedTargetsByLayer.energy_facilities, 1);
   assert.equal(day.expendedByBandResource[bandId].resource_a, 0);
   assert.equal(day.expendedByBandResource[bandId].resource_b, 0);
-  assert.equal(day.expendedByBandResource[bandId].resource_c, 3);
+  assert.equal(day.expendedByBandResource[bandId].resource_c, 2);
   assert.equal(day.substitutionByBandResource[bandId].resource_a.substitutedOut, 1);
-  assert.equal(day.substitutionByBandResource[bandId].resource_b.substitutedOut, 1);
-  assert.equal(day.substitutionByBandResource[bandId].resource_c.substitutedIn, 2);
+  assert.equal(day.substitutionByBandResource[bandId].resource_b.substitutedOut, 0);
+  assert.equal(day.substitutionByBandResource[bandId].resource_c.substitutedIn, 1);
+});
+
+test("campaign resumes hardness-limited strikes after production replenishes penetrating stock", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const bandId = configureSingleTargetCampaign(api, { requirement: 3 });
+  api.state.radiusResults = [
+    { stored: { id: "target_1", feature: feature("target_1", "Target 1", "energy_facilities", "energy_oil_facility", 55.2, 59.1) }, distance: 100 },
+    { stored: { id: "target_2", feature: feature("target_2", "Target 2", "energy_facilities", "energy_oil_facility", 55.2, 59.2) }, distance: 100 },
+    { stored: { id: "target_3", feature: feature("target_3", "Target 3", "energy_facilities", "energy_oil_facility", 55.2, 59.3) }, distance: 100 },
+  ];
+  api.state.campaign.maxSimulationDays = 8;
+  api.state.estimator.categoryHardness.energy_facilities = 5;
+  for (const resource of api.state.estimator.resources) {
+    resource.completionRate = 100;
+    resource.penetration = resource.id === "resource_c" ? 5 : 0;
+    setCampaignBandResource(api, bandId, resource.id, resource.id === "resource_c" ? 3 : 10, 10);
+    api.state.campaign.productionMonthlyByBand[bandId][resource.id] = resource.id === "resource_c" ? 31 : 0;
+  }
+
+  const run = api.recalculateCampaign();
+
+  assert.deepEqual(JSON.parse(JSON.stringify(run.days.map((day) => day.executedTargetsByLayer.energy_facilities || 0))), [1, 0, 1, 0, 0, 1]);
+  assert.equal(run.summary.completionDate, "2026-07-06");
+  assert.equal(run.summary.remainingByLayer.energy_facilities, 0);
 });
 
 test("campaign substitution disabled preserves strict resource availability behavior", async () => {

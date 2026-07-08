@@ -4313,7 +4313,13 @@ function dailyProductionForDate(bandId, resourceId, dateString, settings = state
   const [y,m] = (parseDateString(dateString) || todayDateString()).split("-").map(Number);
   return boundedNumber(settings.productionMonthlyByBand?.[bandId]?.[resourceId] ?? settings.productionMonthly?.[resourceId], 0, 0) / daysInMonth(y, m);
 }
-function demandForLayerCount(layerId, count) { return Object.fromEntries(state.estimator.resources.map((r) => [r.id, estimateUnits(count, categoryRequirement(layerId), r.completionRate)])); }
+function demandForLayerCount(layerId, count, options = {}) {
+  const hardness = options.onlyPenetrating ? categoryHardness(layerId) : null;
+  return Object.fromEntries(state.estimator.resources.map((r) => [
+    r.id,
+    hardness !== null && !resourceCanPenetrate(r.id, hardness) ? 0 : estimateUnits(count, categoryRequirement(layerId), r.completionRate),
+  ]));
+}
 function demandFitsConstraints(demand, stock, fireRemaining) { return Object.entries(demand).every(([id,v]) => Number.isFinite(v) && v <= (stock[id] || 0) + 1e-9 && v <= (fireRemaining[id] || 0) + 1e-9); }
 function resourceCapacityAfterPlan(resourceId, stockRow, fireRow, consumption) {
   const planned = consumption[resourceId] || 0;
@@ -4437,14 +4443,16 @@ function buildConsumptionPlan(incrementalDemand, bandId, layerId, stock, fireRem
   const subSettings = settings.resourceSubstitution || DEFAULT_RESOURCE_SUBSTITUTION_SETTINGS;
   const substitutionEnabled = subSettings.enabled === true && subSettings.mode !== "off";
   const hardness = categoryHardness(layerId);
+  const hasPenetratingResource = campaignResourceIds().some((resourceId) => resourceCanPenetrate(resourceId, hardness));
   const plan = {
-    executable: true,
+    executable: hasPenetratingResource,
     consumption: Object.fromEntries(campaignResourceIds().map((id) => [id, 0])),
     substitutedIn: Object.fromEntries(campaignResourceIds().map((id) => [id, 0])),
     substitutedOut: Object.fromEntries(campaignResourceIds().map((id) => [id, 0])),
     substitutionPairs: {},
     notes: [],
   };
+  if (!plan.executable) return plan;
   const deficitByResource = {};
   for (const resourceId of campaignResourceIds()) {
     const required = incrementalDemand[resourceId] || 0;
@@ -4572,7 +4580,7 @@ function simulateCampaign(settings = state.campaign) {
         incrementBandCount(requestedByBand, entry.bandId);
       }
       for (const [bandId, count] of Object.entries(requestedCountsByBand)) {
-        const demand = demandForLayerCount(layerId, count);
+        const demand = demandForLayerCount(layerId, count, { onlyPenetrating: true });
         for (const resourceId of campaignResourceIds()) {
           incrementBandResource(reqDemand, bandId, resourceId, demand[resourceId] || 0);
           incrementLayerBandResource(reqDemandByLayerBand, layerId, bandId, resourceId, demand[resourceId] || 0);
@@ -4582,8 +4590,8 @@ function simulateCampaign(settings = state.campaign) {
       const executedCountsByBand = {};
       for (const entry of requestedEntries) {
         const currentCount = executedCountsByBand[entry.bandId] || 0;
-        const nextDemand = demandForLayerCount(layerId, currentCount + 1);
-        const previousDemand = demandForLayerCount(layerId, currentCount);
+        const nextDemand = demandForLayerCount(layerId, currentCount + 1, { onlyPenetrating: true });
+        const previousDemand = demandForLayerCount(layerId, currentCount, { onlyPenetrating: true });
         const incrementalDemand = Object.fromEntries(campaignResourceIds().map((resourceId) => [resourceId, (nextDemand[resourceId] || 0) - (previousDemand[resourceId] || 0)]));
         const plan = buildConsumptionPlan(incrementalDemand, entry.bandId, layerId, stock, fireRem, settings);
         if (plan.executable) {
