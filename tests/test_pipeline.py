@@ -287,8 +287,8 @@ class CountryBoundaryTests(unittest.TestCase):
             enriched = json.loads(data_path.read_text(encoding="utf-8"))
 
         props = enriched["features"][0]["properties"]
-        self.assertEqual(props["country"], "RU")
-        self.assertEqual(props["countries"], ["RU"])
+        self.assertEqual(props["country"], "Russia")
+        self.assertEqual(props["countries"], ["Russia"])
         self.assertEqual(props["country_match_method"], "un_locode_country")
 
 
@@ -718,6 +718,28 @@ class PrepareWebDataTests(unittest.TestCase):
         compact = prepare.compact_feature(feature)
 
         self.assertEqual(compact["properties"]["tags"], {"substance": "oil"})
+
+    def test_compact_feature_normalizes_country_codes_to_full_names(self):
+        feature = {
+            "type": "Feature",
+            "id": "obj_1",
+            "geometry": {"type": "Point", "coordinates": [21.0, 52.0]},
+            "properties": {
+                "uid": "obj_1",
+                "country": "PL",
+                "country_code": "PL",
+                "source_country": "PL",
+                "countries": ["PL", "Poland"],
+            },
+        }
+
+        compact = prepare.compact_feature(feature)
+        props = compact["properties"]
+
+        self.assertEqual(props["country"], "Poland")
+        self.assertEqual(props["countries"], ["Poland"])
+        self.assertEqual(props["source_country"], "Poland")
+        self.assertEqual(props["country_code"], "PL")
 
 
 def test_feature(uid, name, layer, asset_type, lat, lon, confidence="A"):

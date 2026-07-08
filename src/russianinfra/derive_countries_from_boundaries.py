@@ -19,6 +19,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
 
+from russianinfra.country_names import country_name_from_code
+
 
 BOUNDARY_PATH = Path("data/boundaries/ne_50m_admin_0_countries.geojson")
 BOUNDARY_URLS = [
@@ -294,7 +296,7 @@ def enrich_file(path: Path, boundaries: list[dict[str, Any]], write: bool) -> di
     for feature in data.get("features", []):
         props = feature.setdefault("properties", {})
         if props.get("country_source") == "un_locode" or props.get("source") == "un_locode":
-            country = props.get("country_code") or props.get("country") or "Unknown"
+            country = country_name_from_code(props.get("country_code") or props.get("country") or "Unknown")
             props["source_country"] = country
             props["country"] = country
             props["countries"] = [country]

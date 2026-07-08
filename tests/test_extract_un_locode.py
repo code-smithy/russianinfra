@@ -81,7 +81,7 @@ class UnLocodeExtractionTests(unittest.TestCase):
         self.assertEqual(normalized["object_id"], "un_locode_RU_LED")
         self.assertEqual(normalized["source"], "un_locode")
         self.assertEqual(normalized["source_id"], "un_locode:RULED")
-        self.assertEqual(normalized["country"], "RU")
+        self.assertEqual(normalized["country"], "Russia")
         self.assertEqual(normalized["country_code"], "RU")
         self.assertEqual(normalized["country_source"], "un_locode")
         self.assertEqual(normalized["asset_class"], "transport")
@@ -156,6 +156,7 @@ class UnLocodeExtractionTests(unittest.TestCase):
 
         self.assertEqual(layer["label"], "Ports & Logistics Nodes")
         self.assertFalse(layer["default_visible"])
+        self.assertEqual(manifest["countries"][0]["id"], "Russia")
 
 
 def source_row(country, location, name, function, coordinates):

@@ -10,6 +10,8 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
+from russianinfra.country_names import country_name_from_code, normalized_country_list
+
 
 NORMALIZED_GEOJSON = Path("data/normalized_infrastructure.geojson")
 CHANGE_REPORT_JSON = Path("data/change_report.json")
@@ -150,6 +152,10 @@ def is_placeholder_name(raw: Any) -> bool:
 def compact_feature(feature: dict[str, Any]) -> dict[str, Any]:
     props = feature.get("properties") or {}
     app_props = {key: props.get(key, "") for key in APP_PROPERTY_KEYS}
+    app_props["countries"] = normalized_country_list(app_props.get("countries"), app_props.get("country"))
+    app_props["country"] = app_props["countries"][0]
+    if app_props.get("source_country"):
+        app_props["source_country"] = country_name_from_code(app_props.get("source_country"))
     tags = props.get("tags")
     if isinstance(tags, dict) and tags:
         app_tags = dict(tags)

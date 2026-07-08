@@ -7577,37 +7577,37 @@
     {
       "id": "Russia",
       "label": "Russia",
-      "count": 121066,
-      "point_count": 10108
-    },
-    {
-      "id": "PL",
-      "label": "PL",
-      "count": 1805,
-      "point_count": 1805
+      "count": 121717,
+      "point_count": 10759
     },
     {
       "id": "Iran",
       "label": "Iran",
-      "count": 1759,
-      "point_count": 1759
+      "count": 1855,
+      "point_count": 1855
+    },
+    {
+      "id": "Poland",
+      "label": "Poland",
+      "count": 1821,
+      "point_count": 1806
     },
     {
       "id": "Ukraine",
       "label": "Ukraine",
-      "count": 1080,
-      "point_count": 176
+      "count": 1329,
+      "point_count": 425
     },
     {
-      "id": "CN",
-      "label": "CN",
-      "count": 982,
+      "id": "China",
+      "label": "China",
+      "count": 986,
       "point_count": 982
     },
     {
-      "id": "NO",
-      "label": "NO",
-      "count": 900,
+      "id": "Norway",
+      "label": "Norway",
+      "count": 901,
       "point_count": 900
     },
     {
@@ -7617,64 +7617,58 @@
       "point_count": 183
     },
     {
-      "id": "FI",
-      "label": "FI",
-      "count": 733,
-      "point_count": 733
+      "id": "Finland",
+      "label": "Finland",
+      "count": 741,
+      "point_count": 734
     },
     {
-      "id": "RU",
-      "label": "RU",
-      "count": 651,
-      "point_count": 651
-    },
-    {
-      "id": "RO",
-      "label": "RO",
+      "id": "Romania",
+      "label": "Romania",
       "count": 600,
       "point_count": 600
     },
     {
-      "id": "EE",
-      "label": "EE",
-      "count": 354,
-      "point_count": 354
+      "id": "Estonia",
+      "label": "Estonia",
+      "count": 358,
+      "point_count": 355
     },
     {
-      "id": "TR",
-      "label": "TR",
-      "count": 338,
-      "point_count": 338
-    },
-    {
-      "id": "BG",
-      "label": "BG",
-      "count": 251,
-      "point_count": 251
-    },
-    {
-      "id": "UA",
-      "label": "UA",
-      "count": 249,
-      "point_count": 249
+      "id": "Turkey",
+      "label": "Turkey",
+      "count": 345,
+      "point_count": 343
     },
     {
       "id": "Belarus",
       "label": "Belarus",
-      "count": 212,
-      "point_count": 204
+      "count": 279,
+      "point_count": 271
     },
     {
-      "id": "LV",
-      "label": "LV",
-      "count": 174,
+      "id": "Bulgaria",
+      "label": "Bulgaria",
+      "count": 251,
+      "point_count": 251
+    },
+    {
+      "id": "Latvia",
+      "label": "Latvia",
+      "count": 175,
       "point_count": 174
     },
     {
-      "id": "LT",
-      "label": "LT",
-      "count": 123,
+      "id": "Lithuania",
+      "label": "Lithuania",
+      "count": 136,
       "point_count": 123
+    },
+    {
+      "id": "Kazakhstan",
+      "label": "Kazakhstan",
+      "count": 118,
+      "point_count": 64
     },
     {
       "id": "Pakistan",
@@ -7683,106 +7677,40 @@
       "point_count": 106
     },
     {
-      "id": "IR",
-      "label": "IR",
-      "count": 96,
-      "point_count": 96
-    },
-    {
       "id": "Afghanistan",
       "label": "Afghanistan",
       "count": 87,
       "point_count": 87
     },
     {
-      "id": "BY",
-      "label": "BY",
-      "count": 67,
-      "point_count": 67
-    },
-    {
-      "id": "KZ",
-      "label": "KZ",
-      "count": 60,
-      "point_count": 60
-    },
-    {
-      "id": "Kazakhstan",
-      "label": "Kazakhstan",
-      "count": 58,
-      "point_count": 4
-    },
-    {
-      "id": "GE",
-      "label": "GE",
-      "count": 57,
-      "point_count": 57
-    },
-    {
-      "id": "MD",
-      "label": "MD",
-      "count": 50,
-      "point_count": 50
+      "id": "Georgia",
+      "label": "Georgia",
+      "count": 74,
+      "point_count": 63
     },
     {
       "id": "Azerbaijan",
       "label": "Azerbaijan",
-      "count": 37,
-      "point_count": 28
+      "count": 64,
+      "point_count": 55
     },
     {
-      "id": "AZ",
-      "label": "AZ",
-      "count": 27,
-      "point_count": 27
+      "id": "Moldova",
+      "label": "Moldova",
+      "count": 54,
+      "point_count": 54
     },
     {
-      "id": "AM",
-      "label": "AM",
-      "count": 23,
-      "point_count": 23
-    },
-    {
-      "id": "Georgia",
-      "label": "Georgia",
-      "count": 17,
-      "point_count": 6
-    },
-    {
-      "id": "Poland",
-      "label": "Poland",
-      "count": 16,
-      "point_count": 1
+      "id": "Armenia",
+      "label": "Armenia",
+      "count": 31,
+      "point_count": 31
     },
     {
       "id": "Iraq",
       "label": "Iraq",
       "count": 15,
       "point_count": 15
-    },
-    {
-      "id": "Lithuania",
-      "label": "Lithuania",
-      "count": 13,
-      "point_count": 0
-    },
-    {
-      "id": "Armenia",
-      "label": "Armenia",
-      "count": 8,
-      "point_count": 8
-    },
-    {
-      "id": "Finland",
-      "label": "Finland",
-      "count": 8,
-      "point_count": 1
-    },
-    {
-      "id": "Turkey",
-      "label": "Turkey",
-      "count": 7,
-      "point_count": 5
     },
     {
       "id": "Mongolia",
@@ -7797,26 +7725,8 @@
       "point_count": 5
     },
     {
-      "id": "China",
-      "label": "China",
-      "count": 4,
-      "point_count": 0
-    },
-    {
-      "id": "Estonia",
-      "label": "Estonia",
-      "count": 4,
-      "point_count": 1
-    },
-    {
       "id": "Kyrgyzstan",
       "label": "Kyrgyzstan",
-      "count": 4,
-      "point_count": 4
-    },
-    {
-      "id": "Moldova",
-      "label": "Moldova",
       "count": 4,
       "point_count": 4
     },
@@ -7829,18 +7739,6 @@
     {
       "id": "Germany",
       "label": "Germany",
-      "count": 1,
-      "point_count": 0
-    },
-    {
-      "id": "Latvia",
-      "label": "Latvia",
-      "count": 1,
-      "point_count": 0
-    },
-    {
-      "id": "Norway",
-      "label": "Norway",
       "count": 1,
       "point_count": 0
     },

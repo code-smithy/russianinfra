@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from russianinfra.country_names import country_name_from_code
+
 
 OUT_DIR = Path("data")
 COMBINED_CSV = OUT_DIR / "combined_infrastructure_sources.csv"
@@ -800,7 +802,7 @@ def normalize_row(
         if is_un_locode and locode_country and locode_location
         else stable_uid([source_dataset, layer, source_record_id, feature_index, location["map_latitude"], location["map_longitude"]])
     )
-    country_value = value(row, "country_code") if is_un_locode else "Russia"
+    country_value = country_name_from_code(value(row, "country_code")) if is_un_locode else "Russia"
     search_text = " ".join(
         part
         for part in [
