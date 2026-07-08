@@ -2448,6 +2448,10 @@ test("campaign player tab switching and map status overlay update run state", as
   api.playCampaign();
   assert.equal(api.state.campaignRun.playing, true);
   assert.match(api.els.campaignPlayer.innerHTML, />Pause<\/button>/);
+  app.document.getElementById("campaignPlayBtn").onclick();
+  assert.equal(api.state.campaignRun.playing, false);
+  assert.match(api.els.campaignPlayer.innerHTML, />Play<\/button>/);
+  api.playCampaign();
   api.setSelectedTab("map");
   assert.equal(api.state.campaignRun.playing, false);
   assert.match(api.els.campaignPlayer.innerHTML, />Play<\/button>/);
