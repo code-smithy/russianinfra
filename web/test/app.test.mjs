@@ -1290,8 +1290,10 @@ test("resource type controls add remove and re-shape campaign settings", async (
   ]);
 
   const addedRow = api.els.resourceTypesList.children[3];
-  addedRow.children[0].value = "Drone";
-  addedRow.children[0].listeners.input[0]();
+  const addedLabelInput = addedRow.children[0].children[0];
+  assert.equal(addedRow.children[0].children[1].textContent, "Survivability / penetration");
+  addedLabelInput.value = "Drone";
+  addedLabelInput.listeners.input[0]();
   addedRow.children[1].value = "88";
   addedRow.children[1].listeners.input[0]();
   addedRow.children[2].value = "4";

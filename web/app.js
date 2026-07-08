@@ -3384,10 +3384,15 @@ function renderResourceTypes() {
   for (const resource of state.estimator.resources) {
     const row = document.createElement("div");
     row.className = "estimator-row resource-type-row";
+    const labelCell = document.createElement("div");
+    labelCell.className = "estimator-label resource-type-label";
     const labelInput = document.createElement("input");
     labelInput.type = "text";
     labelInput.value = resource.label;
     labelInput.setAttribute("aria-label", `${resource.label} label`);
+    const helper = document.createElement("span");
+    helper.textContent = "Survivability / penetration";
+    labelCell.append(labelInput, helper);
     const rateInput = document.createElement("input");
     rateInput.type = "number";
     rateInput.min = "0";
@@ -3408,7 +3413,7 @@ function renderResourceTypes() {
     removeButton.innerHTML = `<span aria-hidden="true">&times;</span>`;
     removeButton.setAttribute("aria-label", `Remove ${resource.label}`);
     removeButton.disabled = state.estimator.resources.length <= 1;
-    row.append(labelInput, rateInput, penetrationInput, removeButton);
+    row.append(labelCell, rateInput, penetrationInput, removeButton);
     els.resourceTypesList.appendChild(row);
 
     labelInput.addEventListener("input", () => {
