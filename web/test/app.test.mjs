@@ -1774,6 +1774,26 @@ function setCampaignBandResource(api, bandId, resourceId, stock, fireCapacity = 
   api.state.campaign.fireCapacityPerDayByBand[bandId][resourceId] = fireCapacity;
 }
 
+function campaignDashboardResourceCells(api, bandId, resourceLabel) {
+  const row = api.els.campaignDashboard.innerHTML.match(
+    new RegExp(`<tr><td>[^<]+<br><small>${bandId}</small></td><td>${resourceLabel}</td>(.*?)</tr>`)
+  );
+  assert.ok(row, `dashboard row for ${resourceLabel} in ${bandId}`);
+  const values = [...row[1].matchAll(/<td>(.*?)<\/td>/g)].map(([, value]) => value);
+  return {
+    initial: values[0],
+    production: values[1],
+    expended: values[2],
+    unitCost: values[3],
+    cost: values[4],
+    endingStock: values[5],
+    requestedDelta: values[6],
+    subIn: values[7],
+    subOut: values[8],
+    fireUsed: values[9],
+  };
+}
+
 test("campaign settings normalize persist and calendar production uses real month lengths", async () => {
   const first = createAppContext();
   await first.__initPromise;
@@ -2179,6 +2199,52 @@ test("campaign costs charge actual expended substituted resources", async () => 
   assert.match(api.els.campaignDailyTable.innerHTML, /Range\/resource cost/);
   assert.match(csv, /unit_cost,cost/);
   assert.match(csv, /resource_b,Resource B,[^\r\n]*,5,10,/);
+});
+
+test("campaign dashboard rounds cost and resource overview values to whole numbers", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const bandId = configureSingleTargetCampaign(api, {
+    resourceSubstitution: {
+      enabled: true,
+      mode: "priority",
+      preserveRangeBand: true,
+      substitutePriorityOrder: ["resource_b"],
+      substituteWeights: {},
+    },
+  });
+  api.state.campaign.startDate = "2026-02-01";
+  setCampaignBandResource(api, bandId, "resource_a", 0, 10);
+  setCampaignBandResource(api, bandId, "resource_b", 10, 10);
+  setCampaignBandResource(api, bandId, "resource_c", 10, 10);
+  api.state.campaign.productionMonthlyByBand[bandId].resource_a = 14;
+  api.state.campaign.resourceUnitCostByBand[bandId].resource_a = 25;
+
+  const run = api.recalculateCampaign();
+  const day = run.days[0];
+
+  assert.equal(day.productionByBandResource[bandId].resource_a, 0.5);
+  assert.equal(day.expendedByBandResource[bandId].resource_a, 0.5);
+  assert.equal(day.requestedSupplyDeltaByBandResource[bandId].resource_a, -0.5);
+  assert.equal(day.substitutionByBandResource[bandId].resource_a.substitutedOut, 0.5);
+  assert.equal(day.substitutionByBandResource[bandId].resource_b.substitutedIn, 0.5);
+  assert.equal(api.buildCampaignTimelineJson().summary.totalCost, 12.5);
+  assert.match(api.els.campaignDashboard.innerHTML, /<strong>13<\/strong><span>Total cost<\/span>/);
+
+  const resourceA = campaignDashboardResourceCells(api, bandId, "Resource A");
+  assert.equal(resourceA.production, "1");
+  assert.equal(resourceA.expended, "1");
+  assert.equal(resourceA.cost, "13");
+  assert.equal(resourceA.endingStock, "0");
+  assert.equal(resourceA.requestedDelta, "-1");
+  assert.equal(resourceA.subIn, "0");
+  assert.equal(resourceA.subOut, "1");
+
+  const resourceB = campaignDashboardResourceCells(api, bandId, "Resource B");
+  assert.equal(resourceB.expended, "2");
+  assert.equal(resourceB.endingStock, "9");
+  assert.equal(resourceB.subIn, "1");
 });
 
 test("campaign weighted substitution distributes and redistributes by capacity", async () => {
