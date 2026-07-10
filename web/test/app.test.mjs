@@ -6,7 +6,35 @@ import zlib from "node:zlib";
 
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 
+const geoSource = fs.readFileSync("web/domain/geo.js", "utf8").replaceAll("export function ", "function ");
+const geoPrelude = `const __geo = (() => {
+${geoSource}
+return {
+  featureDistanceToPointKm,
+  featurePoint,
+  iterGeometryPositions,
+  metersKm,
+  radiusBearingDegrees,
+  radiusDestinationPoint,
+  countryForPosition,
+  inferredFeatureCountries,
+};
+})();
+const {
+  featureDistanceToPointKm,
+  featurePoint,
+  iterGeometryPositions,
+  metersKm,
+  radiusBearingDegrees,
+  radiusDestinationPoint,
+} = __geo;
+const inferCountryForPosition = __geo.countryForPosition;
+const inferFeatureCountries = __geo.inferredFeatureCountries;`;
+
 const appSource = fs.readFileSync("web/app.js", "utf8").replace(
+  /import\s+\{[\s\S]*?\}\s+from "\.\/domain\/geo\.js";/,
+  geoPrelude
+).replace(
   /init\(\)\.catch\(\(error\) => \{[\s\S]*?\n\}\);\s*$/,
   `globalThis.__initPromise = init().catch((error) => {
   console.error(error);
