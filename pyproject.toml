@@ -13,6 +13,7 @@ dependencies = []
 [project.scripts]
 russianinfra-build = "russianinfra.build_data_pipeline:main"
 russianinfra-extract-nightwatch = "russianinfra.extract_nightwatch_map:main"
+russianinfra-extract-osm-roads = "russianinfra.extract_geofabrik_osm_roads:main"
 russianinfra-extract-osint-varta = "russianinfra.extract_osint_varta_archive:main"
 russianinfra-extract-russia-oil-power = "russianinfra.extract_russia_oil_power_map:main"
 russianinfra-extract-un-locode = "russianinfra.extract_un_locode:main"

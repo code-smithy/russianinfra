@@ -14,6 +14,7 @@ if str(SRC) not in sys.path:
 from russianinfra import build_data_pipeline as build
 from russianinfra import combine_infrastructure_sources as combine
 from russianinfra import derive_countries_from_boundaries as countries
+from russianinfra import extract_geofabrik_osm_roads as roads
 from russianinfra import extract_nightwatch_map as nightwatch
 from russianinfra import extract_osint_varta_archive as varta
 from russianinfra import extract_russia_oil_power_map as oil_power
@@ -49,6 +50,7 @@ class BuildPipelineTests(unittest.TestCase):
         derive_index = step_names.index("russianinfra.derive_countries_from_boundaries")
         change_index = step_names.index("russianinfra.generate_change_report")
         self.assertLess(step_names.index("russianinfra.extract_un_locode"), step_names.index("russianinfra.combine_infrastructure_sources"))
+        self.assertLess(step_names.index("russianinfra.extract_geofabrik_osm_roads"), step_names.index("russianinfra.combine_infrastructure_sources"))
         self.assertLess(step_names.index("russianinfra.enrich_translations_and_categories"), derive_index)
         self.assertLess(derive_index, change_index)
         self.assertLess(change_index, step_names.index("russianinfra.prepare_web_data"))
@@ -61,6 +63,9 @@ class BuildPipelineTests(unittest.TestCase):
                 "--write",
             ],
         )
+
+    def test_refresh_road_osm_is_separate_from_remote_refresh(self):
+        self.assertNotIn(["russianinfra.extract_geofabrik_osm_roads", "--refresh"], build.REMOTE_STEPS)
 
 
 class CountryBoundaryTests(unittest.TestCase):
@@ -329,6 +334,70 @@ class NightwatchExtractorTests(unittest.TestCase):
         self.assertEqual(rows[1]["geometry_type"], "LineString")
         self.assertEqual(rows[1]["coordinate_count"], "3")
         self.assertEqual(rows[1]["category"], "military_facility_boundary")
+
+
+class GeofabrikRoadExtractorTests(unittest.TestCase):
+    def test_feature_to_row_preserves_country_source_geometry_and_tags(self):
+        feature = {
+            "type": "Feature",
+            "id": "way/123",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[30.0, 50.0], [31.0, 50.5], [32.0, 51.0]],
+            },
+            "properties": {
+                "highway": "trunk",
+                "name": "M-01",
+                "ref": "M-01",
+                "surface": "asphalt",
+                "bridge": "yes",
+            },
+        }
+
+        row = roads.feature_to_row(roads.COUNTRY_EXTRACTS["ukraine"], feature, 7)
+
+        self.assertEqual(row["source_dataset"], roads.SOURCE_DATASET)
+        self.assertEqual(row["layer"], "osm_major_roads")
+        self.assertEqual(row["feature_id"], "way/123")
+        self.assertEqual(row["category"], "trunk")
+        self.assertEqual(row["subcategory"], "trunk")
+        self.assertEqual(row["country_code"], "UA")
+        self.assertEqual(row["country_source"], "geofabrik_extract_boundary")
+        self.assertEqual(row["geometry_type"], "LineString")
+        self.assertEqual(row["coordinate_count"], 3)
+        self.assertGreater(row["length_km"], 0)
+        self.assertEqual(row["properties_tags_bridge"], "yes")
+        self.assertIn("download.geofabrik.de/europe/ukraine-latest.osm.pbf", row["source_url"])
+
+    def test_feature_to_row_skips_referenced_point_features(self):
+        feature = {
+            "type": "Feature",
+            "id": "node/1",
+            "geometry": {"type": "Point", "coordinates": [30.0, 50.0]},
+            "properties": {"highway": "crossing"},
+        }
+
+        row = roads.feature_to_row(roads.COUNTRY_EXTRACTS["ukraine"], feature, 1)
+
+        self.assertIsNone(row)
+
+    def test_write_csv_emits_header_for_empty_optional_source(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "roads.csv"
+
+            roads.write_csv([], path)
+
+            with path.open("r", encoding="utf-8-sig") as handle:
+                header = handle.readline().strip().split(",")
+        self.assertIn("source_dataset", header)
+        self.assertIn("geometry_json", header)
+
+    def test_default_profile_is_smaller_than_regional_profile(self):
+        self.assertEqual(
+            roads.STRATEGIC_HIGHWAY_CLASSES,
+            ["motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link"],
+        )
+        self.assertLess(len(roads.STRATEGIC_HIGHWAY_CLASSES), len(roads.REGIONAL_HIGHWAY_CLASSES))
 
 
 class OsintVartaExtractorTests(unittest.TestCase):

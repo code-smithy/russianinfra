@@ -12,6 +12,7 @@ import sys
 LOCAL_STEPS = [
     ["russianinfra.extract_nightwatch_map"],
     ["russianinfra.extract_un_locode"],
+    ["russianinfra.extract_geofabrik_osm_roads"],
     ["russianinfra.combine_infrastructure_sources"],
     ["russianinfra.normalize_infrastructure_data"],
     ["russianinfra.enrich_translations_and_categories"],
@@ -41,6 +42,11 @@ def main() -> int:
         action="store_true",
         help="Re-fetch remote/archived sources before rebuilding local outputs.",
     )
+    parser.add_argument(
+        "--refresh-road-osm",
+        action="store_true",
+        help="Download/update Geofabrik OSM PBF files for Russia, Ukraine, and Belarus before extraction.",
+    )
     args = parser.parse_args()
 
     missing = [step[0] for step in [*REMOTE_STEPS, *LOCAL_STEPS] if importlib.util.find_spec(step[0]) is None]
@@ -50,6 +56,8 @@ def main() -> int:
     if args.refresh_remote:
         for step in REMOTE_STEPS:
             run_step(step)
+    if args.refresh_road_osm:
+        run_step(["russianinfra.extract_geofabrik_osm_roads", "--refresh"])
 
     for step in LOCAL_STEPS:
         run_step(step)

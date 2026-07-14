@@ -2999,6 +2999,7 @@ function colorForLayer(layerId, fallbackColor = null) {
     energy_facilities: "#e46a25",
     power_facilities: "#ffd34d",
     power_lines: "#ffac12",
+    transport_roads: "#4b5563",
     transport_rail: "#0f8f9a",
     transport_other: "#19b7a5",
     deepstate_live: "#d83a34",

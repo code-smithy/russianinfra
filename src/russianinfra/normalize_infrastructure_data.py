@@ -129,6 +129,7 @@ SOURCE_RUSSIA = "Russia Oil & Power Infrastructure Map"
 SOURCE_VARTA = "OSINT Varta"
 SOURCE_NIGHTWATCH = "Nightwatch map"
 SOURCE_UN_LOCODE = "UN/LOCODE Codelist"
+SOURCE_GEOFABRIK_OSM_ROADS = "Geofabrik OpenStreetMap roads"
 
 SOURCE_CATALOG = {
     SOURCE_RUSSIA: {
@@ -203,6 +204,23 @@ SOURCE_CATALOG = {
         "source_reliability": "B",
         "reliability": "B",
         "notes": "Global trade and transport location code list. Coordinates represent coded locations, not exact infrastructure footprints.",
+    },
+    SOURCE_GEOFABRIK_OSM_ROADS: {
+        "source_id": "geofabrik_osm_roads",
+        "source_name": "Geofabrik OpenStreetMap roads",
+        "publisher": "Geofabrik GmbH / OpenStreetMap contributors",
+        "source_type": "openstreetmap_extract",
+        "source_url": "https://download.geofabrik.de/",
+        "retrieval_method": "geofabrik_pbf_osmium_tags_filter",
+        "license_or_terms": "ODbL-1.0",
+        "license": "ODbL-1.0",
+        "terms_url": "https://opendatacommons.org/licenses/odbl/1-0/",
+        "can_redistribute_raw": "yes",
+        "can_redistribute_derived": "yes",
+        "attribution_required": "yes",
+        "source_reliability": "B",
+        "reliability": "B",
+        "notes": "Road geometries filtered from Geofabrik OpenStreetMap PBF country extracts. Extract boundary is provenance, not final sovereignty classification.",
     },
 }
 
@@ -574,6 +592,9 @@ def classify(row: dict[str, str]) -> tuple[str, str, str, str]:
     if value(row, "source_dataset") == SOURCE_UN_LOCODE:
         subcategory = value(row, "subcategory") or "fixed_transport_terminal"
         return "transport", subcategory, value(row, "transport_functions"), "transport"
+    if value(row, "source_dataset") == SOURCE_GEOFABRIK_OSM_ROADS:
+        highway_class = value(row, "category") or value(row, "subcategory") or value(row, "properties_tags_highway")
+        return "transport", "road", highway_class, "transport"
     if source_info(value(row, "source_dataset"))["source_id"] == "osint_varta_archive":
         return "military_industrial", "company", "defense_industrial_company", "military"
     if value(row, "source_dataset") == SOURCE_NIGHTWATCH:
@@ -625,6 +646,7 @@ def marker_style(asset_class: str, asset_type: str) -> tuple[str, str, str]:
         "power_station": ("power_facilities", "#d4a600", "zap"),
         "substation": ("power_facilities", "#ffd200", "grid"),
         "hv_line": ("power_lines", "#ffd200", "line-power"),
+        "road": ("transport_roads", "#4b5563", "road"),
         "railway": ("transport_rail", "#8a8a8a", "rail"),
         "bridge": ("transport_other", "#2a93d5", "bridge"),
         "seaport": ("transport_ports_logistics", "#126782", "anchor"),
@@ -802,7 +824,7 @@ def normalize_row(
         if is_un_locode and locode_country and locode_location
         else stable_uid([source_dataset, layer, source_record_id, feature_index, location["map_latitude"], location["map_longitude"]])
     )
-    country_value = country_name_from_code(value(row, "country_code")) if is_un_locode else "Russia"
+    country_value = country_name_from_code(value(row, "country_code")) if value(row, "country_code") else "Russia"
     search_text = " ".join(
         part
         for part in [

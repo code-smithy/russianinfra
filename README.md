@@ -97,6 +97,29 @@ Remote refresh currently fetches from:
 - Internet Archive captures for OSINT Varta map data
 - Public server-rendered map data from `nightwatch.services/map`
 
+To add major road geometry from OpenStreetMap for Russia, Ukraine, and Belarus, install
+`osmium-tool` and run:
+
+```powershell
+russianinfra-build --refresh-road-osm
+```
+
+This downloads the current Geofabrik PBF extracts into `data/raw/osm/geofabrik/`,
+filters strategic road classes with `osmium`, and writes
+`data/extracted/osm_roads/geofabrik_osm_roads.csv` for the normal pipeline. The
+configured download URLs are:
+
+- `https://download.geofabrik.de/russia-latest.osm.pbf`
+- `https://download.geofabrik.de/europe/ukraine-latest.osm.pbf`
+- `https://download.geofabrik.de/europe/belarus-latest.osm.pbf`
+
+The regular local build also runs the road extractor, but it skips this source and
+writes an empty CSV when the PBF files or `osmium` are unavailable.
+
+The default road profile includes `motorway`, `trunk`, `primary`, and their link
+classes. Use `russianinfra-extract-osm-roads --road-profile regional` only when
+you have enough memory for a much larger secondary/tertiary-road dataset.
+
 Nightwatch map data is cached in `data/raw/nightwatch_map_placemarks.json` so local rebuilds do not require a network request.
 
 ## Generated Data
@@ -157,6 +180,7 @@ The pipeline modules live under `src/russianinfra/` and can be run either throug
 
 ```powershell
 russianinfra-extract-russia-oil-power
+russianinfra-extract-osm-roads --refresh
 russianinfra-extract-osint-varta
 russianinfra-extract-nightwatch --refresh
 russianinfra-combine-sources

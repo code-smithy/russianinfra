@@ -125,6 +125,7 @@ LAYER_LABELS = {
     "energy_facilities": "Oil/Gas Facilities",
     "power_lines": "HV Transmission Lines",
     "power_facilities": "Power Plants & Substations",
+    "transport_roads": "Major Roads",
     "transport_rail": "Railway Lines",
     "transport_ports_logistics": "Ports & Logistics Nodes",
     "transport_other": "Transport Structures",
