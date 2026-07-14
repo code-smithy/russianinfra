@@ -1759,7 +1759,10 @@ function configureSingleTargetCampaign(api, { requirement = 1, resourceSubstitut
     { stored: { id: "target_1", feature: feature("target_1", "Target 1", "energy_facilities", "energy_oil_facility", 55.2, 59.1) }, distance },
   ];
   api.state.estimator.categoryRequirements.energy_facilities = requirement;
-  for (const resource of api.state.estimator.resources) resource.completionRate = 100;
+  for (const resource of api.state.estimator.resources) {
+    resource.completionRate = 100;
+    resource.penetration = 1;
+  }
   api.state.campaign = api.normalizeCampaignSettings({
     startDate: "2026-07-01",
     maxSimulationDays: 1,
@@ -1934,6 +1937,7 @@ test("campaign allocation, deferral, stock production and exports are determinis
   const firstBandId = api.campaignBandIds()[0];
   for (const resource of api.state.estimator.resources) {
     resource.completionRate = 100;
+    resource.penetration = 1;
     api.state.campaign.fireCapacityPerDayByBand[firstBandId][resource.id] = 1;
     api.state.campaign.initialStockByBand[firstBandId][resource.id] = 1;
     api.state.campaign.productionMonthlyByBand[firstBandId][resource.id] = 31;
@@ -1981,6 +1985,7 @@ test("campaign simulation consumes stock only from the matching range band", asy
   api.state.campaign.layerPriorityOrder = ["energy_facilities"];
   for (const resource of api.state.estimator.resources) {
     resource.completionRate = 100;
+    resource.penetration = 1;
     api.state.campaign.initialStockByBand[shortBandId][resource.id] = 0;
     api.state.campaign.initialStockByBand[midBandId][resource.id] = 10;
     api.state.campaign.fireCapacityPerDayByBand[shortBandId][resource.id] = 10;
@@ -2013,6 +2018,7 @@ test("campaign simulation applies fire capacity per range band", async () => {
   api.state.campaign.layerPriorityOrder = ["energy_facilities"];
   for (const resource of api.state.estimator.resources) {
     resource.completionRate = 100;
+    resource.penetration = 1;
     api.state.campaign.initialStockByBand[shortBandId][resource.id] = 10;
     api.state.campaign.fireCapacityPerDayByBand[shortBandId][resource.id] = 0;
     api.state.campaign.fireCapacityPerDayByBand[midBandId][resource.id] = 10;
@@ -2026,14 +2032,14 @@ test("campaign simulation applies fire capacity per range band", async () => {
   assert.equal(day.fireCapacityRemainingByBandResource[midBandId].resource_a, 10);
 });
 
-test("campaign simulation defers targets when resource penetration is below category hardness", async () => {
+test("campaign simulation defers targets when resource penetration does not exceed category hardness", async () => {
   const app = createAppContext();
   await app.__initPromise;
   const api = app.__api;
   const bandId = configureSingleTargetCampaign(api);
   api.state.estimator.categoryHardness.energy_facilities = 5;
   for (const resource of api.state.estimator.resources) {
-    resource.penetration = 4;
+    resource.penetration = 5;
     setCampaignBandResource(api, bandId, resource.id, 10, 10);
   }
 
@@ -2045,7 +2051,7 @@ test("campaign simulation defers targets when resource penetration is below cate
   assert.equal(day.endingStockByBandResource[bandId].resource_a, 10);
 });
 
-test("campaign substitution only uses resources that meet target hardness", async () => {
+test("campaign substitution only uses resources that exceed target hardness", async () => {
   const app = createAppContext();
   await app.__initPromise;
   const api = app.__api;
@@ -2059,8 +2065,8 @@ test("campaign substitution only uses resources that meet target hardness", asyn
     },
   });
   api.state.estimator.categoryHardness.energy_facilities = 5;
-  api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 5;
-  api.state.estimator.resources.find((resource) => resource.id === "resource_b").penetration = 3;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 6;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_b").penetration = 5;
   api.state.estimator.resources.find((resource) => resource.id === "resource_c").penetration = 6;
   setCampaignBandResource(api, bandId, "resource_a", 0, 10);
   setCampaignBandResource(api, bandId, "resource_b", 10, 10);
@@ -2091,7 +2097,7 @@ test("campaign resumes hardness-limited strikes after production replenishes pen
   api.state.estimator.categoryHardness.energy_facilities = 5;
   for (const resource of api.state.estimator.resources) {
     resource.completionRate = 100;
-    resource.penetration = resource.id === "resource_c" ? 5 : 0;
+    resource.penetration = resource.id === "resource_c" ? 6 : 0;
     setCampaignBandResource(api, bandId, resource.id, resource.id === "resource_c" ? 3 : 10, 10);
     api.state.campaign.productionMonthlyByBand[bandId][resource.id] = resource.id === "resource_c" ? 31 : 0;
   }

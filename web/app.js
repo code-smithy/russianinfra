@@ -154,7 +154,7 @@ const INFO_TOPICS = {
       "Highlights include Nightwatch military map scraping, resilient OSINT Varta archive capture selection, automatic country-boundary bootstrapping, and a durable compressed comparison baseline for scheduled builds.",
     ],
     history: [
-      { version: "0.15.0", date: "2026-07-07", notes: ["Adds resource penetration and category hardness inputs to Scenario Estimator assumptions.", "Persists hardness and penetration in saved settings, estimator profiles, imports, and exports.", "Blocks Campaign target execution when native or substituted resources cannot meet a target layer hardness value."] },
+      { version: "0.15.0", date: "2026-07-07", notes: ["Adds resource penetration and category hardness inputs to Scenario Estimator assumptions.", "Persists hardness and penetration in saved settings, estimator profiles, imports, and exports.", "Blocks Campaign target execution when native or substituted resources do not exceed a target layer hardness value."] },
       { version: "0.14.0", date: "2026-07-07", notes: ["Adds a Resource costs Campaign input mask with unit cost entries by range band and resource type.", "Calculates Campaign cost from actual expended resources after simulation, including substituted-in resources charged at their own unit cost.", "Adds cost totals to the Campaign dashboard, daily timeline, CSV export, JSON export, saved settings, and campaign profiles."] },
       { version: "0.13.0", date: "2026-07-07", notes: ["Adds information popovers to Campaign Settings, Layer priority and allocation, Capacity, Supply and production, Player, Dashboard, and Daily timeline.", "Explains allocation modes, layer priorities and weights, command/fire capacity, initial stock, monthly production, range-band separation, resource substitution, playback, dashboard metrics, and daily timeline outputs.", "Adds coverage so new Campaign sections are expected to include matching information explanations."] },
       { version: "0.12.0", date: "2026-07-07", notes: ["Adds Resource type creation and removal controls to the Scenario Estimator.", "Persists arbitrary resource type lists in estimator settings and profiles instead of forcing the three default resources.", "Re-shapes Campaign capacity, stock, production, and substitution settings when resource types change."] },
@@ -228,7 +228,7 @@ const INFO_TOPICS = {
     paragraphs: [
       "Defines the effector types used in the estimate.",
       "The text field is the effector type label. The percent field is the assumed survivability of that effector; lower survivability increases the required count.",
-      "Penetration is compared against category hardness in Campaign simulation. A resource can execute or substitute only when its penetration is at least the target layer hardness.",
+      "Penetration is compared against category hardness in Campaign simulation. A resource can execute or substitute only when its penetration is greater than the target layer hardness.",
     ],
   },
   categoryAssumptions: {
@@ -236,7 +236,7 @@ const INFO_TOPICS = {
     paragraphs: [
       "Defines the assumption for how many effectors are needed per target in each layer/category.",
       "This factor is multiplied by the number of targets in the radius before the survivability correction is applied.",
-      "Hardness is compared against resource penetration in Campaign simulation. Targets whose layer hardness is higher than the available resource penetration are deferred.",
+      "Hardness is compared against resource penetration in Campaign simulation. Targets whose layer hardness is greater than or equal to the available resource penetration are deferred.",
     ],
   },
   estimate: {
@@ -4303,7 +4303,7 @@ function syncCampaignLayersFromScope() { state.campaign = normalizeCampaignSetti
 function syncCampaignResourceShape() { state.campaign = normalizeCampaignSettings(state.campaign || state.savedPreferences?.campaign); state.campaignRun.stale = true; renderCampaign(); }
 function categoryRequirement(layerId) { return boundedNumber(state.estimator.categoryRequirements?.[layerId], 1, 0, 1000000); }
 function resourcePenetration(resourceId) { return boundedNumber(state.estimator.resources.find((resource) => resource.id === resourceId)?.penetration, 0, 0, 1000000); }
-function resourceCanPenetrate(resourceId, hardness) { return resourcePenetration(resourceId) + 1e-9 >= boundedNumber(hardness, 0, 0, 1000000); }
+function resourceCanPenetrate(resourceId, hardness) { return resourcePenetration(resourceId) > boundedNumber(hardness, 0, 0, 1000000) + 1e-9; }
 function dailyProductionForDate(bandId, resourceId, dateString, settings = state.campaign) {
   if (dateString === undefined) {
     dateString = resourceId;
