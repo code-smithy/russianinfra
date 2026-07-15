@@ -1,18 +1,18 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-14T10:27:30Z",
+  "generated_at": "2026-07-15T05:44:35Z",
   "comparison": {
-    "previous": "2026-07-14T05:40:35Z",
-    "current": "2026-07-14T08:40:31Z"
+    "previous": "2026-07-14T08:40:31Z",
+    "current": "2026-07-15T05:41:57Z"
   },
   "summary": {
     "compare_available": true,
-    "previous_build_id": "2026-07-14T05:40:35Z",
-    "current_build_id": "2026-07-14T08:40:31Z",
-    "current_object_count": 410596,
-    "previous_object_count": 132897,
-    "new_objects": 277699,
-    "removed_objects": 0,
+    "previous_build_id": "2026-07-14T08:40:31Z",
+    "current_build_id": "2026-07-15T05:41:57Z",
+    "current_object_count": 132897,
+    "previous_object_count": 410596,
+    "new_objects": 0,
+    "removed_objects": 277699,
     "changed_objects": 0,
     "moved_objects": 0,
     "category_changes": 0,
@@ -22,7 +22,8 @@
     "suspicious_coordinate_shifts": 0
   },
   "change_type_counts": {},
-  "new_objects": [
+  "new_objects": [],
+  "removed_objects": [
     {
       "uid": "infra_0000984f44dd732b",
       "name": "60Н-225",
@@ -35,7 +36,10 @@
       "source_record_id": "russia:315223",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 47.28709785,
-      "map_longitude": 39.35659011
+      "map_longitude": 39.35659011,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0000c8c68048856b",
@@ -49,7 +53,10 @@
       "source_record_id": "russia:277727",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.860926,
-      "map_longitude": 54.02108885
+      "map_longitude": 54.02108885,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0001582397c39eac",
@@ -63,7 +70,10 @@
       "source_record_id": "russia:248239",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.0689741,
-      "map_longitude": 40.1541677
+      "map_longitude": 40.1541677,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00019af844588ab7",
@@ -77,7 +87,10 @@
       "source_record_id": "russia:245910",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 59.86817237,
-      "map_longitude": 30.26022703
+      "map_longitude": 30.26022703,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0001a23a27d3475f",
@@ -91,7 +104,10 @@
       "source_record_id": "ukraine:48055",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 49.5934363,
-      "map_longitude": 26.49340324
+      "map_longitude": 26.49340324,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0002da2aa839618d",
@@ -105,7 +121,10 @@
       "source_record_id": "russia:148420",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 45.21451036,
-      "map_longitude": 37.85491767
+      "map_longitude": 37.85491767,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0002e03c2f1fac62",
@@ -119,7 +138,10 @@
       "source_record_id": "ukraine:67950",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 45.22901875,
-      "map_longitude": 35.6923867
+      "map_longitude": 35.6923867,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0002e0ddfb2e6b92",
@@ -133,7 +155,10 @@
       "source_record_id": "russia:315430",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.65751847,
-      "map_longitude": 37.98446835
+      "map_longitude": 37.98446835,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00031fe31e8499d5",
@@ -147,7 +172,10 @@
       "source_record_id": "russia:144995",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.34482205,
-      "map_longitude": 83.6679391
+      "map_longitude": 83.6679391,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00035ab2f6eee673",
@@ -161,7 +189,10 @@
       "source_record_id": "ukraine:73269",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 45.07166094,
-      "map_longitude": 33.85352747
+      "map_longitude": 33.85352747,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00041810562356f0",
@@ -175,7 +206,10 @@
       "source_record_id": "russia:232296",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 43.1329382,
-      "map_longitude": 131.91183518
+      "map_longitude": 131.91183518,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00044251ea2df886",
@@ -189,7 +223,10 @@
       "source_record_id": "russia:183657",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.2312084,
-      "map_longitude": 44.99874486
+      "map_longitude": 44.99874486,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0004d85e266adada",
@@ -203,7 +240,10 @@
       "source_record_id": "russia:155556",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 43.19084625,
-      "map_longitude": 133.2278898
+      "map_longitude": 133.2278898,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0004f0d3e76de9df",
@@ -217,7 +257,10 @@
       "source_record_id": "russia:147561",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.86521592,
-      "map_longitude": 60.61181262
+      "map_longitude": 60.61181262,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0004f9864e97dadb",
@@ -231,7 +274,10 @@
       "source_record_id": "ukraine:45689",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.12953855,
-      "map_longitude": 37.80451585
+      "map_longitude": 37.80451585,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0004ff37202cf3ad",
@@ -245,7 +291,10 @@
       "source_record_id": "ukraine:71367",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.54319289,
-      "map_longitude": 30.22935374
+      "map_longitude": 30.22935374,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00050411b0098c38",
@@ -259,7 +308,10 @@
       "source_record_id": "ukraine:47978",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 49.9717735,
-      "map_longitude": 24.073557
+      "map_longitude": 24.073557,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00055bf63a1e6ef1",
@@ -273,7 +325,10 @@
       "source_record_id": "belarus:62488",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.76426883,
-      "map_longitude": 28.13744817
+      "map_longitude": 28.13744817,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000563b1b32344d8",
@@ -287,7 +342,10 @@
       "source_record_id": "russia:155687",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.61081395,
-      "map_longitude": 42.8008946
+      "map_longitude": 42.8008946,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00056ac612fdc1ad",
@@ -301,7 +359,10 @@
       "source_record_id": "russia:204442",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.50358332,
-      "map_longitude": 20.09772045
+      "map_longitude": 20.09772045,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0005e7bc0f941228",
@@ -315,7 +376,10 @@
       "source_record_id": "ukraine:46582",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 49.41255257,
-      "map_longitude": 22.98702277
+      "map_longitude": 22.98702277,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000627c7d49d8e9f",
@@ -329,7 +393,10 @@
       "source_record_id": "russia:216759",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.5049178,
-      "map_longitude": 44.54793055
+      "map_longitude": 44.54793055,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00063e037ddf03fd",
@@ -343,7 +410,10 @@
       "source_record_id": "russia:231858",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 52.7242146,
-      "map_longitude": 41.43564455
+      "map_longitude": 41.43564455,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00066a36b8a3ac64",
@@ -357,7 +427,10 @@
       "source_record_id": "russia:303892",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.37480982,
-      "map_longitude": 38.87533011
+      "map_longitude": 38.87533011,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000675d07c016b24",
@@ -371,7 +444,10 @@
       "source_record_id": "belarus:57724",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.83101136,
-      "map_longitude": 26.94094808
+      "map_longitude": 26.94094808,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00078b17122df7db",
@@ -385,7 +461,10 @@
       "source_record_id": "ukraine:52206",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 46.41779714,
-      "map_longitude": 30.726353
+      "map_longitude": 30.726353,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0007b686e08e1623",
@@ -399,7 +478,10 @@
       "source_record_id": "russia:222169",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.01295241,
-      "map_longitude": 60.10233903
+      "map_longitude": 60.10233903,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0007b712c5a8b603",
@@ -413,7 +495,10 @@
       "source_record_id": "russia:160854",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.69563255,
-      "map_longitude": 20.50039827
+      "map_longitude": 20.50039827,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0007e622d23644da",
@@ -427,7 +512,10 @@
       "source_record_id": "russia:157740",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.7976502,
-      "map_longitude": 37.7253011
+      "map_longitude": 37.7253011,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0007f3ae7ee43215",
@@ -441,7 +529,10 @@
       "source_record_id": "belarus:66657",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.13776048,
-      "map_longitude": 27.89040728
+      "map_longitude": 27.89040728,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00081eb0d4b6d84e",
@@ -455,7 +546,10 @@
       "source_record_id": "ukraine:39532",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 49.00404695,
-      "map_longitude": 30.16231688
+      "map_longitude": 30.16231688,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00083d703ae89201",
@@ -469,7 +563,10 @@
       "source_record_id": "russia:242654",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 58.46031521,
-      "map_longitude": 32.83502816
+      "map_longitude": 32.83502816,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0008d67c04b92cf7",
@@ -483,7 +580,10 @@
       "source_record_id": "russia:201207",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.7495943,
-      "map_longitude": 38.2255014
+      "map_longitude": 38.2255014,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000962b8d0288c8e",
@@ -497,7 +597,10 @@
       "source_record_id": "russia:283149",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 45.25328677,
-      "map_longitude": 38.87619727
+      "map_longitude": 38.87619727,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0009c1ab6905dbd6",
@@ -511,7 +614,10 @@
       "source_record_id": "belarus:49851",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.8834481,
-      "map_longitude": 25.30563503
+      "map_longitude": 25.30563503,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000a07e28b5a5ec9",
@@ -525,7 +631,10 @@
       "source_record_id": "belarus:73693",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.8337144,
-      "map_longitude": 27.88795995
+      "map_longitude": 27.88795995,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000a93fa1309a54c",
@@ -539,7 +648,10 @@
       "source_record_id": "russia:269062",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 51.1693497,
-      "map_longitude": 35.13062033
+      "map_longitude": 35.13062033,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000b3b16ae33df66",
@@ -553,7 +665,10 @@
       "source_record_id": "ukraine:63017",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.56651825,
-      "map_longitude": 24.6118033
+      "map_longitude": 24.6118033,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000b64acb8ba139c",
@@ -567,7 +682,10 @@
       "source_record_id": "russia:165607",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 58.46666061,
-      "map_longitude": 54.33877091
+      "map_longitude": 54.33877091,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000c3703a8f2a927",
@@ -581,7 +699,10 @@
       "source_record_id": "russia:200537",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.82834015,
-      "map_longitude": 44.6445027
+      "map_longitude": 44.6445027,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000c3f473c194d83",
@@ -595,7 +716,10 @@
       "source_record_id": "russia:274964",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 44.93231603,
-      "map_longitude": 34.01749827
+      "map_longitude": 34.01749827,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000c416c9484b6cc",
@@ -609,7 +733,10 @@
       "source_record_id": "belarus:36193",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.91839292,
-      "map_longitude": 27.29437087
+      "map_longitude": 27.29437087,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000c510d45995b0e",
@@ -623,7 +750,10 @@
       "source_record_id": "russia:187866",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.6840918,
-      "map_longitude": 20.48984305
+      "map_longitude": 20.48984305,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000c6b09de150c2e",
@@ -637,7 +767,10 @@
       "source_record_id": "russia:241248",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 57.14876166,
-      "map_longitude": 36.72503376
+      "map_longitude": 36.72503376,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000ce8606b0e2bb9",
@@ -651,7 +784,10 @@
       "source_record_id": "russia:182128",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 47.37159815,
-      "map_longitude": 39.64623735
+      "map_longitude": 39.64623735,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000d28271ecd1b14",
@@ -665,7 +801,10 @@
       "source_record_id": "russia:212403",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 58.30999435,
-      "map_longitude": 57.8290212
+      "map_longitude": 57.8290212,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000d4761e4b5c758",
@@ -679,7 +818,10 @@
       "source_record_id": "ukraine:31414",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 52.11257383,
-      "map_longitude": 31.7840712
+      "map_longitude": 31.7840712,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000d72d3630ea58b",
@@ -693,7 +835,10 @@
       "source_record_id": "russia:211815",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.76397957,
-      "map_longitude": 37.1969044
+      "map_longitude": 37.1969044,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000d8ef42285fd56",
@@ -707,7 +852,10 @@
       "source_record_id": "ukraine:74389",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 47.1278171,
-      "map_longitude": 38.0933571
+      "map_longitude": 38.0933571,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000dbd8fd1718bf2",
@@ -721,7 +869,10 @@
       "source_record_id": "ukraine:57250",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 45.13668013,
-      "map_longitude": 35.40548823
+      "map_longitude": 35.40548823,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000dce0cc9b670bf",
@@ -735,7 +886,10 @@
       "source_record_id": "belarus:43766",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.7756465,
-      "map_longitude": 27.82662523
+      "map_longitude": 27.82662523,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000dfa848cf55421",
@@ -749,7 +903,10 @@
       "source_record_id": "ukraine:61933",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.443282,
-      "map_longitude": 30.18720235
+      "map_longitude": 30.18720235,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000e09b33353d6fa",
@@ -763,7 +920,10 @@
       "source_record_id": "russia:315644",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.90855437,
-      "map_longitude": 41.16320567
+      "map_longitude": 41.16320567,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000e637bbb55b2e5",
@@ -777,7 +937,10 @@
       "source_record_id": "russia:313387",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.53261275,
-      "map_longitude": 60.8710746
+      "map_longitude": 60.8710746,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000e9eff697b2e69",
@@ -791,7 +954,10 @@
       "source_record_id": "ukraine:45854",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.4755804,
-      "map_longitude": 37.68695715
+      "map_longitude": 37.68695715,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000eabb7434ca782",
@@ -805,7 +971,10 @@
       "source_record_id": "ukraine:60267",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.61568205,
-      "map_longitude": 27.24724935
+      "map_longitude": 27.24724935,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000eaf72effde2e5",
@@ -819,7 +988,10 @@
       "source_record_id": "ukraine:67426",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.23277006,
-      "map_longitude": 31.96292945
+      "map_longitude": 31.96292945,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000efa761d4ff3f2",
@@ -833,7 +1005,10 @@
       "source_record_id": "russia:200805",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 45.02209766,
-      "map_longitude": 39.04958538
+      "map_longitude": 39.04958538,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000efabd0361ac8c",
@@ -847,7 +1022,10 @@
       "source_record_id": "russia:275737",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.87171215,
-      "map_longitude": 36.4345673
+      "map_longitude": 36.4345673,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000fbd8f88c0a556",
@@ -861,7 +1039,10 @@
       "source_record_id": "ukraine:51237",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 47.73796027,
-      "map_longitude": 35.25221723
+      "map_longitude": 35.25221723,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000fc5e5fdc91723",
@@ -875,7 +1056,10 @@
       "source_record_id": "russia:137506",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.7103881,
-      "map_longitude": 37.72674655
+      "map_longitude": 37.72674655,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_000ffed96d5690a3",
@@ -889,7 +1073,10 @@
       "source_record_id": "ukraine:34887",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 47.82779432,
-      "map_longitude": 35.13412075
+      "map_longitude": 35.13412075,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001090b780598b2b",
@@ -903,7 +1090,10 @@
       "source_record_id": "russia:221780",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 57.74210535,
-      "map_longitude": 40.9204599
+      "map_longitude": 40.9204599,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0010d5b413df8b97",
@@ -917,7 +1107,10 @@
       "source_record_id": "russia:189150",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 57.76001097,
-      "map_longitude": 28.38518043
+      "map_longitude": 28.38518043,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0010d6dcf8fb39ff",
@@ -931,7 +1124,10 @@
       "source_record_id": "ukraine:33297",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 44.7686154,
-      "map_longitude": 34.5966903
+      "map_longitude": 34.5966903,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00110de5ae5bccd2",
@@ -945,7 +1141,10 @@
       "source_record_id": "russia:277556",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 45.35841067,
-      "map_longitude": 44.1837326
+      "map_longitude": 44.1837326,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00117de9621b88d4",
@@ -959,7 +1158,10 @@
       "source_record_id": "ukraine:43823",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.8497289,
-      "map_longitude": 35.36424545
+      "map_longitude": 35.36424545,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0011de0c620b1241",
@@ -973,7 +1175,10 @@
       "source_record_id": "russia:282766",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.15340236,
-      "map_longitude": 38.11320862
+      "map_longitude": 38.11320862,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001214f9fce9e784",
@@ -987,7 +1192,10 @@
       "source_record_id": "russia:310389",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 59.69831055,
-      "map_longitude": 30.26171225
+      "map_longitude": 30.26171225,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00121dcac22d5811",
@@ -1001,7 +1209,10 @@
       "source_record_id": "ukraine:54826",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 49.34040569,
-      "map_longitude": 34.01707711
+      "map_longitude": 34.01707711,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00123c9893a5fa2f",
@@ -1015,7 +1226,10 @@
       "source_record_id": "russia:150104",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.20529933,
-      "map_longitude": 44.97833187
+      "map_longitude": 44.97833187,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0012754555dbcdc9",
@@ -1029,7 +1243,10 @@
       "source_record_id": "russia:218495",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 59.71387155,
-      "map_longitude": 39.16787135
+      "map_longitude": 39.16787135,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0012c0e951d2dd90",
@@ -1043,7 +1260,10 @@
       "source_record_id": "russia:318187",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 43.7588101,
-      "map_longitude": 39.51216185
+      "map_longitude": 39.51216185,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00135e6735cefb03",
@@ -1057,7 +1277,10 @@
       "source_record_id": "russia:312438",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.1372478,
-      "map_longitude": 43.91323667
+      "map_longitude": 43.91323667,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001361fdc334de38",
@@ -1071,7 +1294,10 @@
       "source_record_id": "russia:306306",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.7430795,
-      "map_longitude": 37.51410459
+      "map_longitude": 37.51410459,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001369b5a096eff7",
@@ -1085,7 +1311,10 @@
       "source_record_id": "ukraine:43594",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.33048163,
-      "map_longitude": 36.95832654
+      "map_longitude": 36.95832654,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0013d97ed4b966d0",
@@ -1099,7 +1328,10 @@
       "source_record_id": "ukraine:62412",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.24871767,
-      "map_longitude": 24.97622443
+      "map_longitude": 24.97622443,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00140e78afbbabdc",
@@ -1113,7 +1345,10 @@
       "source_record_id": "russia:280836",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.0276156,
-      "map_longitude": 38.0133326
+      "map_longitude": 38.0133326,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001416db2352cb6b",
@@ -1127,7 +1362,10 @@
       "source_record_id": "ukraine:47502",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.8205103,
-      "map_longitude": 24.836921
+      "map_longitude": 24.836921,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00142c6471caf781",
@@ -1141,7 +1379,10 @@
       "source_record_id": "russia:246798",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 57.98533347,
-      "map_longitude": 56.229712
+      "map_longitude": 56.229712,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00145735ebcb543b",
@@ -1155,7 +1396,10 @@
       "source_record_id": "ukraine:63328",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 49.58385533,
-      "map_longitude": 34.37489023
+      "map_longitude": 34.37489023,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00146d92e330ed57",
@@ -1169,7 +1413,10 @@
       "source_record_id": "ukraine:61829",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.43309755,
-      "map_longitude": 30.0595071
+      "map_longitude": 30.0595071,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0014fabec5745ab6",
@@ -1183,7 +1430,10 @@
       "source_record_id": "ukraine:69669",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.24026032,
-      "map_longitude": 25.18058603
+      "map_longitude": 25.18058603,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0015d4804e0a3137",
@@ -1197,7 +1447,10 @@
       "source_record_id": "russia:201403",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 59.96319763,
-      "map_longitude": 30.307874
+      "map_longitude": 30.307874,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0015faa8979a6cf3",
@@ -1211,7 +1464,10 @@
       "source_record_id": "russia:165323",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.2473973,
-      "map_longitude": 38.1604659
+      "map_longitude": 38.1604659,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0015fb674b0cac8a",
@@ -1225,7 +1481,10 @@
       "source_record_id": "russia:295089",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 45.22648535,
-      "map_longitude": 33.28321635
+      "map_longitude": 33.28321635,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00160e403a09bab2",
@@ -1239,7 +1498,10 @@
       "source_record_id": "ukraine:48201",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 47.70343706,
-      "map_longitude": 33.26922354
+      "map_longitude": 33.26922354,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001615dcf0939875",
@@ -1253,7 +1515,10 @@
       "source_record_id": "russia:259484",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.37591745,
-      "map_longitude": 20.6571856
+      "map_longitude": 20.6571856,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00163b5944fa187f",
@@ -1267,7 +1532,10 @@
       "source_record_id": "russia:207418",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 43.28277005,
-      "map_longitude": 43.5541436
+      "map_longitude": 43.5541436,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0016e8da8ccdbfff",
@@ -1281,7 +1549,10 @@
       "source_record_id": "russia:287607",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 59.6896119,
-      "map_longitude": 56.7379662
+      "map_longitude": 56.7379662,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0016f091e0c34d4e",
@@ -1295,7 +1566,10 @@
       "source_record_id": "russia:205669",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 62.20327884,
-      "map_longitude": 50.4377242
+      "map_longitude": 50.4377242,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001700312a039748",
@@ -1309,7 +1583,10 @@
       "source_record_id": "russia:312340",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 45.1983561,
-      "map_longitude": 37.46843495
+      "map_longitude": 37.46843495,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00171fa6cf26f41f",
@@ -1323,7 +1600,10 @@
       "source_record_id": "russia:146416",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.3160898,
-      "map_longitude": 37.15349283
+      "map_longitude": 37.15349283,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001747e825442d2a",
@@ -1337,7 +1617,10 @@
       "source_record_id": "belarus:73199",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 52.13007032,
-      "map_longitude": 23.67400808
+      "map_longitude": 23.67400808,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0017ccbda52689af",
@@ -1351,7 +1634,10 @@
       "source_record_id": "russia:240890",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 44.04520105,
-      "map_longitude": 43.11480915
+      "map_longitude": 43.11480915,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0017ebc03ce95f84",
@@ -1365,7 +1651,10 @@
       "source_record_id": "russia:147960",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 47.15641967,
-      "map_longitude": 39.73548944
+      "map_longitude": 39.73548944,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00180a6c9a03ab7f",
@@ -1379,7 +1668,10 @@
       "source_record_id": "russia:149910",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 45.0249991,
-      "map_longitude": 39.03734543
+      "map_longitude": 39.03734543,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0018124650c3b32f",
@@ -1393,7 +1685,10 @@
       "source_record_id": "russia:164900",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 61.26822288,
-      "map_longitude": 75.18303394
+      "map_longitude": 75.18303394,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00185a96a89734a0",
@@ -1407,7 +1702,10 @@
       "source_record_id": "russia:184532",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 43.11516072,
-      "map_longitude": 131.88882857
+      "map_longitude": 131.88882857,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0018cdde3dbf6631",
@@ -1421,7 +1719,10 @@
       "source_record_id": "russia:190692",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.47838679,
-      "map_longitude": 55.46352106
+      "map_longitude": 55.46352106,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0018f807698f7691",
@@ -1435,7 +1736,10 @@
       "source_record_id": "belarus:68018",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.16326757,
-      "map_longitude": 30.27969073
+      "map_longitude": 30.27969073,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00190463719863b1",
@@ -1449,7 +1753,10 @@
       "source_record_id": "russia:162698",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.7717913,
-      "map_longitude": 31.8255255
+      "map_longitude": 31.8255255,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0019228c1f26d27a",
@@ -1463,7 +1770,10 @@
       "source_record_id": "russia:284225",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.39622975,
-      "map_longitude": 48.38957855
+      "map_longitude": 48.38957855,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001a63cc587184ef",
@@ -1477,7 +1787,10 @@
       "source_record_id": "russia:169621",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.01544035,
-      "map_longitude": 158.6493157
+      "map_longitude": 158.6493157,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001b2e0b742e6694",
@@ -1491,7 +1804,10 @@
       "source_record_id": "russia:207621",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 63.2373624,
-      "map_longitude": 39.1999317
+      "map_longitude": 39.1999317,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001bb04d9e14ef2d",
@@ -1505,7 +1821,10 @@
       "source_record_id": "russia:258585",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 60.71300825,
-      "map_longitude": 30.02729198
+      "map_longitude": 30.02729198,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001c090a386b29c6",
@@ -1519,7 +1838,10 @@
       "source_record_id": "russia:261408",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.41365305,
-      "map_longitude": 37.21651575
+      "map_longitude": 37.21651575,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001c1a0fd81a5935",
@@ -1533,7 +1855,10 @@
       "source_record_id": "ukraine:64971",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.83826155,
-      "map_longitude": 29.20173992
+      "map_longitude": 29.20173992,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001ca8b03ed7a3be",
@@ -1547,7 +1872,10 @@
       "source_record_id": "russia:145184",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.66439042,
-      "map_longitude": 37.74121022
+      "map_longitude": 37.74121022,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001cb2c4eb6fd1a3",
@@ -1561,7 +1889,10 @@
       "source_record_id": "belarus:63421",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.1111974,
-      "map_longitude": 30.10616425
+      "map_longitude": 30.10616425,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001cbf5bf2b9e5ac",
@@ -1575,7 +1906,10 @@
       "source_record_id": "russia:171043",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.0573885,
-      "map_longitude": 36.61913275
+      "map_longitude": 36.61913275,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001d4222f5679657",
@@ -1589,7 +1923,10 @@
       "source_record_id": "russia:181087",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.28316076,
-      "map_longitude": 37.15872698
+      "map_longitude": 37.15872698,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001d68d7b2c3d1db",
@@ -1603,7 +1940,10 @@
       "source_record_id": "ukraine:58664",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.39258407,
-      "map_longitude": 22.49891241
+      "map_longitude": 22.49891241,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001d9c0deb1f4a07",
@@ -1617,7 +1957,10 @@
       "source_record_id": "russia:255279",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 43.46803155,
-      "map_longitude": 39.9002103
+      "map_longitude": 39.9002103,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001ddb4dc2a042d9",
@@ -1631,7 +1974,10 @@
       "source_record_id": "belarus:50323",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 52.61040662,
-      "map_longitude": 28.93888154
+      "map_longitude": 28.93888154,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001de71510429d30",
@@ -1645,7 +1991,10 @@
       "source_record_id": "russia:272210",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.0740366,
-      "map_longitude": 47.27739495
+      "map_longitude": 47.27739495,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001e101937329f7b",
@@ -1659,7 +2008,10 @@
       "source_record_id": "russia:289649",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.72523365,
-      "map_longitude": 40.07499815
+      "map_longitude": 40.07499815,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001e2413c10eb357",
@@ -1673,7 +2025,10 @@
       "source_record_id": "russia:261244",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.80943615,
-      "map_longitude": 36.0069648
+      "map_longitude": 36.0069648,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001e39cac08a9919",
@@ -1687,7 +2042,10 @@
       "source_record_id": "russia:219081",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.43999787,
-      "map_longitude": 135.10405533
+      "map_longitude": 135.10405533,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001e5a8746ec34c3",
@@ -1701,7 +2059,10 @@
       "source_record_id": "russia:266362",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.32743875,
-      "map_longitude": 83.7002628
+      "map_longitude": 83.7002628,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001ed10126a5072d",
@@ -1715,7 +2076,10 @@
       "source_record_id": "russia:280677",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 44.1809767,
-      "map_longitude": 135.14255225
+      "map_longitude": 135.14255225,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001ee95418fdbaad",
@@ -1729,7 +2093,10 @@
       "source_record_id": "russia:237637",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.8457474,
-      "map_longitude": 73.2874831
+      "map_longitude": 73.2874831,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001eeda6ebae4327",
@@ -1743,7 +2110,10 @@
       "source_record_id": "russia:160691",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.20363329,
-      "map_longitude": 34.25641483
+      "map_longitude": 34.25641483,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001f0ba10546aeac",
@@ -1757,7 +2127,10 @@
       "source_record_id": "russia:269956",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 66.05339463,
-      "map_longitude": 76.94305898
+      "map_longitude": 76.94305898,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001f351b7cf3493d",
@@ -1771,7 +2144,10 @@
       "source_record_id": "russia:283959",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.61423409,
-      "map_longitude": 49.28547644
+      "map_longitude": 49.28547644,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001f6ff663ca226a",
@@ -1785,7 +2161,10 @@
       "source_record_id": "russia:181017",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.24164114,
-      "map_longitude": 43.86287536
+      "map_longitude": 43.86287536,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_001f724099a8179e",
@@ -1799,7 +2178,10 @@
       "source_record_id": "ukraine:60900",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.2487397,
-      "map_longitude": 28.29199985
+      "map_longitude": 28.29199985,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002022244b3a3360",
@@ -1813,7 +2195,10 @@
       "source_record_id": "russia:147745",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.74852001,
-      "map_longitude": 60.74897524
+      "map_longitude": 60.74897524,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00202da7d8fb151c",
@@ -1827,7 +2212,10 @@
       "source_record_id": "russia:230890",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.7216035,
-      "map_longitude": 37.80297784
+      "map_longitude": 37.80297784,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00204e01e030af7b",
@@ -1841,7 +2229,10 @@
       "source_record_id": "russia:268636",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 44.93493772,
-      "map_longitude": 41.91148932
+      "map_longitude": 41.91148932,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0020774851749cd4",
@@ -1855,7 +2246,10 @@
       "source_record_id": "belarus:53396",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.00568342,
-      "map_longitude": 31.74701023
+      "map_longitude": 31.74701023,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0020b877381c8c0e",
@@ -1869,7 +2263,10 @@
       "source_record_id": "russia:164123",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 52.28485465,
-      "map_longitude": 45.3538193
+      "map_longitude": 45.3538193,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0020ede17fe97e0d",
@@ -1883,7 +2280,10 @@
       "source_record_id": "ukraine:50502",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.36670335,
-      "map_longitude": 29.36978895
+      "map_longitude": 29.36978895,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00213e2a8b446fea",
@@ -1897,7 +2297,10 @@
       "source_record_id": "russia:297849",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 58.17526861,
-      "map_longitude": 56.41437724
+      "map_longitude": 56.41437724,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00214f2a88935ea7",
@@ -1911,7 +2314,10 @@
       "source_record_id": "ukraine:36418",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 49.22473734,
-      "map_longitude": 31.82735231
+      "map_longitude": 31.82735231,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0021592851ac1099",
@@ -1925,7 +2331,10 @@
       "source_record_id": "ukraine:73137",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 46.82668345,
-      "map_longitude": 32.7452301
+      "map_longitude": 32.7452301,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0021d7a764b1e21a",
@@ -1939,7 +2348,10 @@
       "source_record_id": "russia:222340",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.29024585,
-      "map_longitude": 48.3694124
+      "map_longitude": 48.3694124,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0021e2a813a25fe8",
@@ -1953,7 +2365,10 @@
       "source_record_id": "ukraine:47428",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.5048895,
-      "map_longitude": 25.67856012
+      "map_longitude": 25.67856012,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0021e362cf58a4be",
@@ -1967,7 +2382,10 @@
       "source_record_id": "russia:237597",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.85432657,
-      "map_longitude": 35.86079297
+      "map_longitude": 35.86079297,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002287fbd9a70418",
@@ -1981,7 +2399,10 @@
       "source_record_id": "ukraine:35665",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.3070935,
-      "map_longitude": 34.98709584
+      "map_longitude": 34.98709584,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0022b66350fe6de3",
@@ -1995,7 +2416,10 @@
       "source_record_id": "russia:288848",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 64.3164429,
-      "map_longitude": 34.12913664
+      "map_longitude": 34.12913664,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0022f47680517310",
@@ -2009,7 +2433,10 @@
       "source_record_id": "russia:212194",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 43.95846269,
-      "map_longitude": 132.01912441
+      "map_longitude": 132.01912441,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0023352608f0fda8",
@@ -2023,7 +2450,10 @@
       "source_record_id": "russia:159531",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 45.03916165,
-      "map_longitude": 41.91199295
+      "map_longitude": 41.91199295,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002345da407167cc",
@@ -2037,7 +2467,10 @@
       "source_record_id": "belarus:52118",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.68688538,
-      "map_longitude": 27.15222685
+      "map_longitude": 27.15222685,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00234824721599cc",
@@ -2051,7 +2484,10 @@
       "source_record_id": "ukraine:72742",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 49.58733285,
-      "map_longitude": 34.5516919
+      "map_longitude": 34.5516919,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0023621d23e0951f",
@@ -2065,7 +2501,10 @@
       "source_record_id": "ukraine:72540",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.57037255,
-      "map_longitude": 31.33779995
+      "map_longitude": 31.33779995,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0023b2cba7e4c94a",
@@ -2079,7 +2518,10 @@
       "source_record_id": "russia:312603",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.96883765,
-      "map_longitude": 73.27531885
+      "map_longitude": 73.27531885,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0023b721039ab351",
@@ -2093,7 +2535,10 @@
       "source_record_id": "belarus:44467",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.05492095,
-      "map_longitude": 27.65330855
+      "map_longitude": 27.65330855,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0023c47abb454361",
@@ -2107,7 +2552,10 @@
       "source_record_id": "russia:208799",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.59018348,
-      "map_longitude": 57.82559916
+      "map_longitude": 57.82559916,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0023ccfe483a39e5",
@@ -2121,7 +2569,10 @@
       "source_record_id": "russia:201185",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 60.9397487,
-      "map_longitude": 46.46484423
+      "map_longitude": 46.46484423,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0023fd0c09c4ea25",
@@ -2135,7 +2586,10 @@
       "source_record_id": "russia:177748",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.87156225,
-      "map_longitude": 37.45759415
+      "map_longitude": 37.45759415,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00242613c91486e4",
@@ -2149,7 +2603,10 @@
       "source_record_id": "russia:240870",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 57.14561375,
-      "map_longitude": 65.55478385
+      "map_longitude": 65.55478385,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00245e8561211cc2",
@@ -2163,7 +2620,10 @@
       "source_record_id": "belarus:56167",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 52.5377168,
-      "map_longitude": 30.91492652
+      "map_longitude": 30.91492652,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0024a9f765940aa4",
@@ -2177,7 +2637,10 @@
       "source_record_id": "belarus:67192",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.96989905,
-      "map_longitude": 28.83420015
+      "map_longitude": 28.83420015,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00250f34ee4b9a96",
@@ -2191,7 +2654,10 @@
       "source_record_id": "ukraine:67536",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.30459853,
-      "map_longitude": 31.27053157
+      "map_longitude": 31.27053157,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00257a9d81bcefa0",
@@ -2205,7 +2671,10 @@
       "source_record_id": "russia:272018",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 59.32729975,
-      "map_longitude": 39.987921
+      "map_longitude": 39.987921,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00258a4ddf4a15dd",
@@ -2219,7 +2688,10 @@
       "source_record_id": "belarus:66488",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.92732575,
-      "map_longitude": 27.63970555
+      "map_longitude": 27.63970555,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00259c5f5415dff7",
@@ -2233,7 +2705,10 @@
       "source_record_id": "ukraine:36390",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.47813975,
-      "map_longitude": 35.07705155
+      "map_longitude": 35.07705155,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0025d00e20a3bc1b",
@@ -2247,7 +2722,10 @@
       "source_record_id": "russia:165634",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.99808678,
-      "map_longitude": 40.46201324
+      "map_longitude": 40.46201324,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00261d1e17de63b5",
@@ -2261,7 +2739,10 @@
       "source_record_id": "russia:164722",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 47.06723229,
-      "map_longitude": 39.74662599
+      "map_longitude": 39.74662599,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0026c591247ebf4e",
@@ -2275,7 +2756,10 @@
       "source_record_id": "russia:314790",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 49.01798555,
-      "map_longitude": 44.7276213
+      "map_longitude": 44.7276213,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0026f0b6c10df461",
@@ -2289,7 +2773,10 @@
       "source_record_id": "russia:143107",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.80078566,
-      "map_longitude": 44.59638122
+      "map_longitude": 44.59638122,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002716a7b970b531",
@@ -2303,7 +2790,10 @@
       "source_record_id": "russia:267049",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.81376407,
-      "map_longitude": 20.89953785
+      "map_longitude": 20.89953785,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002750e266b2bf2b",
@@ -2317,7 +2807,10 @@
       "source_record_id": "russia:315401",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.20950247,
-      "map_longitude": 44.97186113
+      "map_longitude": 44.97186113,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00276b7442ec0065",
@@ -2331,7 +2824,10 @@
       "source_record_id": "russia:270183",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.0261347,
-      "map_longitude": 44.6131203
+      "map_longitude": 44.6131203,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002779c1f88322c0",
@@ -2345,7 +2841,10 @@
       "source_record_id": "russia:172449",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 51.76234615,
-      "map_longitude": 107.45686122
+      "map_longitude": 107.45686122,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00277aaab956beab",
@@ -2359,7 +2858,10 @@
       "source_record_id": "belarus:60932",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.68074208,
-      "map_longitude": 24.84642702
+      "map_longitude": 24.84642702,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0027858b6fd32947",
@@ -2373,7 +2875,10 @@
       "source_record_id": "ukraine:45976",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.20138321,
-      "map_longitude": 34.96366964
+      "map_longitude": 34.96366964,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0027ce5d0a961734",
@@ -2387,7 +2892,10 @@
       "source_record_id": "russia:178260",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.83287805,
-      "map_longitude": 37.3930017
+      "map_longitude": 37.3930017,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0027d1cb419a36f3",
@@ -2401,7 +2909,10 @@
       "source_record_id": "russia:209450",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 47.08163187,
-      "map_longitude": 39.48881554
+      "map_longitude": 39.48881554,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0027d6a93465b5a7",
@@ -2415,7 +2926,10 @@
       "source_record_id": "russia:143394",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 61.33839536,
-      "map_longitude": 63.3171519
+      "map_longitude": 63.3171519,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00280b93d2cd4bfa",
@@ -2429,7 +2943,10 @@
       "source_record_id": "ukraine:57487",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.80228135,
-      "map_longitude": 29.3168712
+      "map_longitude": 29.3168712,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002826480a2bad1c",
@@ -2443,7 +2960,10 @@
       "source_record_id": "belarus:72367",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.2003288,
-      "map_longitude": 27.844733
+      "map_longitude": 27.844733,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00283fcf4a35eada",
@@ -2457,7 +2977,10 @@
       "source_record_id": "russia:163744",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.09114715,
-      "map_longitude": 38.17056335
+      "map_longitude": 38.17056335,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0028eac3c96a3eaf",
@@ -2471,7 +2994,10 @@
       "source_record_id": "russia:156844",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 52.11447355,
-      "map_longitude": 47.3058831
+      "map_longitude": 47.3058831,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002903bd440e3650",
@@ -2485,7 +3011,10 @@
       "source_record_id": "belarus:50048",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 52.39296402,
-      "map_longitude": 24.09574471
+      "map_longitude": 24.09574471,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0029430628404b9e",
@@ -2499,7 +3028,10 @@
       "source_record_id": "ukraine:54956",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.037889,
-      "map_longitude": 37.77127697
+      "map_longitude": 37.77127697,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0029817b29c0576c",
@@ -2513,7 +3045,10 @@
       "source_record_id": "ukraine:29303",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.42685955,
-      "map_longitude": 30.45868195
+      "map_longitude": 30.45868195,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0029c5fb0799f6fe",
@@ -2527,7 +3062,10 @@
       "source_record_id": "russia:146687",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 58.56428471,
-      "map_longitude": 59.46733021
+      "map_longitude": 59.46733021,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0029d2060a6c7234",
@@ -2541,7 +3079,10 @@
       "source_record_id": "russia:277700",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.56212881,
-      "map_longitude": 47.97940722
+      "map_longitude": 47.97940722,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0029e654a1418cba",
@@ -2555,7 +3096,10 @@
       "source_record_id": "russia:249746",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 42.93237873,
-      "map_longitude": 47.51787983
+      "map_longitude": 47.51787983,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0029f701a9c6795e",
@@ -2569,7 +3113,10 @@
       "source_record_id": "ukraine:61478",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.0616045,
-      "map_longitude": 35.28629624
+      "map_longitude": 35.28629624,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002a4ed42ba52311",
@@ -2583,7 +3130,10 @@
       "source_record_id": "ukraine:62650",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.90680085,
-      "map_longitude": 34.8021904
+      "map_longitude": 34.8021904,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002a73e3e0b8b86b",
@@ -2597,7 +3147,10 @@
       "source_record_id": "russia:277022",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.67306195,
-      "map_longitude": 47.90140541
+      "map_longitude": 47.90140541,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002aad829833a962",
@@ -2611,7 +3164,10 @@
       "source_record_id": "russia:259149",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.84479525,
-      "map_longitude": 37.2008266
+      "map_longitude": 37.2008266,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002b5e91e03c8aa1",
@@ -2625,7 +3181,10 @@
       "source_record_id": "ukraine:76183",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 44.51018649,
-      "map_longitude": 34.19136613
+      "map_longitude": 34.19136613,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002be9a0e40ab214",
@@ -2639,7 +3198,10 @@
       "source_record_id": "russia:197688",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 61.42850968,
-      "map_longitude": 46.22942758
+      "map_longitude": 46.22942758,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002beee6eb65468f",
@@ -2653,7 +3215,10 @@
       "source_record_id": "belarus:39035",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 52.85279767,
-      "map_longitude": 27.46668407
+      "map_longitude": 27.46668407,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002c349f77c9a1ce",
@@ -2667,7 +3232,10 @@
       "source_record_id": "ukraine:42951",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.44246502,
-      "map_longitude": 30.51860617
+      "map_longitude": 30.51860617,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002c5187b3a15cda",
@@ -2681,7 +3249,10 @@
       "source_record_id": "ukraine:54482",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 49.8041982,
-      "map_longitude": 23.81269777
+      "map_longitude": 23.81269777,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002c7dcca1fcbf30",
@@ -2695,7 +3266,10 @@
       "source_record_id": "russia:268595",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.66479935,
-      "map_longitude": 21.12418885
+      "map_longitude": 21.12418885,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002c9ea0dc6cfd12",
@@ -2709,7 +3283,10 @@
       "source_record_id": "ukraine:64895",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 46.618902,
-      "map_longitude": 32.78293248
+      "map_longitude": 32.78293248,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002cf1b31c8de930",
@@ -2723,7 +3300,10 @@
       "source_record_id": "russia:256025",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 61.72891026,
-      "map_longitude": 50.78269525
+      "map_longitude": 50.78269525,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002d05ab1873882e",
@@ -2737,7 +3317,10 @@
       "source_record_id": "russia:187815",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 64.93953212,
-      "map_longitude": 77.60207621
+      "map_longitude": 77.60207621,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002d3e83d6facba4",
@@ -2751,7 +3334,10 @@
       "source_record_id": "ukraine:37695",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.51809633,
-      "map_longitude": 31.35944227
+      "map_longitude": 31.35944227,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002d55500f423a03",
@@ -2765,7 +3351,10 @@
       "source_record_id": "russia:221139",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.230693,
-      "map_longitude": 55.8828245
+      "map_longitude": 55.8828245,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002d8219412958e9",
@@ -2779,7 +3368,10 @@
       "source_record_id": "ukraine:59993",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.59721365,
-      "map_longitude": 26.8490176
+      "map_longitude": 26.8490176,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002d903ca75e1fc9",
@@ -2793,7 +3385,10 @@
       "source_record_id": "russia:181348",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 60.01279693,
-      "map_longitude": 30.4339475
+      "map_longitude": 30.4339475,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002d9c9f4916099f",
@@ -2807,7 +3402,10 @@
       "source_record_id": "russia:217109",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 62.0448841,
-      "map_longitude": 129.62907838
+      "map_longitude": 129.62907838,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002da8e9ad664047",
@@ -2821,7 +3419,10 @@
       "source_record_id": "russia:213356",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 46.84636595,
-      "map_longitude": 142.7538693
+      "map_longitude": 142.7538693,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002dfd337cea1b3e",
@@ -2835,7 +3436,10 @@
       "source_record_id": "russia:264237",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 59.9832614,
-      "map_longitude": 30.28445133
+      "map_longitude": 30.28445133,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002e9d38cad334a4",
@@ -2849,7 +3453,10 @@
       "source_record_id": "russia:250467",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 58.27845135,
-      "map_longitude": 45.3533723
+      "map_longitude": 45.3533723,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002ebc45165845fd",
@@ -2863,7 +3470,10 @@
       "source_record_id": "russia:262628",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.84564023,
-      "map_longitude": 29.97244027
+      "map_longitude": 29.97244027,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002f3feef86e4ee3",
@@ -2877,7 +3487,10 @@
       "source_record_id": "ukraine:54914",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 49.23949076,
-      "map_longitude": 34.08735663
+      "map_longitude": 34.08735663,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002f48c7f3365ad6",
@@ -2891,7 +3504,10 @@
       "source_record_id": "russia:262762",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 64.5421316,
-      "map_longitude": 143.08764185
+      "map_longitude": 143.08764185,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002f99e5e7088d24",
@@ -2905,7 +3521,10 @@
       "source_record_id": "belarus:62568",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.75951865,
-      "map_longitude": 27.95448575
+      "map_longitude": 27.95448575,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002fccb8a3427a60",
@@ -2919,7 +3538,10 @@
       "source_record_id": "russia:209704",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 44.59970598,
-      "map_longitude": 40.10988697
+      "map_longitude": 40.10988697,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_002fcddbb2b84a04",
@@ -2933,7 +3555,10 @@
       "source_record_id": "russia:251544",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 45.3257576,
-      "map_longitude": 36.36369163
+      "map_longitude": 36.36369163,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00306510801b6645",
@@ -2947,7 +3572,10 @@
       "source_record_id": "belarus:49372",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.92787382,
-      "map_longitude": 27.18712901
+      "map_longitude": 27.18712901,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0030a84b768f79d1",
@@ -2961,7 +3589,10 @@
       "source_record_id": "russia:244362",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.3673006,
-      "map_longitude": 34.3002506
+      "map_longitude": 34.3002506,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0030c4e85c59db98",
@@ -2975,7 +3606,10 @@
       "source_record_id": "russia:175715",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.24034692,
-      "map_longitude": 43.98932447
+      "map_longitude": 43.98932447,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0030f80bcf18478b",
@@ -2989,7 +3623,10 @@
       "source_record_id": "russia:240729",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.94646465,
-      "map_longitude": 40.45759565
+      "map_longitude": 40.45759565,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0030fec48a630d7e",
@@ -3003,7 +3640,10 @@
       "source_record_id": "russia:154543",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.1420658,
-      "map_longitude": 38.78638385
+      "map_longitude": 38.78638385,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0031a08f0cd9c350",
@@ -3017,7 +3657,10 @@
       "source_record_id": "russia:284467",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.99924333,
-      "map_longitude": 37.1933596
+      "map_longitude": 37.1933596,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0031fc72d5d54cb0",
@@ -3031,7 +3674,10 @@
       "source_record_id": "belarus:56600",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.9029106,
-      "map_longitude": 30.3437909
+      "map_longitude": 30.3437909,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00320de1a2610357",
@@ -3045,7 +3691,10 @@
       "source_record_id": "russia:287728",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 59.7804233,
-      "map_longitude": 30.13371005
+      "map_longitude": 30.13371005,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_003263970bcbe2a5",
@@ -3059,7 +3708,10 @@
       "source_record_id": "belarus:50573",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 52.25568541,
-      "map_longitude": 27.44091136
+      "map_longitude": 27.44091136,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00331c13457e0169",
@@ -3073,7 +3725,10 @@
       "source_record_id": "russia:252971",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 60.383316,
-      "map_longitude": 30.27472035
+      "map_longitude": 30.27472035,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00331e92875d3eae",
@@ -3087,7 +3742,10 @@
       "source_record_id": "belarus:72225",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.3448093,
-      "map_longitude": 29.18801127
+      "map_longitude": 29.18801127,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0033eff68d421258",
@@ -3101,7 +3759,10 @@
       "source_record_id": "ukraine:62221",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.44285577,
-      "map_longitude": 35.0509921
+      "map_longitude": 35.0509921,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0033fed56345e231",
@@ -3115,7 +3776,10 @@
       "source_record_id": "russia:254320",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 44.03237228,
-      "map_longitude": 43.13324932
+      "map_longitude": 43.13324932,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_003424398c14a3e6",
@@ -3129,7 +3793,10 @@
       "source_record_id": "russia:278905",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 46.6909434,
-      "map_longitude": 39.6521395
+      "map_longitude": 39.6521395,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0034658735fe0aa5",
@@ -3143,7 +3810,10 @@
       "source_record_id": "belarus:52477",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.59790905,
-      "map_longitude": 24.7083118
+      "map_longitude": 24.7083118,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0034ee2b55382b9a",
@@ -3157,7 +3827,10 @@
       "source_record_id": "russia:214238",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 46.37902235,
-      "map_longitude": 40.8156706
+      "map_longitude": 40.8156706,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00357d2db6704e92",
@@ -3171,7 +3844,10 @@
       "source_record_id": "russia:301030",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.19029748,
-      "map_longitude": 34.60950038
+      "map_longitude": 34.60950038,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0035978641d1c263",
@@ -3185,7 +3861,10 @@
       "source_record_id": "russia:136865",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 45.19859163,
-      "map_longitude": 37.6618698
+      "map_longitude": 37.6618698,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0035c230af95a0c8",
@@ -3199,7 +3878,10 @@
       "source_record_id": "russia:275979",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 50.41784568,
-      "map_longitude": 37.01990892
+      "map_longitude": 37.01990892,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0035c7466759c543",
@@ -3213,7 +3895,10 @@
       "source_record_id": "russia:237445",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.0713398,
-      "map_longitude": 40.16284755
+      "map_longitude": 40.16284755,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_003691b491fd481c",
@@ -3227,7 +3912,10 @@
       "source_record_id": "belarus:73432",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 53.3352088,
-      "map_longitude": 26.52234025
+      "map_longitude": 26.52234025,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0036bd9702e67941",
@@ -3241,7 +3929,10 @@
       "source_record_id": "russia:201339",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 61.3494377,
-      "map_longitude": 47.19688242
+      "map_longitude": 47.19688242,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0036c6e5ec5edb40",
@@ -3255,7 +3946,10 @@
       "source_record_id": "ukraine:35857",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 46.82702235,
-      "map_longitude": 35.26037875
+      "map_longitude": 35.26037875,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0036ec705c558814",
@@ -3269,7 +3963,10 @@
       "source_record_id": "russia:167293",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 43.0407218,
-      "map_longitude": 44.66915782
+      "map_longitude": 44.66915782,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0036f2eaba94a62e",
@@ -3283,7 +3980,10 @@
       "source_record_id": "ukraine:33449",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 49.70978666,
-      "map_longitude": 37.6323032
+      "map_longitude": 37.6323032,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00375a238e83cc75",
@@ -3297,7 +3997,10 @@
       "source_record_id": "russia:189627",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 45.34546759,
-      "map_longitude": 34.89493488
+      "map_longitude": 34.89493488,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00376a527950ae39",
@@ -3311,7 +4014,10 @@
       "source_record_id": "russia:228089",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.41653013,
-      "map_longitude": 37.49799763
+      "map_longitude": 37.49799763,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00379549ed79db09",
@@ -3325,7 +4031,10 @@
       "source_record_id": "russia:273591",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.40686177,
-      "map_longitude": 37.46798677
+      "map_longitude": 37.46798677,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00379739bed155a9",
@@ -3339,7 +4048,10 @@
       "source_record_id": "russia:151810",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.48844535,
-      "map_longitude": 34.98428836
+      "map_longitude": 34.98428836,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00379a4f6583549a",
@@ -3353,7 +4065,10 @@
       "source_record_id": "russia:279641",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 54.00879895,
-      "map_longitude": 38.01133005
+      "map_longitude": 38.01133005,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00379e184e1a6be7",
@@ -3367,7 +4082,10 @@
       "source_record_id": "russia:217028",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.40865234,
-      "map_longitude": 85.04630447
+      "map_longitude": 85.04630447,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_00381636e759afcf",
@@ -3381,7 +4099,10 @@
       "source_record_id": "ukraine:71095",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 48.2567247,
-      "map_longitude": 30.2756176
+      "map_longitude": 30.2756176,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_003862b7636ac40f",
@@ -3395,7 +4116,10 @@
       "source_record_id": "russia:269662",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 56.38192126,
-      "map_longitude": 37.60534148
+      "map_longitude": 37.60534148,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_003868050bcce7fc",
@@ -3409,7 +4133,10 @@
       "source_record_id": "russia:140424",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 59.9085939,
-      "map_longitude": 30.3004864
+      "map_longitude": 30.3004864,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_003876e25d13e7f5",
@@ -3423,7 +4150,10 @@
       "source_record_id": "russia:261006",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 60.96982558,
-      "map_longitude": 69.0517091
+      "map_longitude": 69.0517091,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0038d385dff422dc",
@@ -3437,7 +4167,10 @@
       "source_record_id": "russia:192343",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 58.39655672,
-      "map_longitude": 51.03334518
+      "map_longitude": 51.03334518,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0038f697867ab765",
@@ -3451,7 +4184,10 @@
       "source_record_id": "russia:281482",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 55.6991972,
-      "map_longitude": 49.62315557
+      "map_longitude": 49.62315557,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_003903874f0db2d6",
@@ -3465,7 +4201,10 @@
       "source_record_id": "ukraine:42308",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 47.68394898,
-      "map_longitude": 36.24126399
+      "map_longitude": 36.24126399,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_003924304ac8808e",
@@ -3479,7 +4218,10 @@
       "source_record_id": "russia:207675",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 65.99791185,
-      "map_longitude": 77.38842655
+      "map_longitude": 77.38842655,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_0039d916ca09901f",
@@ -3493,7 +4235,10 @@
       "source_record_id": "ukraine:41130",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 47.62772744,
-      "map_longitude": 33.69900132
+      "map_longitude": 33.69900132,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_003a9f32ba9e6f35",
@@ -3507,7 +4252,10 @@
       "source_record_id": "ukraine:38756",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 49.8298107,
-      "map_longitude": 23.96348725
+      "map_longitude": 23.96348725,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     },
     {
       "uid": "infra_003b3e8e88873dba",
@@ -3521,10 +4269,12 @@
       "source_record_id": "russia:238977",
       "source_date": "2026-07-14T08:40:31Z",
       "map_latitude": 58.2268585,
-      "map_longitude": 68.26638175
+      "map_longitude": 68.26638175,
+      "first_seen_build": "2026-07-14T08:40:31Z",
+      "last_seen_build": "2026-07-14T08:40:31Z",
+      "removed_from_latest_build": "true"
     }
   ],
-  "removed_objects": [],
   "moved_objects": [],
   "category_changes": [],
   "name_changes": [],
