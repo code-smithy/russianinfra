@@ -113,8 +113,11 @@ configured download URLs are:
 - `https://download.geofabrik.de/europe/ukraine-latest.osm.pbf`
 - `https://download.geofabrik.de/europe/belarus-latest.osm.pbf`
 
-The regular local build also runs the road extractor, but it skips this source and
-writes an empty CSV when the PBF files or `osmium` are unavailable.
+The regular local build also runs the road extractor, but it preserves an existing
+non-empty road CSV when the PBF files or `osmium` are unavailable. If no prior
+road CSV is available, the extractor fails closed so generated web data cannot
+silently drop the road layer. Use `russianinfra-extract-osm-roads --allow-empty`
+only for an intentional no-road build.
 
 The default road profile includes `motorway`, `trunk`, `primary`, and their link
 classes. Use `russianinfra-extract-osm-roads --road-profile regional` only when

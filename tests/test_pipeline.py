@@ -392,6 +392,45 @@ class GeofabrikRoadExtractorTests(unittest.TestCase):
         self.assertIn("source_dataset", header)
         self.assertIn("geometry_json", header)
 
+    def test_csv_has_data_rows_ignores_header_only_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "roads.csv"
+
+            roads.write_csv([], path)
+
+            self.assertFalse(roads.csv_has_data_rows(path))
+
+            with path.open("a", newline="", encoding="utf-8-sig") as handle:
+                writer = csv.DictWriter(handle, fieldnames=roads.FIELDNAMES)
+                writer.writerow({"source_dataset": roads.SOURCE_DATASET, "layer": "osm_major_roads"})
+
+            self.assertTrue(roads.csv_has_data_rows(path))
+
+    def test_main_refuses_to_replace_roads_with_empty_extract(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "roads.csv"
+
+            with patch.object(roads, "CSV_PATH", path), patch.object(sys, "argv", ["roads"]):
+                result = roads.main()
+
+            self.assertEqual(result, 1)
+            self.assertFalse(path.exists())
+
+    def test_main_preserves_existing_road_csv_when_extract_is_empty(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "roads.csv"
+            roads.write_csv(
+                [{"source_dataset": roads.SOURCE_DATASET, "layer": "osm_major_roads", "feature_id": "way/1"}],
+                path,
+            )
+            before = path.read_text(encoding="utf-8-sig")
+
+            with patch.object(roads, "CSV_PATH", path), patch.object(sys, "argv", ["roads"]):
+                result = roads.main()
+
+            self.assertEqual(result, 0)
+            self.assertEqual(path.read_text(encoding="utf-8-sig"), before)
+
     def test_default_profile_is_smaller_than_regional_profile(self):
         self.assertEqual(
             roads.STRATEGIC_HIGHWAY_CLASSES,

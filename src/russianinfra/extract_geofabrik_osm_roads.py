@@ -410,6 +410,15 @@ def write_csv(rows: list[dict[str, Any]], path: Path = CSV_PATH) -> None:
         writer.writerows(rows)
 
 
+def csv_has_data_rows(path: Path = CSV_PATH) -> bool:
+    if not path.exists():
+        return False
+    with path.open("r", newline="", encoding="utf-8-sig") as handle:
+        reader = csv.reader(handle)
+        next(reader, None)
+        return any(any(cell.strip() for cell in row) for row in reader)
+
+
 def selected_extracts(country_slugs: list[str]) -> list[CountryExtract]:
     if not country_slugs:
         return list(COUNTRY_EXTRACTS.values())
@@ -442,6 +451,11 @@ def main() -> int:
         choices=REGIONAL_HIGHWAY_CLASSES,
         help="Highway class to extract. Repeat to override the selected road profile.",
     )
+    parser.add_argument(
+        "--allow-empty",
+        action="store_true",
+        help="Write an empty road CSV when extraction produces no rows. Without this, an empty extraction fails closed.",
+    )
     args = parser.parse_args()
 
     extracts = selected_extracts(args.country or [])
@@ -472,8 +486,24 @@ def main() -> int:
         counts[extract.slug] = len(country_rows)
         rows.extend(country_rows)
 
-    write_csv(rows)
-    print(f"Wrote {len(rows):,} Geofabrik OSM road records to {CSV_PATH}")
+    if not rows and not args.allow_empty:
+        if csv_has_data_rows(CSV_PATH):
+            print(
+                f"Warning: no Geofabrik OSM road records extracted; preserving existing non-empty {CSV_PATH}",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                "Error: no Geofabrik OSM road records extracted and no existing non-empty road CSV is available. "
+                "Run with --refresh after installing osmium-tool, or pass --allow-empty for an intentional no-road build.",
+                file=sys.stderr,
+            )
+            for slug, count in sorted(counts.items()):
+                print(f"  {slug}: {count:,}", file=sys.stderr)
+            return 1
+    else:
+        write_csv(rows)
+        print(f"Wrote {len(rows):,} Geofabrik OSM road records to {CSV_PATH}")
     for slug, count in sorted(counts.items()):
         print(f"  {slug}: {count:,}")
     return 0
