@@ -657,7 +657,16 @@ def cached_row_to_evidence(row: dict[str, Any], source_dir_name: str, fallback_r
         "external_region": source_value(row, "region", "admin1", "subnational_unit", "state", "oblast"),
         "generation_type": generation_type,
         "primary_fuel": primary_fuel,
-        "installed_capacity_mw": source_value(row, "capacity_mw", "installed_capacity_mw", "capacity", "capacity_mwe", "mw"),
+        "installed_capacity_mw": source_value(
+            row,
+            "capacity_mw",
+            "installed_capacity_mw",
+            "capacity",
+            "capacity_mwe",
+            "gross_electrical_capacity_mw",
+            "reference_unit_power_mw",
+            "mw",
+        ),
         "operator": source_value(row, "operator", "owner", "utility"),
         "operational_status": normalize_operational_status(source_value(row, "status", "operational_status", "plant_status")),
         "technology": source_value(row, "technology", "plant:method", "generator:method", "reactor_type"),
@@ -732,11 +741,14 @@ def aggregate_pris_reactors(records: list[Evidence]) -> list[Evidence]:
         })
         statuses = [item.field_values.get("nuclear_status", "unknown") for item in items]
         operating = sum(1 for status in statuses if status == "operating")
+        capacity_values = [parse_float(item.field_values.get("installed_capacity_mw")) for item in items]
+        total_capacity = sum(value for value in capacity_values if value is not None)
         fields = dict(first.field_values)
         fields.update(
             {
                 "generation_type": "nuclear",
                 "primary_fuel": "uranium",
+                "installed_capacity_mw": f"{total_capacity:g}" if total_capacity else fields.get("installed_capacity_mw", ""),
                 "reactor_count": str(len(items)),
                 "operating_reactor_count": str(operating),
                 "reactor_types": compact_json(reactor_types),
@@ -845,8 +857,12 @@ def match_external(row: dict[str, str], records: list[Evidence]) -> list[Evidenc
         ) else 0.0
         score = (score_name * 0.50) + (score_distance * 0.28) + (operator_score * 0.10) + (region_score * 0.07) + (type_score * 0.05)
         score = min(1.0, score + (capacity_score * 0.08))
+        method = "weighted_name_distance_match"
         if score_name >= 0.95 and score_distance >= 1.0:
             score = max(score, 0.93)
+        elif evidence.source_id == "iaea_pris" and score_name >= 0.95:
+            score = max(score, 0.93)
+            method = "authoritative_exact_name_match"
         if score >= POWER_MATCH_CONFIG["review_threshold"]:
             copied = Evidence(
                 source_id=evidence.source_id,
@@ -855,7 +871,7 @@ def match_external(row: dict[str, str], records: list[Evidence]) -> list[Evidenc
                 source_url=evidence.source_url,
                 field_values=evidence.field_values,
                 match_score=round(score, 3),
-                match_method="weighted_name_distance_match",
+                match_method=method,
             )
             matches.append(copied)
     return sorted(matches, key=lambda item: item.match_score, reverse=True)

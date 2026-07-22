@@ -869,8 +869,8 @@ class PowerClassificationTests(unittest.TestCase):
 
     def test_pris_reactors_aggregate_to_station_evidence(self):
         records = [
-            power.cached_row_to_evidence({"reactor_name": "Balakovo-1", "reactor_id": "b1", "reactor_type": "VVER-1000", "status": "operating"}, "iaea_pris", "1"),
-            power.cached_row_to_evidence({"reactor_name": "Balakovo-2", "reactor_id": "b2", "reactor_type": "VVER-1000", "status": "operating"}, "iaea_pris", "2"),
+            power.cached_row_to_evidence({"reactor_name": "Balakovo-1", "reactor_id": "b1", "reactor_type": "VVER-1000", "status": "operating", "gross_electrical_capacity_mw": "1000"}, "iaea_pris", "1"),
+            power.cached_row_to_evidence({"reactor_name": "Balakovo-2", "reactor_id": "b2", "reactor_type": "VVER-1000", "status": "operating", "gross_electrical_capacity_mw": "1000"}, "iaea_pris", "2"),
         ]
 
         aggregated = power.aggregate_pris_reactors([record for record in records if record is not None])
@@ -878,6 +878,7 @@ class PowerClassificationTests(unittest.TestCase):
         self.assertEqual(len(aggregated), 1)
         self.assertEqual(aggregated[0].field_values["generation_type"], "nuclear")
         self.assertEqual(aggregated[0].field_values["reactor_count"], "2")
+        self.assertEqual(aggregated[0].field_values["installed_capacity_mw"], "2000")
         self.assertEqual(json.loads(aggregated[0].field_values["nuclear_reference_ids"]), ["b1", "b2"])
 
     def test_cached_geojson_record_uses_tags_geometry_and_aliases(self):
@@ -1104,6 +1105,35 @@ class PowerClassificationTests(unittest.TestCase):
         self.assertEqual(result.fields["generation_type"], "nuclear")
         self.assertEqual(result.fields["classification_confidence"], "verified")
         self.assertEqual(result.fields["reactor_count"], "4")
+
+    def test_pris_exact_name_match_is_verified_without_coordinates(self):
+        row = power_test_row("balakovo", "Balakovo Nuclear Power Plant", "power_station", lat="52.091", lon="47.955")
+        records = [
+            power.cached_row_to_evidence({
+                "station_name": "Balakovo Nuclear Power Plant",
+                "reactor_name": "BALAKOVO-1",
+                "reactor_id": "b1",
+                "reactor_type": "PWR",
+                "status": "operating",
+                "gross_electrical_capacity_mw": "1000",
+            }, "iaea_pris", "1"),
+            power.cached_row_to_evidence({
+                "station_name": "Balakovo Nuclear Power Plant",
+                "reactor_name": "BALAKOVO-2",
+                "reactor_id": "b2",
+                "reactor_type": "PWR",
+                "status": "operating",
+                "gross_electrical_capacity_mw": "1000",
+            }, "iaea_pris", "2"),
+        ]
+
+        result = power.classify_power_row(row, power.aggregate_pris_reactors([record for record in records if record]))
+
+        self.assertEqual(result.fields["generation_type"], "nuclear")
+        self.assertEqual(result.fields["classification_confidence"], "verified")
+        self.assertEqual(result.fields["classification_method"], "authoritative_exact_name_match")
+        self.assertEqual(result.fields["reactor_count"], "2")
+        self.assertEqual(result.fields["installed_capacity_mw"], "2000")
 
     def test_pris_nuclear_conflict_preserves_nuclear_state_for_review(self):
         row = power_test_row("balakovo", "Balakovo Nuclear Power Plant", "power_station", lat="52.091", lon="47.955")
