@@ -15,11 +15,16 @@ from russianinfra import build_data_pipeline as build
 from russianinfra import combine_infrastructure_sources as combine
 from russianinfra import derive_countries_from_boundaries as countries
 from russianinfra import extract_geofabrik_osm_roads as roads
+from russianinfra import extract_iaea_pris as pris
 from russianinfra import extract_nightwatch_map as nightwatch
+from russianinfra import extract_osm_power_facilities as osm_power
 from russianinfra import extract_osint_varta_archive as varta
 from russianinfra import extract_russia_oil_power_map as oil_power
+from russianinfra import extract_wri_power_plants as wri_power
+from russianinfra import enrich_power_facilities as power
 from russianinfra import generate_change_report as changes
 from russianinfra import normalize_infrastructure_data as normalize
+from russianinfra import power_enrichment_cache
 from russianinfra import prepare_web_data as prepare
 
 
@@ -50,8 +55,11 @@ class BuildPipelineTests(unittest.TestCase):
         derive_index = step_names.index("russianinfra.derive_countries_from_boundaries")
         change_index = step_names.index("russianinfra.generate_change_report")
         self.assertLess(step_names.index("russianinfra.extract_un_locode"), step_names.index("russianinfra.combine_infrastructure_sources"))
-        self.assertLess(step_names.index("russianinfra.extract_geofabrik_osm_roads"), step_names.index("russianinfra.combine_infrastructure_sources"))
+        self.assertNotIn("russianinfra.extract_geofabrik_osm_roads", step_names)
+        self.assertEqual(build.ROAD_OSM_STEP, ["russianinfra.extract_geofabrik_osm_roads"])
         self.assertLess(step_names.index("russianinfra.enrich_translations_and_categories"), derive_index)
+        self.assertLess(step_names.index("russianinfra.enrich_translations_and_categories"), step_names.index("russianinfra.enrich_power_facilities"))
+        self.assertLess(step_names.index("russianinfra.enrich_power_facilities"), derive_index)
         self.assertLess(derive_index, change_index)
         self.assertLess(change_index, step_names.index("russianinfra.prepare_web_data"))
         self.assertEqual(
@@ -66,6 +74,12 @@ class BuildPipelineTests(unittest.TestCase):
 
     def test_refresh_road_osm_is_separate_from_remote_refresh(self):
         self.assertNotIn(["russianinfra.extract_geofabrik_osm_roads", "--refresh"], build.REMOTE_STEPS)
+
+    def test_remote_refresh_has_explicit_power_enrichment_hooks(self):
+        self.assertIn(["russianinfra.extract_gem_power_plants", "--refresh"], build.REMOTE_STEPS)
+        self.assertIn(["russianinfra.extract_iaea_pris", "--refresh"], build.REMOTE_STEPS)
+        self.assertIn(["russianinfra.extract_wri_power_plants", "--refresh"], build.REMOTE_STEPS)
+        self.assertIn(["russianinfra.extract_osm_power_facilities", "--refresh"], build.REMOTE_STEPS)
 
 
 class CountryBoundaryTests(unittest.TestCase):
@@ -633,6 +647,33 @@ class ChangeReportTests(unittest.TestCase):
         self.assertEqual(current_by_uid["same"]["properties"]["changed_since_previous_build"], "true")
         self.assertEqual(current_by_uid["moved"]["properties"]["change_status"], "changed")
 
+    def test_compare_builds_reports_power_classification_changes(self):
+        previous_feature = test_feature("same", "Alpha", "power_facilities", "power_station", 55.0, 37.0)
+        current_feature = test_feature("same", "Alpha", "power_facilities", "power_station", 55.0, 37.0)
+        previous_feature["properties"].update({
+            "generation_type": "unknown",
+            "is_nuclear": "unknown",
+            "classification_confidence": "unknown",
+        })
+        current_feature["properties"].update({
+            "generation_type": "nuclear",
+            "is_nuclear": "true",
+            "classification_confidence": "verified",
+        })
+
+        report = changes.compare_builds(
+            {"type": "FeatureCollection", "features": [previous_feature]},
+            {"type": "FeatureCollection", "features": [current_feature]},
+            "2026-06-18T00:00:00Z",
+            "2026-06-30T00:00:00Z",
+        )
+
+        self.assertEqual(report["summary"]["category_changes"], 1)
+        changed_fields = report["category_changes"][0]["changed_fields"]
+        self.assertIn("generation_type", changed_fields)
+        self.assertIn("is_nuclear", changed_fields)
+        self.assertIn("classification_confidence", changed_fields)
+
 
 class NormalizePipelineTests(unittest.TestCase):
     def test_normalize_row_emits_reference_and_confidence_dimensions(self):
@@ -778,6 +819,539 @@ class NormalizePipelineTests(unittest.TestCase):
         self.assertEqual(overrides["russia_oil_power_map"]["source_reliability"], "A")
 
 
+class PowerClassificationTests(unittest.TestCase):
+    def test_name_patterns_classify_power_station_without_marking_unknown_false(self):
+        row = power_test_row("rostov", "Rostov Nuclear Power Plant", "power_station")
+
+        result = power.classify_power_row(row, [])
+
+        self.assertEqual(result.fields["generation_type"], "nuclear")
+        self.assertEqual(result.fields["is_nuclear"], "true")
+        self.assertEqual(result.fields["radiological_risk"], "present")
+        self.assertEqual(result.fields["classification_confidence"], "inferred")
+
+    def test_unknown_power_station_remains_unknown(self):
+        row = power_test_row("unknown", "Alpha Power Facility", "power_station")
+
+        result = power.classify_power_row(row, [])
+
+        self.assertEqual(result.fields["generation_type"], "unknown")
+        self.assertEqual(result.fields["primary_fuel"], "unknown")
+        self.assertEqual(result.fields["is_nuclear"], "unknown")
+        self.assertEqual(result.fields["radiological_risk"], "unknown")
+
+    def test_chp_sets_role_not_fuel(self):
+        row = power_test_row("chp", "CHP-27", "power_station")
+
+        result = power.classify_power_row(row, [])
+
+        self.assertEqual(result.fields["generation_type"], "thermal")
+        self.assertEqual(result.fields["plant_role"], "combined_heat_and_power")
+        self.assertEqual(result.fields["primary_fuel"], "unknown")
+        self.assertEqual(result.fields["is_nuclear"], "false")
+
+    def test_false_positive_names_are_not_classified_as_power_generation(self):
+        row = power_test_row("office", "Atomic Energy Corporation Office", "power_station")
+
+        result = power.classify_power_row(row, [])
+
+        self.assertEqual(result.fields["generation_type"], "unknown")
+        self.assertEqual(result.fields["is_nuclear"], "unknown")
+
+    def test_substation_is_non_nuclear_even_when_name_mentions_nuclear_connection(self):
+        row = power_test_row("substation", "Rostov Nuclear Power Plant Substation", "substation")
+
+        result = power.classify_power_row(row, [])
+
+        self.assertEqual(result.fields["is_nuclear"], "false")
+        self.assertEqual(result.fields["radiological_risk"], "not_present")
+        self.assertEqual(result.fields["substation_type"], "unknown")
+
+    def test_pris_reactors_aggregate_to_station_evidence(self):
+        records = [
+            power.cached_row_to_evidence({"reactor_name": "Balakovo-1", "reactor_id": "b1", "reactor_type": "VVER-1000", "status": "operating"}, "iaea_pris", "1"),
+            power.cached_row_to_evidence({"reactor_name": "Balakovo-2", "reactor_id": "b2", "reactor_type": "VVER-1000", "status": "operating"}, "iaea_pris", "2"),
+        ]
+
+        aggregated = power.aggregate_pris_reactors([record for record in records if record is not None])
+
+        self.assertEqual(len(aggregated), 1)
+        self.assertEqual(aggregated[0].field_values["generation_type"], "nuclear")
+        self.assertEqual(aggregated[0].field_values["reactor_count"], "2")
+        self.assertEqual(json.loads(aggregated[0].field_values["nuclear_reference_ids"]), ["b1", "b2"])
+
+    def test_cached_geojson_record_uses_tags_geometry_and_aliases(self):
+        feature = {
+            "type": "Feature",
+            "id": "way/1",
+            "geometry": {"type": "Point", "coordinates": [39.2, 47.3]},
+            "properties": {
+                "tags": {
+                    "name": "Azov Wind Farm",
+                    "name:ru": "Azovskaya VES",
+                    "plant:source": "wind",
+                    "operator": "Wind Operator",
+                },
+                "region": "Rostov Oblast",
+            },
+        }
+
+        evidence = power.cached_row_to_evidence(feature, "osm", "feature.json:1")
+
+        self.assertIsNotNone(evidence)
+        assert evidence is not None
+        self.assertEqual(evidence.source_record_id, "way/1")
+        self.assertEqual(evidence.field_values["external_name"], "Azov Wind Farm")
+        self.assertEqual(evidence.field_values["external_longitude"], "39.2")
+        self.assertEqual(evidence.field_values["external_latitude"], "47.3")
+        self.assertEqual(evidence.field_values["generation_type"], "wind")
+        self.assertIn("Azovskaya VES", json.loads(evidence.field_values["external_aliases"]))
+
+    def test_read_cached_json_accepts_feature_collection(self):
+        payload = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "id": "node/1",
+                    "geometry": {"type": "Point", "coordinates": [58.0, 52.0]},
+                    "properties": {"tags": {"name": "Orsk Solar Power Plant", "plant:source": "solar"}},
+                },
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "osm_power.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+
+            records = power.read_cached_json(path, "osm")
+
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].field_values["generation_type"], "solar")
+
+    def test_external_alias_match_classifies_station(self):
+        row = power_test_row("rostov", "Rostov Nuclear Power Plant", "power_station", lat="47.6", lon="42.4")
+        evidence = power.Evidence(
+            source_id="global_energy_monitor",
+            source_name="Global Energy Monitor",
+            source_record_id="gem_1",
+            field_values={
+                "external_name": "Rostovskaya AES",
+                "external_aliases": json.dumps(["Rostov NPP", "Rostov Nuclear Power Plant"]),
+                "external_latitude": "47.6",
+                "external_longitude": "42.4",
+                "generation_type": "nuclear",
+                "primary_fuel": "uranium",
+            },
+        )
+
+        result = power.classify_power_row(row, [evidence])
+
+        self.assertEqual(result.fields["generation_type"], "nuclear")
+        self.assertEqual(result.fields["classification_confidence"], "verified")
+
+    def test_enrich_rows_promotes_aliases_to_canonical_fields(self):
+        row = power_test_row("rostov", "Rostov Nuclear Power Plant", "power_station", lat="47.6", lon="42.4")
+        row["tags_json"] = json.dumps({"name:ru": "Rostovskaya AES"})
+        evidence = power.Evidence(
+            source_id="global_energy_monitor",
+            source_name="Global Energy Monitor",
+            source_record_id="gem_1",
+            field_values={
+                "external_name": "Rostovskaya AES",
+                "external_aliases": json.dumps(["Rostov NPP", "Rostov Nuclear Power Plant"]),
+                "external_latitude": "47.6",
+                "external_longitude": "42.4",
+                "generation_type": "nuclear",
+                "primary_fuel": "uranium",
+            },
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.object(power, "REVIEW_DIR", Path(tmpdir) / "review"), \
+                patch.object(power, "MANUAL_OBJECT_OVERRIDES_CSV", Path(tmpdir) / "missing.csv"):
+                enriched_rows, _report = power.enrich_rows([row], [evidence])
+
+        aliases = json.loads(enriched_rows[0]["alternate_names"])
+        self.assertEqual(enriched_rows[0]["name_ru"], "Rostovskaya AES")
+        self.assertIn("Rostov NPP", aliases)
+        self.assertIn("Rostovskaya AES", enriched_rows[0]["search_text"])
+
+    def test_power_reference_output_writes_classification_evidence_table(self):
+        row = power_test_row("rostov", "Rostov Nuclear Power Plant", "power_station", lat="47.6", lon="42.4")
+        evidence = power.Evidence(
+            source_id="global_energy_monitor",
+            source_name="Global Energy Monitor",
+            source_record_id="gem_1",
+            field_values={
+                "external_name": "Rostov Nuclear Power Plant",
+                "external_latitude": "47.6",
+                "external_longitude": "42.4",
+                "generation_type": "nuclear",
+                "primary_fuel": "uranium",
+            },
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "power_refs.csv"
+            with patch.object(power, "REVIEW_DIR", Path(tmpdir) / "review"), \
+                patch.object(power, "POWER_REFERENCES_CSV", output_path), \
+                patch.object(power, "MANUAL_OBJECT_OVERRIDES_CSV", Path(tmpdir) / "missing.csv"):
+                enriched_rows, _report = power.enrich_rows([row], [evidence])
+                power.write_power_reference_output(enriched_rows)
+            with output_path.open(encoding="utf-8-sig") as handle:
+                rows = list(csv.DictReader(handle))
+
+        self.assertTrue(rows)
+        generation_rows = [item for item in rows if item["field_supported"] == "generation_type"]
+        self.assertEqual(generation_rows[0]["object_id"], "rostov")
+        self.assertEqual(generation_rows[0]["value_supported"], "nuclear")
+        self.assertEqual(generation_rows[0]["relationship"], "classification_evidence")
+
+    def test_manual_overrides_apply_only_with_required_review_metadata(self):
+        rows = [power_test_row("alpha", "Alpha Power Facility", "power_station")]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            overrides_path = root / "object_overrides.csv"
+            with overrides_path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["object_id", "field", "old_value", "new_value", "reason", "reviewer", "reviewed_at"])
+                writer.writeheader()
+                writer.writerow({
+                    "object_id": "alpha",
+                    "field": "generation_type",
+                    "old_value": "unknown",
+                    "new_value": "hydro",
+                    "reason": "official review",
+                    "reviewer": "analyst",
+                    "reviewed_at": "2026-07-22",
+                })
+                writer.writerow({
+                    "object_id": "alpha",
+                    "field": "is_nuclear",
+                    "old_value": "unknown",
+                    "new_value": "false",
+                    "reason": "",
+                    "reviewer": "analyst",
+                    "reviewed_at": "2026-07-22",
+                })
+            review_dir = root / "review"
+
+            with patch.object(power, "REVIEW_DIR", review_dir), \
+                patch.object(power, "MANUAL_OBJECT_OVERRIDES_CSV", overrides_path):
+                enriched_rows, report = power.enrich_rows(rows, [])
+                with (review_dir / "power_manual_override_issues.csv").open(encoding="utf-8-sig") as handle:
+                    issue_rows = list(csv.DictReader(handle))
+
+        self.assertEqual(enriched_rows[0]["generation_type"], "hydro")
+        self.assertEqual(enriched_rows[0]["is_nuclear"], "unknown")
+        self.assertEqual(enriched_rows[0]["review_status"], "reviewed")
+        self.assertEqual(report["manual_overrides_applied"], 1)
+        self.assertEqual(report["manual_override_issues"], 1)
+        self.assertEqual(issue_rows[0]["issue_reason"], "missing_review_metadata")
+
+    def test_low_confidence_external_matches_keep_candidate_metadata(self):
+        row = power_test_row("alpha", "Alpha Power Facility", "power_station")
+        candidate = power.Evidence(
+            source_id="wri_global_power_plant_database",
+            source_name="WRI Global Power Plant Database",
+            source_record_id="wri_1",
+            field_values={
+                "external_name": "Alpha Hydro Station",
+                "generation_type": "hydro",
+                "primary_fuel": "water",
+            },
+            match_score=0.62,
+            match_method="weighted_name_distance_match",
+        )
+
+        result = power.merge_evidence(row, power.classify_by_name(row), [candidate])
+        queue_row = power.low_confidence_match_row(row, result.review_matches[0])
+
+        self.assertEqual(result.fields["generation_type"], "unknown")
+        self.assertEqual(result.nuclear_candidate_reason, "low_confidence_external_match")
+        self.assertEqual(queue_row["classification_confidence"], "review_candidate")
+        self.assertEqual(queue_row["candidate_source"], "wri_global_power_plant_database")
+        self.assertEqual(queue_row["candidate_name"], "Alpha Hydro Station")
+
+    def test_capacity_agreement_promotes_close_review_match(self):
+        row = power_test_row("alpha", "Alpha Hydro 5 Power Plant", "power_station", lat="55.0", lon="37.0")
+        row["region"] = "Test Region"
+        row["installed_capacity_mw"] = "500"
+        evidence = power.Evidence(
+            source_id="wri_global_power_plant_database",
+            source_name="WRI Global Power Plant Database",
+            source_record_id="wri_1",
+            field_values={
+                "external_name": "Alpha Hydro 6 Plant",
+                "external_latitude": "55.0",
+                "external_longitude": "37.0",
+                "external_region": "Test Region",
+                "generation_type": "hydro",
+                "primary_fuel": "water",
+                "installed_capacity_mw": "505",
+            },
+        )
+
+        result = power.classify_power_row(row, [evidence])
+
+        self.assertEqual(result.fields["generation_type"], "hydro")
+        self.assertEqual(result.fields["classification_confidence"], "corroborated")
+        self.assertGreaterEqual(float(result.fields["match_score"]), 0.75)
+
+    def test_cached_authoritative_match_overrides_inferred_confidence(self):
+        row = power_test_row("balakovo", "Balakovo Nuclear Power Plant", "power_station", lat="52.091", lon="47.955")
+        evidence = pris_evidence("Balakovo Nuclear Power Plant")
+
+        result = power.classify_power_row(row, [evidence])
+
+        self.assertEqual(result.fields["generation_type"], "nuclear")
+        self.assertEqual(result.fields["classification_confidence"], "verified")
+        self.assertEqual(result.fields["reactor_count"], "4")
+
+    def test_pris_nuclear_conflict_preserves_nuclear_state_for_review(self):
+        row = power_test_row("balakovo", "Balakovo Nuclear Power Plant", "power_station", lat="52.091", lon="47.955")
+        hydro_evidence = power.Evidence(
+            source_id="wri_global_power_plant_database",
+            source_name="WRI Global Power Plant Database",
+            source_record_id="wri_1",
+            field_values={
+                "external_name": "Balakovo Nuclear Power Plant",
+                "external_latitude": "52.091",
+                "external_longitude": "47.955",
+                "generation_type": "hydro",
+                "primary_fuel": "water",
+            },
+        )
+
+        result = power.classify_power_row(row, [pris_evidence("Balakovo Nuclear Power Plant"), hydro_evidence])
+
+        self.assertEqual(result.fields["classification_confidence"], "conflicting")
+        self.assertEqual(result.fields["generation_type"], "nuclear")
+        self.assertEqual(result.fields["is_nuclear"], "true")
+        self.assertEqual(result.fields["radiological_risk"], "present")
+        self.assertEqual(len(result.conflicts), 1)
+
+    def test_enrich_rows_generates_power_review_report_counts(self):
+        rows = [
+            power_test_row("nuclear", "Rostov Nuclear Power Plant", "power_station"),
+            power_test_row("hydro", "Tsimlyanskaya Hydroelectric Station", "power_station"),
+            power_test_row("unknown", "Alpha Power Facility", "power_station"),
+            power_test_row("sub", "Alpha Substation", "substation"),
+        ]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            review_dir = Path(tmpdir) / "review"
+            with patch.object(power, "REVIEW_DIR", review_dir), \
+                patch.object(power, "MANUAL_OBJECT_OVERRIDES_CSV", Path(tmpdir) / "missing.csv"):
+                enriched_rows, report = power.enrich_rows(rows, [])
+                unknown_review_exists = (review_dir / "power_station_unknown_type.csv").exists()
+
+        by_uid = {row["uid"]: row for row in enriched_rows}
+        self.assertEqual(by_uid["nuclear"]["derived_subcategory"], "nuclear_power_station")
+        self.assertEqual(by_uid["hydro"]["derived_subcategory"], "hydro_power_station")
+        self.assertEqual(by_uid["unknown"]["derived_subcategory"], "power_station_unknown_type")
+        self.assertEqual(by_uid["sub"]["derived_subcategory"], "substation")
+        self.assertEqual(report["total_power_stations"], 3)
+        self.assertEqual(report["total_substations"], 1)
+        self.assertEqual(report["unknown_power_stations"], 1)
+        self.assertEqual(report["confirmed_non_nuclear_stations"], 0)
+        self.assertTrue(unknown_review_exists)
+
+    def test_power_enrichment_cache_import_copies_csv_and_rejects_other_formats(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source = root / "pris.csv"
+            source.write_text("reactor_name,reactor_id\nBalakovo-1,b1\n", encoding="utf-8")
+            cache_dir = root / "cache"
+
+            result = power_enrichment_cache.cache_source_main(cache_dir, "IAEA PRIS", ["--input", str(source)])
+
+            self.assertEqual(result, 0)
+            self.assertEqual((cache_dir / "pris.csv").read_text(encoding="utf-8"), source.read_text(encoding="utf-8"))
+
+            bad = root / "pris.txt"
+            bad.write_text("not csv", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                power_enrichment_cache.cache_source_main(cache_dir, "IAEA PRIS", ["--input", str(bad)])
+
+    def test_power_enrichment_cache_downloads_url_to_cache(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source = root / "source.csv"
+            source.write_text("plant_name,primary_fuel\nAlpha Solar,solar\n", encoding="utf-8")
+            cache_dir = root / "cache"
+
+            result = power_enrichment_cache.cache_source_main(
+                cache_dir,
+                "Test source",
+                ["--url", source.as_uri(), "--output-name", "downloaded.csv"],
+            )
+
+            self.assertEqual(result, 0)
+            self.assertEqual((cache_dir / "downloaded.csv").read_text(encoding="utf-8"), source.read_text(encoding="utf-8"))
+
+    def test_wri_refresh_uses_default_dataset_url(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_dir = Path(tmpdir) / "wri"
+            downloaded = cache_dir / "global_power_plant_database.csv"
+            with patch.object(wri_power, "CACHE_DIR", cache_dir), \
+                patch.object(power_enrichment_cache, "download_url_to_cache", return_value=[downloaded]) as download:
+                result = wri_power.main(["--refresh"])
+
+        self.assertEqual(result, 0)
+        self.assertEqual(download.call_args.args[0], wri_power.DEFAULT_URLS[0])
+
+    def test_pris_country_page_parser_emits_station_level_reactor_rows(self):
+        html = """
+        <html><body>
+        <h3>Reactors</h3>
+        <table>
+        <tr><th>Name</th><th>Type</th><th>Status</th><th>Location</th><th>Reference Unit Power [MW]</th><th>Gross Electrical Capacity [MW]</th><th>First Grid Connection</th></tr>
+        <tr><td>BALAKOVO-1</td><td>PWR</td><td>Operational</td><td>BALAKOVO</td><td>950</td><td>1000</td><td>1985-12-24</td></tr>
+        <tr><td>KURSK 2-2</td><td>PWR</td><td>Under Construction</td><td>KURCHATOV</td><td>1200</td><td>1255</td><td></td></tr>
+        </table>
+        Above data generated by the PRIS database.
+        </body></html>
+        """
+
+        rows = pris.reactor_rows_from_country_page(html, pris.DEFAULT_RUSSIA_URL)
+
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["reactor_name"], "BALAKOVO-1")
+        self.assertEqual(rows[0]["station_name"], "Balakovo Nuclear Power Plant")
+        self.assertEqual(rows[0]["status"], "operating")
+        self.assertEqual(rows[1]["station_name"], "Kursk 2 Nuclear Power Plant")
+        self.assertEqual(rows[1]["status"], "under_construction")
+
+    def test_osm_geofabrik_feature_is_normalized_for_power_cache(self):
+        extract = osm_power.EXTRACTS["russia"]
+        feature = {
+            "type": "Feature",
+            "id": "way/123",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[
+                    [37.0, 55.0],
+                    [37.2, 55.0],
+                    [37.2, 55.2],
+                    [37.0, 55.2],
+                    [37.0, 55.0],
+                ]],
+            },
+            "properties": {
+                "power": "plant",
+                "name": "Alpha Solar Power Plant",
+                "plant:source": "solar",
+                "voltage": "110000",
+            },
+        }
+
+        normalized = osm_power.normalize_feature(feature, extract, 7)
+
+        self.assertIsNotNone(normalized)
+        assert normalized is not None
+        props = normalized["properties"]
+        self.assertEqual(normalized["id"], "way/123")
+        self.assertEqual(props["source_url"], "https://download.geofabrik.de/russia-latest.osm.pbf")
+        self.assertEqual(props["country_code"], "RU")
+        self.assertEqual(props["tags"]["plant:source"], "solar")
+        self.assertNotEqual(props["latitude"], "")
+        self.assertNotEqual(props["longitude"], "")
+
+    def test_enrich_file_reads_cached_sources_and_updates_package_manifest(self):
+        rows = [
+            power_test_row("balakovo", "Balakovo Nuclear Power Plant", "power_station", lat="52.091", lon="47.955"),
+            power_test_row("orsk", "Orsk Solar Power Plant", "power_station", lat="52.0", lon="58.0"),
+        ]
+        rows[1]["installed_capacity_mw"] = "40"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            normalized_csv = root / "normalized.csv"
+            normalized_geojson = root / "normalized.geojson"
+            report_json = root / "power_report.json"
+            refs_csv = root / "power_refs.csv"
+            normal_report = root / "normalization_report.json"
+            cache_root = root / "raw" / "power_enrichment"
+            review_dir = root / "review"
+            manifest_path = root / "data_package" / "manifest.json"
+            manifest_path.parent.mkdir(parents=True)
+            manifest_path.write_text(json.dumps({"files": {"objects_csv": "data/normalized_infrastructure.csv"}, "notes": []}), encoding="utf-8")
+            normal_report.write_text(json.dumps({"outputs": {}}), encoding="utf-8")
+
+            write_power_rows(normalized_csv, rows)
+            normalized_geojson.write_text(json.dumps({
+                "type": "FeatureCollection",
+                "features": [power_feature_from_row(row) for row in rows],
+            }), encoding="utf-8")
+
+            pris_dir = cache_root / "iaea_pris"
+            pris_dir.mkdir(parents=True)
+            with (pris_dir / "pris.csv").open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["station_name", "reactor_name", "reactor_id", "reactor_type", "status", "latitude", "longitude"])
+                writer.writeheader()
+                writer.writerow({
+                    "station_name": "Balakovo Nuclear Power Plant",
+                    "reactor_name": "Balakovo-1",
+                    "reactor_id": "b1",
+                    "reactor_type": "VVER-1000",
+                    "status": "operating",
+                    "latitude": "52.091",
+                    "longitude": "47.955",
+                })
+
+            wri_dir = cache_root / "wri"
+            wri_dir.mkdir(parents=True)
+            with (wri_dir / "wri.csv").open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["plant_name", "primary_fuel", "capacity_mw", "latitude", "longitude", "source_record_id"])
+                writer.writeheader()
+                writer.writerow({
+                    "plant_name": "Orsk Solar Power Plant",
+                    "primary_fuel": "solar",
+                    "capacity_mw": "40",
+                    "latitude": "52.0",
+                    "longitude": "58.0",
+                    "source_record_id": "wri_orsk",
+                })
+
+            osm_dir = cache_root / "osm"
+            osm_dir.mkdir(parents=True)
+            (osm_dir / "osm_power.json").write_text(json.dumps({
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "id": "node/unmatched",
+                        "geometry": {"type": "Point", "coordinates": [60.0, 53.0]},
+                        "properties": {"tags": {"name": "Unmatched Wind Farm", "plant:source": "wind"}},
+                    },
+                ],
+            }), encoding="utf-8")
+
+            with patch.object(power, "NORMALIZED_CSV", normalized_csv), \
+                patch.object(power, "NORMALIZED_GEOJSON", normalized_geojson), \
+                patch.object(power, "REPORT_JSON", report_json), \
+                patch.object(power, "POWER_REFERENCES_CSV", refs_csv), \
+                patch.object(power, "NORMALIZATION_REPORT_JSON", normal_report), \
+                patch.object(power, "RAW_ENRICHMENT_DIR", cache_root), \
+                patch.object(power, "REVIEW_DIR", review_dir), \
+                patch.object(power, "MANUAL_OBJECT_OVERRIDES_CSV", root / "missing.csv"), \
+                patch.object(power, "DATA_PACKAGE_MANIFEST", manifest_path):
+                report = power.enrich_file()
+
+            with normalized_csv.open(encoding="utf-8-sig") as handle:
+                enriched = {row["uid"]: row for row in csv.DictReader(handle)}
+            with (review_dir / "power_unmatched_external_records.csv").open(encoding="utf-8-sig") as handle:
+                unmatched_rows = list(csv.DictReader(handle))
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(enriched["balakovo"]["generation_type"], "nuclear")
+        self.assertEqual(enriched["balakovo"]["classification_confidence"], "verified")
+        self.assertEqual(enriched["orsk"]["generation_type"], "solar")
+        self.assertEqual(enriched["orsk"]["classification_confidence"], "corroborated")
+        self.assertEqual(report["external_records_loaded"], 3)
+        self.assertEqual(report["external_records_matched"], 2)
+        self.assertEqual(unmatched_rows[0]["name"], "Unmatched Wind Farm")
+        self.assertEqual(manifest["files"]["power_classification_report_json"], str(report_json))
+        self.assertEqual(manifest["files"]["power_classification_references_csv"], str(refs_csv))
+
+
 class PrepareWebDataTests(unittest.TestCase):
     def test_compact_feature_preserves_app_provenance_properties(self):
         feature = {
@@ -874,6 +1448,71 @@ def test_feature(uid, name, layer, asset_type, lat, lon, confidence="A"):
             "map_longitude": str(lon),
         },
     }
+
+
+def power_test_row(uid, name, asset_type, lat="55.0", lon="37.0"):
+    return {
+        "uid": uid,
+        "object_id": uid,
+        "name": name,
+        "name_en": "",
+        "name_original": "",
+        "display_label": name,
+        "description": "",
+        "name_translated": "",
+        "description_translated": "",
+        "asset_class": "power",
+        "asset_type": asset_type,
+        "asset_subtype": "",
+        "map_layer": "power_facilities",
+        "map_latitude": lat,
+        "map_longitude": lon,
+        "operator": "",
+        "search_text": name,
+        "references_json": "[]",
+        "tags_json": "{}",
+        "review_status": "unreviewed",
+    }
+
+
+def write_power_rows(path, rows):
+    fieldnames = list(dict.fromkeys(key for row in rows for key in row))
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def power_feature_from_row(row):
+    return {
+        "type": "Feature",
+        "id": row["uid"],
+        "geometry": {
+            "type": "Point",
+            "coordinates": [float(row["map_longitude"]), float(row["map_latitude"])],
+        },
+        "properties": dict(row),
+    }
+
+
+def pris_evidence(name):
+    return power.Evidence(
+        source_id="iaea_pris",
+        source_name="IAEA PRIS",
+        source_record_id="b1;b2;b3;b4",
+        field_values={
+            "external_name": name,
+            "external_latitude": "52.091",
+            "external_longitude": "47.955",
+            "generation_type": "nuclear",
+            "primary_fuel": "uranium",
+            "reactor_count": "4",
+            "operating_reactor_count": "4",
+            "reactor_types": json.dumps(["VVER-1000"]),
+            "nuclear_reference_ids": json.dumps(["b1", "b2", "b3", "b4"]),
+            "nuclear_status": "operating",
+        },
+    )
 
 
 if __name__ == "__main__":

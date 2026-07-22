@@ -599,6 +599,60 @@ test("timeline filters apply status and date constraints to active features", as
   assert.equal(api.els.temporalSummary.textContent, "after 2026-06-29");
 });
 
+test("power filters keep confirmed non-nuclear separate from unknown nuclear status", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  const confirmedNonNuclear = powerFeature("thermal_1", "Thermal station", {
+    generation_type: "thermal",
+    primary_fuel: "natural_gas",
+    is_nuclear: "false",
+    classification_confidence: "verified",
+  });
+  const unknownNuclear = powerFeature("unknown_1", "Unknown power station", {
+    generation_type: "unknown",
+    primary_fuel: "unknown",
+    is_nuclear: "unknown",
+    classification_confidence: "unknown",
+  });
+
+  api.els.nuclearClassificationSelect.value = "false";
+  api.els.nuclearClassificationSelect.listeners.change[0]();
+
+  assert.equal(api.featurePassesActiveFilters(confirmedNonNuclear), true);
+  assert.equal(api.featurePassesActiveFilters(unknownNuclear), false);
+  assert.equal(api.els.powerFilterSummary.textContent, "Confirmed non-nuclear");
+  assert.equal(api.currentPreferences().powerFilters.nuclearClassification, "false");
+
+  api.els.clearPowerFiltersBtn.listeners.click[0]();
+
+  assert.equal(api.featurePassesActiveFilters(unknownNuclear), true);
+  assert.equal(api.els.powerFilterSummary.textContent, "All power");
+});
+
+test("power filters save and restore generation and confidence choices", async () => {
+  const first = createAppContext();
+  await first.__initPromise;
+
+  const api = first.__api;
+  api.els.generationTypeSelect.value = "nuclear";
+  api.els.generationTypeSelect.listeners.change[0]();
+  api.els.classificationConfidenceSelect.value = "verified";
+  api.els.classificationConfidenceSelect.listeners.change[0]();
+
+  const saved = api.currentPreferences();
+  assert.equal(saved.powerFilters.generationType, "nuclear");
+  assert.equal(saved.powerFilters.classificationConfidence, "verified");
+
+  const second = createAppContext({ [STORAGE_KEY]: JSON.stringify(saved) });
+  await second.__initPromise;
+
+  assert.equal(second.__api.els.generationTypeSelect.value, "nuclear");
+  assert.equal(second.__api.els.classificationConfidenceSelect.value, "verified");
+  assert.equal(second.__api.els.powerFilterSummary.textContent, "Nuclear / Verified");
+});
+
 test("groups layers by domain and puts line layers last inside each group", async () => {
   const app = createAppContext();
   await app.__initPromise;
@@ -1418,6 +1472,32 @@ function feature(id, label, layerId, subcategory, lat, lng, country = "Russia") 
       search_text: `${label} ${subcategory}`,
       map_color: "#d4472f",
       ...temporal,
+    },
+  };
+}
+
+function powerFeature(id, label, properties = {}) {
+  return {
+    type: "Feature",
+    id,
+    geometry: { type: "Point", coordinates: [37.0, 55.0] },
+    properties: {
+      display_label: label,
+      name: label,
+      asset_class: "power",
+      asset_type: "power_station",
+      country: "Russia",
+      countries: ["Russia"],
+      source_dataset: "Fixture",
+      source_layer: "power_facilities",
+      map_layer: "power_facilities",
+      map_latitude: "55.0",
+      map_longitude: "37.0",
+      derived_subcategory: "power_station_unknown_type",
+      derived_subcategory_label: "Unknown power-station type",
+      search_text: label,
+      map_color: "#ffd34d",
+      ...properties,
     },
   };
 }

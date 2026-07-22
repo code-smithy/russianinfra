@@ -24,7 +24,18 @@ SUSPICIOUS_MOVE_THRESHOLD_KM = 20.0
 MAX_CHANGE_ITEMS = 250
 
 CHANGE_FIELDS = {
-    "category": ["asset_class", "asset_type", "domain", "map_layer", "derived_subcategory"],
+    "category": [
+        "asset_class",
+        "asset_type",
+        "domain",
+        "map_layer",
+        "derived_subcategory",
+        "generation_type",
+        "primary_fuel",
+        "plant_role",
+        "is_nuclear",
+        "classification_confidence",
+    ],
     "name": ["name", "display_label", "name_translated"],
     "confidence": [
         "confidence",
@@ -56,6 +67,8 @@ BASELINE_PROPERTY_FIELDS = sorted(
         "entity_confidence",
         "first_seen_build",
         "freshness",
+        "generation_type",
+        "is_nuclear",
         "last_seen_build",
         "map_latitude",
         "map_layer",
@@ -65,6 +78,9 @@ BASELINE_PROPERTY_FIELDS = sorted(
         "new_in_latest_build",
         "removed_from_latest_build",
         "review_status",
+        "classification_confidence",
+        "plant_role",
+        "primary_fuel",
         "source_archive_date",
         "source_capture_date",
         "source_dataset",
@@ -232,6 +248,9 @@ def feature_summary(feature: dict[str, Any]) -> dict[str, Any]:
         "map_layer": props.get("map_layer") or "",
         "asset_type": props.get("asset_type") or "",
         "derived_subcategory": props.get("derived_subcategory") or "",
+        "generation_type": props.get("generation_type") or "",
+        "is_nuclear": props.get("is_nuclear") or "",
+        "classification_confidence": props.get("classification_confidence") or "",
         "country": props.get("country") or "",
         "confidence": props.get("confidence") or "",
         "source_id": props.get("source_id") or props.get("source_dataset") or "",

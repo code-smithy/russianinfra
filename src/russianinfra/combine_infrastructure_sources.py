@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import csv
 import sys
 from pathlib import Path
@@ -25,6 +26,8 @@ SOURCES = [
     (GEFABRIK_OSM_ROADS_CSV, "Geofabrik OpenStreetMap roads"),
 ]
 
+ROAD_SOURCE_DATASET = "Geofabrik OpenStreetMap roads"
+
 
 def read_rows(path: Path, source_dataset: str) -> list[dict[str, str]]:
     with path.open("r", newline="", encoding="utf-8-sig") as handle:
@@ -45,9 +48,22 @@ def read_rows(path: Path, source_dataset: str) -> list[dict[str, str]]:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--skip-osm-roads",
+        action="store_true",
+        help="Exclude the cached Geofabrik OSM roads CSV from this combined build.",
+    )
+    args = parser.parse_args()
+
     all_rows: list[dict[str, str]] = []
     counts: dict[str, int] = {}
-    for path, source_dataset in SOURCES:
+    sources = [
+        (path, source_dataset)
+        for path, source_dataset in SOURCES
+        if not (args.skip_osm_roads and source_dataset == ROAD_SOURCE_DATASET)
+    ]
+    for path, source_dataset in sources:
         if not path.exists():
             raise FileNotFoundError(f"Missing input CSV: {path}")
         rows = read_rows(path, source_dataset)

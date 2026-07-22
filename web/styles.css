@@ -496,12 +496,14 @@ input {
   border-color: var(--accent-2);
 }
 
-.temporal-controls {
+.temporal-controls,
+.power-filter-controls {
   display: grid;
   gap: 8px;
 }
 
 .temporal-field-row,
+.power-filter-row,
 .temporal-date-grid label {
   display: grid;
   gap: 4px;
@@ -509,12 +511,14 @@ input {
 }
 
 .temporal-field-row span,
+.power-filter-row span,
 .temporal-date-grid span {
   color: var(--muted);
   font-size: 11px;
 }
 
 .temporal-field-row select,
+.power-filter-row select,
 .temporal-date-grid input {
   width: 100%;
   min-width: 0;
@@ -527,6 +531,7 @@ input {
 }
 
 .temporal-field-row select:focus,
+.power-filter-row select:focus,
 .temporal-date-grid input:focus {
   border-color: var(--accent-2);
   outline: none;
@@ -1402,6 +1407,37 @@ input {
   border: 2px solid #ffffff;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
   transition: opacity 160ms ease;
+}
+
+.power-marker {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #111111;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  color: #111111;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  transition: opacity 160ms ease;
+}
+
+.power-marker-station {
+  background: #ffd34d;
+}
+
+.power-marker-nuclear {
+  background: #ff5c5c;
+  color: #ffffff;
+  border-color: #ffffff;
+}
+
+.power-marker-unknown {
+  background: #d7d7d7;
+  color: #202020;
+  border-color: #ffffff;
 }
 
 .milsymbol-marker {

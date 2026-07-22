@@ -3,6 +3,8 @@
   "version": "0.15.0",
   "private": true,
   "scripts": {
-    "test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1"
+    "test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1",
+    "test:roads": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-roads.ps1",
+    "test:roads:import": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-roads.ps1 -Import -Refresh"
   }
 }

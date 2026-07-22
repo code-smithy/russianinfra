@@ -20,9 +20,14 @@ russianinfra-extract-un-locode = "russianinfra.extract_un_locode:main"
 russianinfra-combine-sources = "russianinfra.combine_infrastructure_sources:main"
 russianinfra-normalize = "russianinfra.normalize_infrastructure_data:main"
 russianinfra-enrich = "russianinfra.enrich_translations_and_categories:main"
+russianinfra-enrich-power = "russianinfra.enrich_power_facilities:main"
 russianinfra-derive-countries = "russianinfra.derive_countries_from_boundaries:main"
 russianinfra-change-report = "russianinfra.generate_change_report:main"
 russianinfra-prepare-web-data = "russianinfra.prepare_web_data:main"
+russianinfra-extract-gem-power-plants = "russianinfra.extract_gem_power_plants:main"
+russianinfra-extract-iaea-pris = "russianinfra.extract_iaea_pris:main"
+russianinfra-extract-wri-power-plants = "russianinfra.extract_wri_power_plants:main"
+russianinfra-extract-osm-power-facilities = "russianinfra.extract_osm_power_facilities:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

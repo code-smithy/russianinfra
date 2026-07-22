@@ -118,6 +118,77 @@ const TEMPORAL_DATE_FIELDS = [
   { id: "first_seen", label: "First seen" },
   { id: "last_seen", label: "Last seen" },
 ];
+const POWER_FILTER_FIELDS = [
+  { key: "generationType", property: "generation_type", allLabel: "All generation types" },
+  { key: "primaryFuel", property: "primary_fuel", allLabel: "All fuels" },
+  { key: "plantRole", property: "plant_role", allLabel: "All plant roles" },
+  { key: "operationalStatus", property: "operational_status", allLabel: "All operational statuses" },
+  { key: "nuclearClassification", property: "is_nuclear", allLabel: "All nuclear statuses" },
+  { key: "classificationConfidence", property: "classification_confidence", allLabel: "All confidence levels" },
+];
+const POWER_FILTER_LABELS = {
+  generation_type: {
+    nuclear: "Nuclear",
+    thermal: "Thermal",
+    hydro: "Hydro",
+    pumped_storage: "Pumped storage",
+    solar: "Solar",
+    wind: "Wind",
+    geothermal: "Geothermal",
+    bioenergy: "Bioenergy",
+    tidal: "Tidal",
+    other: "Other",
+    unknown: "Unknown",
+  },
+  primary_fuel: {
+    uranium: "Uranium",
+    coal: "Coal",
+    lignite: "Lignite",
+    natural_gas: "Natural gas",
+    oil: "Oil",
+    diesel: "Diesel",
+    peat: "Peat",
+    biomass: "Biomass",
+    waste: "Waste",
+    mixed_fossil: "Mixed fossil",
+    water: "Water",
+    solar: "Solar",
+    wind: "Wind",
+    geothermal: "Geothermal",
+    tidal: "Tidal",
+    other: "Other",
+    unknown: "Unknown",
+  },
+  plant_role: {
+    electricity_only: "Electricity only",
+    combined_heat_and_power: "Combined heat and power",
+    heat_only: "Heat only",
+    industrial_captive: "Industrial captive",
+    unknown: "Unknown",
+  },
+  operational_status: {
+    operating: "Operating",
+    under_construction: "Under construction",
+    planned: "Planned",
+    suspended: "Suspended",
+    mothballed: "Mothballed",
+    retired: "Retired",
+    cancelled: "Cancelled",
+    unknown: "Unknown",
+  },
+  is_nuclear: {
+    true: "Confirmed nuclear",
+    false: "Confirmed non-nuclear",
+    unknown: "Unknown nuclear status",
+  },
+  classification_confidence: {
+    verified: "Verified",
+    corroborated: "Corroborated",
+    inferred: "Inferred",
+    unknown: "Unknown",
+    conflicting: "Conflicting",
+  },
+};
 const ESTIMATOR_BLOCKS = [
   { key: "rangeBands", label: "Range bands" },
   { key: "resourceTypes", label: "Resource types" },
@@ -143,6 +214,7 @@ const COLLAPSIBLE_PANELS = [
   { key: "search", label: "Search Loaded", preferenceKey: "searchPanelCollapsed" },
   { key: "radiusMenu", label: "Radius", preferenceKey: "radiusMenuPanelCollapsed" },
   { key: "temporal", label: "Timeline", preferenceKey: "temporalPanelCollapsed" },
+  { key: "powerFilter", label: "Power filters", preferenceKey: "powerFilterPanelCollapsed" },
   { key: "estimator", label: "Scenario Estimator", preferenceKey: "estimatorPanelCollapsed" },
   { key: "changeReport", label: "Build comparison", preferenceKey: "changeReportPanelCollapsed" },
 ];
@@ -325,6 +397,7 @@ const state = {
   countryControls: new Map(),
   externalFeatureCache: new Map(),
   savedPreferences: loadSavedPreferences(),
+  powerFilters: normalizePowerFilters(loadSavedPreferences()?.powerFilters),
   persistenceReady: false,
   saveTimer: null,
   radiusMode: false,
@@ -406,6 +479,17 @@ const els = {
   temporalPanel: document.getElementById("temporalPanel"),
   temporalPanelBody: document.getElementById("temporalPanelBody"),
   temporalPanelToggle: document.getElementById("temporalPanelToggle"),
+  powerFilterPanel: document.getElementById("powerFilterPanel"),
+  powerFilterPanelBody: document.getElementById("powerFilterPanelBody"),
+  powerFilterPanelToggle: document.getElementById("powerFilterPanelToggle"),
+  powerFilterSummary: document.getElementById("powerFilterSummary"),
+  generationTypeSelect: document.getElementById("generationTypeSelect"),
+  primaryFuelSelect: document.getElementById("primaryFuelSelect"),
+  plantRoleSelect: document.getElementById("plantRoleSelect"),
+  operationalStatusSelect: document.getElementById("operationalStatusSelect"),
+  nuclearClassificationSelect: document.getElementById("nuclearClassificationSelect"),
+  classificationConfidenceSelect: document.getElementById("classificationConfidenceSelect"),
+  clearPowerFiltersBtn: document.getElementById("clearPowerFiltersBtn"),
   estimatorPanel: document.getElementById("estimatorPanel"),
   estimatorPanelBody: document.getElementById("estimatorPanelBody"),
   estimatorPanelToggle: document.getElementById("estimatorPanelToggle"),
@@ -838,6 +922,94 @@ function normalizeTemporalFilters(value = {}) {
   };
 }
 
+function normalizePowerFilters(value = {}) {
+  const filters = {};
+  for (const field of POWER_FILTER_FIELDS) {
+    filters[field.key] = typeof value?.[field.key] === "string" ? value[field.key] : "";
+  }
+  return filters;
+}
+
+function powerFilterField(key) {
+  return POWER_FILTER_FIELDS.find((field) => field.key === key);
+}
+
+function powerFilterLabel(property, value) {
+  if (!value) return "";
+  return POWER_FILTER_LABELS[property]?.[value] || value.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
+function powerFilterOptions(property) {
+  return Object.entries(POWER_FILTER_LABELS[property] || {}).map(([value, label]) => ({ value, label }));
+}
+
+function featurePassesPowerFilters(feature) {
+  const p = feature?.properties || {};
+  if (p.map_layer !== "power_facilities") return true;
+  const filters = state.powerFilters;
+  for (const field of POWER_FILTER_FIELDS) {
+    const expected = filters[field.key];
+    if (!expected) continue;
+    const actual = String(p[field.property] || "").trim() || "unknown";
+    if (actual !== expected) return false;
+  }
+  return true;
+}
+
+function powerFiltersActive() {
+  return POWER_FILTER_FIELDS.some((field) => Boolean(state.powerFilters[field.key]));
+}
+
+function syncPowerFilterControlsFromState() {
+  for (const field of POWER_FILTER_FIELDS) {
+    const control = els[`${field.key}Select`];
+    if (control) control.value = state.powerFilters[field.key] || "";
+  }
+  renderPowerFilterSummary();
+}
+
+function populatePowerFilterControls() {
+  for (const field of POWER_FILTER_FIELDS) {
+    const control = els[`${field.key}Select`];
+    if (!control) continue;
+    const options = [
+      `<option value="">${escapeHtml(field.allLabel)}</option>`,
+      ...powerFilterOptions(field.property).map((option) => (
+        `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`
+      )),
+    ];
+    control.innerHTML = options.join("");
+  }
+}
+
+function updatePowerFiltersFromControls() {
+  const next = {};
+  for (const field of POWER_FILTER_FIELDS) {
+    next[field.key] = els[`${field.key}Select`]?.value || "";
+  }
+  state.powerFilters = normalizePowerFilters(next);
+  renderPowerFilterSummary();
+  refreshAllLayerFilters();
+  queueSavePreferences();
+}
+
+function clearPowerFilters() {
+  state.powerFilters = normalizePowerFilters();
+  syncPowerFilterControlsFromState();
+  refreshAllLayerFilters();
+  queueSavePreferences();
+}
+
+function renderPowerFilterSummary() {
+  if (!els.powerFilterSummary) return;
+  const parts = [];
+  for (const field of POWER_FILTER_FIELDS) {
+    const value = state.powerFilters[field.key];
+    if (value) parts.push(powerFilterLabel(field.property, value));
+  }
+  els.powerFilterSummary.textContent = parts.length ? parts.join(" / ") : "All power";
+}
+
 function temporalDateValue(feature, fieldId = state.temporalFilters.dateField) {
   const p = feature?.properties || {};
   if (fieldId === "first_seen") return p.first_seen_build || "";
@@ -1095,6 +1267,7 @@ function currentPreferences() {
     countries: [...state.countryFilters],
     subcategories,
     temporalFilters: { ...state.temporalFilters },
+    powerFilters: { ...state.powerFilters },
     search: els.searchInput.value,
     radius: serializeRadius(),
     estimator: serializeEstimatorAssumptions(),
@@ -1956,6 +2129,21 @@ function markerIcon(properties) {
       iconAnchor: [14, 14],
     });
   }
+  if (properties.map_layer === "power_facilities" && properties.asset_type === "power_station") {
+    const category = properties.derived_subcategory || "";
+    const markerClass = category === "nuclear_power_station"
+      ? "power-marker power-marker-nuclear"
+      : category === "power_station_unknown_type"
+        ? "power-marker power-marker-unknown"
+        : "power-marker power-marker-station";
+    const label = category === "nuclear_power_station" ? "N" : category === "power_station_unknown_type" ? "?" : "P";
+    return L.divIcon({
+      className: "",
+      html: `<span class="${markerClass}" title="${escapeHtml(properties.derived_subcategory_label || properties.asset_type)}">${escapeHtml(label)}</span>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+    });
+  }
   const color = layerColor(properties);
   return L.divIcon({
     className: "",
@@ -1978,12 +2166,54 @@ function styleFeature(feature) {
   };
 }
 
+function detailValueText(value) {
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "string" && value.trim().startsWith("[")) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.join(", ");
+    } catch {
+      return value;
+    }
+  }
+  return value;
+}
+
 function detailRows(properties) {
+  const powerRows = properties.map_layer === "power_facilities" && properties.asset_type === "power_station"
+    ? [
+      ["Generation type", properties.generation_type],
+      ["Name RU", properties.name_ru],
+      ["Alternate names", properties.alternate_names],
+      ["Primary fuel", properties.primary_fuel],
+      ["Plant role", properties.plant_role],
+      ["Operational status", properties.operational_status],
+      ["Installed capacity", properties.installed_capacity_mw ? `${numberFmt(properties.installed_capacity_mw, 1)} MW` : ""],
+      ["Nuclear classification", properties.is_nuclear],
+      ["Nuclear status", properties.nuclear_status],
+      ["Reactor count", properties.reactor_count],
+      ["Radiological risk", properties.radiological_risk],
+      ["Classification confidence", properties.classification_confidence],
+      ["Classification method", properties.classification_method],
+      ["Classification notes", properties.classification_notes],
+    ]
+    : [];
+  const substationRows = properties.map_layer === "power_facilities" && properties.asset_type === "substation"
+    ? [
+      ["Substation type", properties.substation_type],
+      ["Voltage", properties.voltage_kv ? `${numberFmt(properties.voltage_kv, 1)} kV` : ""],
+      ["Voltage levels", properties.voltage_levels_kv],
+      ["Operator", properties.operator],
+      ["Operational status", properties.operational_status],
+    ]
+    : [];
   const rows = [
     ["Type", [properties.asset_class, properties.asset_type].filter(Boolean).join(" / ")],
     ["Source", properties.source_name || properties.source_dataset],
     ["Layer", properties.source_layer],
     ["Category", properties.derived_subcategory_label],
+    ...powerRows,
+    ...substationRows,
     ["UN/LOCODE", properties.un_locode],
     ["Country code", properties.country_code],
     ["Subdivision", properties.subdivision],
@@ -2016,7 +2246,7 @@ function detailRows(properties) {
     ["Length", properties.length_km ? `${numberFmt(properties.length_km, 2)} km` : ""],
     ["Coords", properties.map_latitude && properties.map_longitude ? `${numberFmt(properties.map_latitude, 5)}, ${numberFmt(properties.map_longitude, 5)}` : ""],
   ].filter(([, value]) => value !== "" && value != null);
-  return rows.map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd>`).join("");
+  return rows.map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(detailValueText(value))}</dd>`).join("");
 }
 
 function featureReferences(properties) {
@@ -2156,7 +2386,8 @@ function featurePassesActiveFilters(feature) {
   const p = feature?.properties || {};
   return featurePassesCountryFilter(feature)
     && isSubcategoryEnabled(p.map_layer, featureSubcategory(feature))
-    && featurePassesTemporalFilters(feature);
+    && featurePassesTemporalFilters(feature)
+    && featurePassesPowerFilters(feature);
 }
 
 function createFilteredLayer(record) {
@@ -4010,6 +4241,19 @@ function exportRadiusCsv() {
     "asset_class",
     "asset_type",
     "subcategory",
+    "generation_type",
+    "primary_fuel",
+    "plant_role",
+    "operational_status",
+    "is_nuclear",
+    "nuclear_status",
+    "reactor_count",
+    "radiological_risk",
+    "classification_confidence",
+    "classification_method",
+    "classification_notes",
+    "substation_type",
+    "voltage_kv",
     "transport_functions",
     "un_locode",
     "country_code",
@@ -4053,6 +4297,19 @@ function exportRadiusCsv() {
       asset_class: p.asset_class || "",
       asset_type: p.asset_type || "",
       subcategory: p.subcategory || p.derived_subcategory || "",
+      generation_type: p.generation_type || "",
+      primary_fuel: p.primary_fuel || "",
+      plant_role: p.plant_role || "",
+      operational_status: p.operational_status || "",
+      is_nuclear: p.is_nuclear || "",
+      nuclear_status: p.nuclear_status || "",
+      reactor_count: p.reactor_count || "",
+      radiological_risk: p.radiological_risk || "",
+      classification_confidence: p.classification_confidence || "",
+      classification_method: p.classification_method || "",
+      classification_notes: p.classification_notes || "",
+      substation_type: p.substation_type || "",
+      voltage_kv: p.voltage_kv || "",
       transport_functions: p.transport_functions || "",
       un_locode: p.un_locode || "",
       country_code: p.country_code || "",
@@ -5018,6 +5275,8 @@ async function init() {
   await prepareExternalLayers(state.manifest);
   els.datasetSummary.textContent = `${state.manifest.total_features.toLocaleString()} normalized records across ${state.manifest.layers.length} layers`;
   applySavedInterfaceState();
+  populatePowerFilterControls();
+  syncPowerFilterControlsFromState();
   syncTemporalControlsFromState();
   renderChangeReport();
   renderCountries();
@@ -5135,6 +5394,10 @@ els.timeBeforeInput.addEventListener("change", updateTemporalFiltersFromControls
 els.showNewOnlyInput.addEventListener("change", updateTemporalFiltersFromControls);
 els.showChangedOnlyInput.addEventListener("change", updateTemporalFiltersFromControls);
 els.clearTemporalBtn.addEventListener("click", clearTemporalFilters);
+for (const field of POWER_FILTER_FIELDS) {
+  els[`${field.key}Select`]?.addEventListener("change", updatePowerFiltersFromControls);
+}
+els.clearPowerFiltersBtn?.addEventListener("click", clearPowerFilters);
 
 setupRadiusPointerEvents();
 map.on("baselayerchange", (event) => {

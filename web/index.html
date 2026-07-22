@@ -178,6 +178,49 @@
             </div>
           </div>
         </section>
+
+        <section id="powerFilterPanel" class="panel">
+          <div class="panel-title">
+            <div class="heading-with-info">
+              <button id="powerFilterPanelToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="powerFilterPanelBody" aria-label="Collapse Power filters">
+                <span aria-hidden="true"></span>
+                <h2>Power Filters</h2>
+              </button>
+            </div>
+            <span id="powerFilterSummary" class="muted">All power</span>
+          </div>
+          <div id="powerFilterPanelBody">
+            <div class="power-filter-controls">
+              <label class="power-filter-row">
+                <span>Generation type</span>
+                <select id="generationTypeSelect" aria-label="Generation type filter"></select>
+              </label>
+              <label class="power-filter-row">
+                <span>Primary fuel</span>
+                <select id="primaryFuelSelect" aria-label="Primary fuel filter"></select>
+              </label>
+              <label class="power-filter-row">
+                <span>Plant role</span>
+                <select id="plantRoleSelect" aria-label="Plant role filter"></select>
+              </label>
+              <label class="power-filter-row">
+                <span>Operational status</span>
+                <select id="operationalStatusSelect" aria-label="Operational status filter"></select>
+              </label>
+              <label class="power-filter-row">
+                <span>Nuclear classification</span>
+                <select id="nuclearClassificationSelect" aria-label="Nuclear classification filter"></select>
+              </label>
+              <label class="power-filter-row">
+                <span>Classification confidence</span>
+                <select id="classificationConfidenceSelect" aria-label="Classification confidence filter"></select>
+              </label>
+            </div>
+            <div class="actions-row">
+              <button id="clearPowerFiltersBtn" class="text-btn" type="button">Clear power filters</button>
+            </div>
+          </div>
+        </section>
       </aside>
 
       <div
