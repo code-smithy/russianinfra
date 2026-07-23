@@ -76,8 +76,8 @@ def reactor_rows_from_country_page(html: str, source_url: str) -> list[dict[str,
 
 
 def html_table_text(html: str) -> str:
-    text = re.sub(r"<script\b.*?</script>", " ", html, flags=re.I | re.S)
-    text = re.sub(r"<style\b.*?</style>", " ", text, flags=re.I | re.S)
+    text = re.sub(r"<script\b[^>]*>.*?</script\b[^>]*>", " ", html, flags=re.I | re.S)
+    text = re.sub(r"<style\b[^>]*>.*?</style\b[^>]*>", " ", text, flags=re.I | re.S)
     text = re.sub(r"<[^>]+>", " ", text)
     return " ".join(unescape(text).split())
 
