@@ -450,14 +450,15 @@ test("campaign input masks have matching information explanations", () => {
   assert.match(html, /id="campaignDailyTable"/);
 });
 
-test("version metadata includes the campaign hardness and penetration release", () => {
+test("version metadata includes the higher-band coverage release", () => {
   const html = fs.readFileSync("web/index.html", "utf8");
   const js = fs.readFileSync("web/app.js", "utf8");
   const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
 
-  assert.equal(packageJson.version, "0.15.0");
-  assert.match(js, /const APP_VERSION = "0\.15\.0"/);
-  assert.match(html, /id="appVersion"[^>]*>v0\.15\.0</);
+  assert.equal(packageJson.version, "0.16.0");
+  assert.match(js, /const APP_VERSION = "0\.16\.0"/);
+  assert.match(html, /id="appVersion"[^>]*>v0\.16\.0</);
+  assert.match(js, /version: "0\.16\.0"[\s\S]*higher-range bands/);
   assert.match(js, /version: "0\.15\.0"[\s\S]*Adds resource penetration and category hardness inputs/);
 });
 
@@ -1902,12 +1903,14 @@ test("campaign settings normalize persist and calendar production uses real mont
   assert.equal(saved.startDate, "2026-02-01");
   assert.equal(saved.initialStockByBand[firstBandId].resource_a, 22);
   assert.equal(saved.resourceUnitCostByBand[firstBandId].resource_a, 123.45);
+  const bandIds = JSON.parse(JSON.stringify(api.campaignBandIds()));
   assert.deepEqual(JSON.parse(JSON.stringify(saved.resourceSubstitution)), {
     enabled: false,
     mode: "off",
     preserveRangeBand: true,
     substitutePriorityOrder: [],
     substituteWeights: {},
+    higherBandPriorityOrder: bandIds,
   });
   const second = createAppContext({ [STORAGE_KEY]: JSON.stringify(api.currentPreferences()) });
   await second.__initPromise;
@@ -2490,6 +2493,302 @@ test("campaign substitution preserves range band supply by default", async () =>
   assert.equal(day.executedTargetsByLayer.energy_facilities || 0, 0);
   assert.equal(day.deferredTargetsByBand[shortBandId], 1);
   assert.equal(day.endingStockByBandResource[midBandId].resource_b, 10);
+});
+
+test("campaign higher-band coverage defaults disabled and setting checkbox maps to preserveRangeBand", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const bandIds = JSON.parse(JSON.stringify(api.campaignBandIds()));
+
+  const legacy = api.normalizeCampaignSettings({ resourceSubstitution: { enabled: true, mode: "priority" } });
+  assert.equal(legacy.resourceSubstitution.preserveRangeBand, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(legacy.resourceSubstitution.higherBandPriorityOrder)), bandIds);
+
+  const checkbox = app.document.getElementById("campaignHigherBandCoverage");
+  assert.equal(checkbox.checked, false);
+  checkbox.checked = true;
+  checkbox.onchange({ target: checkbox });
+  assert.equal(api.state.campaign.resourceSubstitution.preserveRangeBand, false);
+  assert.equal(api.state.campaignRun.stale, true);
+  assert.match(api.els.campaignSettings.innerHTML, /Higher-band priority/);
+});
+
+test("campaign higher-band coverage allows downward same-type use and blocks upward use", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const [shortBandId, midBandId] = api.campaignBandIds();
+  configureSingleTargetCampaign(api, {
+    resourceSubstitution: { enabled: false, mode: "off", preserveRangeBand: false },
+    distance: 100,
+  });
+  api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 1;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_b").penetration = 0;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_c").penetration = 0;
+  setCampaignBandResource(api, shortBandId, "resource_a", 0, 10);
+  setCampaignBandResource(api, midBandId, "resource_a", 2, 2);
+
+  let day = api.recalculateCampaign().days[0];
+  assert.equal(day.executedTargetsByLayer.energy_facilities, 1);
+  assert.equal(day.endingStockByBandResource[shortBandId].resource_a, 0);
+  assert.equal(day.endingStockByBandResource[midBandId].resource_a, 1);
+  assert.equal(day.fireCapacityRemainingByBandResource[midBandId].resource_a, 1);
+  assert.equal(day.resourceAllocations[0].sourceBandId, midBandId);
+  assert.equal(day.resourceAllocations[0].rangeBandSubstitution, true);
+
+  configureSingleTargetCampaign(api, {
+    resourceSubstitution: { enabled: false, mode: "off", preserveRangeBand: false },
+    distance: 1000,
+  });
+  api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 1;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_b").penetration = 0;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_c").penetration = 0;
+  setCampaignBandResource(api, shortBandId, "resource_a", 5, 5);
+  setCampaignBandResource(api, midBandId, "resource_a", 0, 5);
+
+  day = api.recalculateCampaign().days[0];
+  assert.equal(day.executedTargetsByLayer.energy_facilities || 0, 0);
+  assert.equal(day.deferredTargetsByBand[midBandId], 1);
+  assert.equal(day.endingStockByBandResource[shortBandId].resource_a, 5);
+});
+
+test("campaign higher-band coverage consumes target band before higher bands and can combine bands", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const [shortBandId, midBandId, openBandId] = api.campaignBandIds();
+  configureSingleTargetCampaign(api, {
+    requirement: 5,
+    resourceSubstitution: { enabled: false, mode: "off", preserveRangeBand: false },
+    distance: 100,
+  });
+  api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 1;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_b").penetration = 0;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_c").penetration = 0;
+  setCampaignBandResource(api, shortBandId, "resource_a", 2, 2);
+  setCampaignBandResource(api, midBandId, "resource_a", 2, 2);
+  setCampaignBandResource(api, openBandId, "resource_a", 1, 1);
+
+  const day = api.recalculateCampaign().days[0];
+  assert.equal(day.executedTargetsByLayer.energy_facilities, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(day.resourceAllocations.map((allocation) => [allocation.sourceBandId, allocation.amount]))), [
+    [shortBandId, 2],
+    [midBandId, 2],
+    [openBandId, 1],
+  ]);
+  assert.equal(day.endingStockByBandResource[shortBandId].resource_a, 0);
+  assert.equal(day.endingStockByBandResource[midBandId].resource_a, 0);
+  assert.equal(day.endingStockByBandResource[openBandId].resource_a, 0);
+});
+
+test("campaign higher-band priority can prefer the highest band before nearest higher band", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const [shortBandId, midBandId, openBandId] = api.campaignBandIds();
+  configureSingleTargetCampaign(api, {
+    requirement: 2,
+    resourceSubstitution: {
+      enabled: false,
+      mode: "off",
+      preserveRangeBand: false,
+      higherBandPriorityOrder: [openBandId, midBandId],
+    },
+    distance: 100,
+  });
+  api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 1;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_b").penetration = 0;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_c").penetration = 0;
+  setCampaignBandResource(api, shortBandId, "resource_a", 0, 10);
+  setCampaignBandResource(api, midBandId, "resource_a", 2, 2);
+  setCampaignBandResource(api, openBandId, "resource_a", 1, 1);
+
+  let day = api.recalculateCampaign().days[0];
+  assert.equal(day.executedTargetsByLayer.energy_facilities, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(day.resourceAllocations.map((allocation) => [allocation.sourceBandId, allocation.amount]))), [
+    [openBandId, 1],
+    [midBandId, 1],
+  ]);
+
+  configureSingleTargetCampaign(api, {
+    requirement: 2,
+    resourceSubstitution: { enabled: false, mode: "off", preserveRangeBand: false },
+    distance: 100,
+  });
+  api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 1;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_b").penetration = 0;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_c").penetration = 0;
+  setCampaignBandResource(api, shortBandId, "resource_a", 0, 10);
+  setCampaignBandResource(api, midBandId, "resource_a", 2, 2);
+  setCampaignBandResource(api, openBandId, "resource_a", 2, 2);
+
+  day = api.recalculateCampaign().days[0];
+  assert.deepEqual(JSON.parse(JSON.stringify(day.resourceAllocations.map((allocation) => allocation.sourceBandId))), [midBandId]);
+});
+
+test("campaign higher-band allocation follows native, same-band substitute, higher native, higher substitute order", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const [shortBandId, midBandId] = api.campaignBandIds();
+  configureSingleTargetCampaign(api, {
+    requirement: 4,
+    resourceSubstitution: {
+      enabled: true,
+      mode: "priority",
+      preserveRangeBand: false,
+      substitutePriorityOrder: ["resource_b"],
+    },
+    distance: 100,
+  });
+  api.state.estimator.resources.find((resource) => resource.id === "resource_a").completionRate = 100;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_b").completionRate = 100000;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_c").penetration = 0;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 1;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_b").penetration = 1;
+  setCampaignBandResource(api, shortBandId, "resource_a", 1, 1);
+  setCampaignBandResource(api, shortBandId, "resource_b", 2, 2);
+  setCampaignBandResource(api, midBandId, "resource_a", 1, 1);
+  setCampaignBandResource(api, midBandId, "resource_b", 1, 1);
+
+  const day = api.recalculateCampaign().days[0];
+  const aAllocations = day.resourceAllocations.filter((allocation) => allocation.requiredResourceId === "resource_a");
+  assert.equal(day.executedTargetsByLayer.energy_facilities, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(aAllocations.map((allocation) => [
+    allocation.sourceBandId,
+    allocation.expendedResourceId,
+    allocation.amount,
+    allocation.resourceTypeSubstitution,
+    allocation.rangeBandSubstitution,
+  ]))), [
+    [shortBandId, "resource_a", 1, false, false],
+    [shortBandId, "resource_b", 1, true, false],
+    [midBandId, "resource_a", 1, false, true],
+    [midBandId, "resource_b", 1, true, true],
+  ]);
+});
+
+test("campaign cross-band cross-type use requires both toggles and remains atomic on deficits", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const [shortBandId, midBandId] = api.campaignBandIds();
+  const configure = (resourceSubstitution) => {
+    configureSingleTargetCampaign(api, { resourceSubstitution, distance: 100 });
+    api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 1;
+    api.state.estimator.resources.find((resource) => resource.id === "resource_b").penetration = 1;
+    api.state.estimator.resources.find((resource) => resource.id === "resource_c").penetration = 0;
+    setCampaignBandResource(api, shortBandId, "resource_a", 0, 10);
+    setCampaignBandResource(api, shortBandId, "resource_b", 1, 1);
+    setCampaignBandResource(api, midBandId, "resource_a", 0, 10);
+    setCampaignBandResource(api, midBandId, "resource_b", 1, 1);
+  };
+
+  configure({ enabled: false, mode: "off", preserveRangeBand: false });
+  let day = api.recalculateCampaign().days[0];
+  assert.equal(day.executedTargetsByLayer.energy_facilities || 0, 0);
+  assert.equal(day.endingStockByBandResource[midBandId].resource_b, 1);
+
+  configure({ enabled: true, mode: "priority", preserveRangeBand: true, substitutePriorityOrder: ["resource_b"] });
+  day = api.recalculateCampaign().days[0];
+  assert.equal(day.executedTargetsByLayer.energy_facilities || 0, 0);
+  assert.equal(day.endingStockByBandResource[midBandId].resource_b, 1);
+
+  configure({ enabled: true, mode: "priority", preserveRangeBand: false, substitutePriorityOrder: ["resource_b"] });
+  day = api.recalculateCampaign().days[0];
+  assert.equal(day.executedTargetsByLayer.energy_facilities, 1);
+  assert.equal(day.endingStockByBandResource[midBandId].resource_b, 0);
+  assert.equal(day.resourceAllocations.some((allocation) => allocation.sourceBandId === midBandId && allocation.expendedResourceId === "resource_b" && allocation.rangeBandSubstitution && allocation.resourceTypeSubstitution), true);
+
+  configureSingleTargetCampaign(api, {
+    requirement: 3,
+    resourceSubstitution: { enabled: false, mode: "off", preserveRangeBand: false },
+    distance: 100,
+  });
+  api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 1;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_b").penetration = 0;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_c").penetration = 0;
+  setCampaignBandResource(api, shortBandId, "resource_a", 1, 1);
+  setCampaignBandResource(api, midBandId, "resource_a", 1, 1);
+
+  day = api.recalculateCampaign().days[0];
+  assert.equal(day.executedTargetsByLayer.energy_facilities || 0, 0);
+  assert.equal(day.endingStockByBandResource[shortBandId].resource_a, 1);
+  assert.equal(day.endingStockByBandResource[midBandId].resource_a, 1);
+  assert.equal(day.resourceAllocations.length, 0);
+  assert.equal(api.buildCampaignTimelineJson().summary.totalCost, 0);
+});
+
+test("campaign higher-band allocations respect fire capacity, source cost, penetration, and exports", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const [shortBandId, midBandId, openBandId] = api.campaignBandIds();
+  configureSingleTargetCampaign(api, {
+    requirement: 2,
+    resourceSubstitution: { enabled: false, mode: "off", preserveRangeBand: false },
+    distance: 100,
+  });
+  api.state.estimator.categoryHardness.energy_facilities = 5;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 6;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_b").penetration = 0;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_c").penetration = 0;
+  setCampaignBandResource(api, shortBandId, "resource_a", 0, 10);
+  setCampaignBandResource(api, midBandId, "resource_a", 10, 1);
+  setCampaignBandResource(api, openBandId, "resource_a", 10, 1);
+  api.state.campaign.resourceUnitCostByBand[shortBandId].resource_a = 100;
+  api.state.campaign.resourceUnitCostByBand[midBandId].resource_a = 7;
+  api.state.campaign.resourceUnitCostByBand[openBandId].resource_a = 11;
+
+  let day = api.recalculateCampaign().days[0];
+  assert.equal(day.executedTargetsByLayer.energy_facilities, 1);
+  assert.equal(day.fireCapacityRemainingByBandResource[midBandId].resource_a, 0);
+  assert.equal(day.fireCapacityRemainingByBandResource[openBandId].resource_a, 0);
+  assert.equal(api.buildCampaignTimelineJson().summary.totalCost, 18);
+  assert.equal(day.resourceAllocations[0].unitCost, 7);
+  assert.equal(day.resourceAllocations[1].unitCost, 11);
+  assert.match(api.els.campaignDashboard.innerHTML, /Higher-band coverage/);
+  assert.match(api.els.campaignDailyTable.innerHTML, /Allocations/);
+  assert.match(day.notes.join("\n"), /Covered 1 Resource A demand/);
+  const csv = api.buildCampaignTimelineCsv();
+  assert.match(csv, /target_band,source_band,required_resource,expended_resource,amount,resource_type_substitution,range_band_substitution/);
+  const json = api.buildCampaignTimelineJson();
+  assert.equal(json.settings.resourceSubstitution.preserveRangeBand, false);
+  assert.ok(json.dailySnapshots[0].resourceAllocations[0].targetBandId);
+
+  configureSingleTargetCampaign(api, {
+    requirement: 1,
+    resourceSubstitution: { enabled: false, mode: "off", preserveRangeBand: false },
+    distance: 100,
+  });
+  api.state.estimator.categoryHardness.energy_facilities = 5;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 6;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_b").penetration = 0;
+  api.state.estimator.resources.find((resource) => resource.id === "resource_c").penetration = 0;
+  setCampaignBandResource(api, shortBandId, "resource_a", 0, 10);
+  setCampaignBandResource(api, midBandId, "resource_a", 10, 10);
+  api.state.estimator.resources.find((resource) => resource.id === "resource_a").penetration = 5;
+  day = api.recalculateCampaign().days[0];
+  assert.equal(day.executedTargetsByLayer.energy_facilities || 0, 0);
+  assert.equal(day.endingStockByBandResource[midBandId].resource_a, 10);
+});
+
+test("campaign higher-band priority normalization handles invalid saved data", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  api.state.estimator.rangeBands = api.normalizeCampaignSettings
+    ? api.state.estimator.rangeBands
+    : api.state.estimator.rangeBands;
+  const [shortBandId, midBandId, openBandId] = api.campaignBandIds();
+  const normalized = api.normalizeCampaignSettings({
+    resourceSubstitution: {
+      preserveRangeBand: false,
+      higherBandPriorityOrder: ["removed_band", openBandId, openBandId, midBandId],
+    },
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(normalized.resourceSubstitution.higherBandPriorityOrder)), [openBandId, midBandId, shortBandId]);
 });
 
 test("campaign timeline exports include substitution data and settings", async () => {
