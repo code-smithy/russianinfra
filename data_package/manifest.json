@@ -1,10 +1,10 @@
 {
   "dataset_name": "Russian Infrastructure Explorer Dataset",
-  "build_id": "2026-07-22T06:10:42Z",
+  "build_id": "2026-07-23T06:22:50Z",
   "pipeline_version": "0.8.0",
-  "record_count": 410422,
+  "record_count": 410456,
   "source_count": 7544,
-  "generated_at": "2026-07-22T06:10:42Z",
+  "generated_at": "2026-07-23T06:22:50Z",
   "files": {
     "objects_csv": "data/normalized_infrastructure.csv",
     "objects_geojson": "data/normalized_infrastructure.geojson",
@@ -16,10 +16,18 @@
     "review_queue_csv": "data/review/review_queue.csv",
     "duplicate_candidates_csv": "data/review/duplicate_candidates.csv",
     "possible_aliases_csv": "data/review/possible_aliases.csv",
-    "conflicts_csv": "data/review/conflicts.csv"
+    "conflicts_csv": "data/review/conflicts.csv",
+    "power_classification_report_json": "data/power_classification_report.json",
+    "power_classification_references_csv": "data/power_classification_references.csv",
+    "power_station_unknown_type_review_csv": "data/review/power_station_unknown_type.csv",
+    "power_nuclear_candidates_review_csv": "data/review/power_nuclear_candidates.csv",
+    "power_classification_conflicts_review_csv": "data/review/power_classification_conflicts.csv",
+    "power_low_confidence_matches_review_csv": "data/review/power_low_confidence_matches.csv",
+    "power_unmatched_external_records_review_csv": "data/review/power_unmatched_external_records.csv"
   },
   "notes": [
     "The package manifest references generated dataset files in data/ to avoid duplicating large CSV/GeoJSON files.",
-    "Manual review overlays are read from data/manual/object_overrides.csv and data/manual/source_overrides.csv when present."
+    "Manual review overlays are read from data/manual/object_overrides.csv and data/manual/source_overrides.csv when present.",
+    "Power classification outputs are appended after normalization because the enrichment step runs later in the pipeline."
   ]
 }
