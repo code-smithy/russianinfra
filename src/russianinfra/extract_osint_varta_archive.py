@@ -28,6 +28,8 @@ OUT_DIR = Path("data")
 RAW_DIR = OUT_DIR / "raw"
 CSV_PATH = OUT_DIR / "osint_varta_map_points_archived.csv"
 FALLBACK_WEB_GEOJSON = Path("web/data/military_industrial.geojson")
+FALLBACK_WEB_MANIFEST = Path("web/data/manifest.json")
+FALLBACK_WEB_LAYER_ID = "military_industrial"
 SOURCE_NAME = "OSINT Varta"
 
 
@@ -193,7 +195,11 @@ def write_csv(rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
-def fallback_row_from_feature(feature: dict[str, Any], index: int) -> dict[str, Any]:
+def fallback_row_from_feature(
+    feature: dict[str, Any],
+    index: int,
+    fallback_source: Path = FALLBACK_WEB_GEOJSON,
+) -> dict[str, Any]:
     props = feature.get("properties") if isinstance(feature.get("properties"), dict) else {}
     geometry = feature.get("geometry") if isinstance(feature.get("geometry"), dict) else {}
     coordinates = geometry.get("coordinates") if geometry.get("type") == "Point" else []
@@ -203,7 +209,7 @@ def fallback_row_from_feature(feature: dict[str, Any], index: int) -> dict[str, 
     archive_timestamp = props.get("source_archive_date") or props.get("source_capture_date") or ""
     source_url = props.get("source_url") or ""
     raw_item = {
-        "fallback_source": str(FALLBACK_WEB_GEOJSON),
+        "fallback_source": str(fallback_source),
         "uid": props.get("uid", ""),
         "source_id": props.get("source_id", ""),
     }
@@ -227,21 +233,50 @@ def fallback_row_from_feature(feature: dict[str, Any], index: int) -> dict[str, 
     }
 
 
-def fallback_rows_from_web_geojson(path: Path = FALLBACK_WEB_GEOJSON) -> list[dict[str, Any]]:
-    if not path.exists():
-        raise FileNotFoundError(f"Missing fallback OSINT Varta web layer: {path}")
-    with path.open("r", encoding="utf-8") as handle:
-        data = json.load(handle)
-    features = data.get("features", [])
-    if not isinstance(features, list):
-        raise RuntimeError(f"Fallback OSINT Varta layer has no features list: {path}")
-    rows = [
-        fallback_row_from_feature(feature, index)
-        for index, feature in enumerate(features, 1)
-        if isinstance(feature, dict)
-    ]
+def fallback_web_geojson_files(manifest_path: Path | None = None) -> list[Path]:
+    manifest_path = manifest_path or FALLBACK_WEB_MANIFEST
+    if FALLBACK_WEB_GEOJSON.exists():
+        return [FALLBACK_WEB_GEOJSON]
+    if not manifest_path.exists():
+        return []
+
+    with manifest_path.open("r", encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    for layer in manifest.get("layers", []):
+        if not isinstance(layer, dict) or layer.get("id") != FALLBACK_WEB_LAYER_ID:
+            continue
+        files = []
+        for file_name in layer.get("files") or []:
+            file_path = manifest_path.parent / file_name
+            if file_path.exists():
+                files.append(file_path)
+        return files
+    return []
+
+
+def fallback_rows_from_web_geojson(path: Path | None = None) -> list[dict[str, Any]]:
+    paths = [path] if path is not None else fallback_web_geojson_files()
+    if not paths:
+        fallback = FALLBACK_WEB_GEOJSON
+        if FALLBACK_WEB_MANIFEST.exists():
+            fallback = FALLBACK_WEB_MANIFEST
+        raise FileNotFoundError(f"Missing fallback OSINT Varta web layer: {fallback}")
+
+    rows: list[dict[str, Any]] = []
+    for file_path in paths:
+        if not file_path.exists():
+            raise FileNotFoundError(f"Missing fallback OSINT Varta web layer: {file_path}")
+        with file_path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+        features = data.get("features", [])
+        if not isinstance(features, list):
+            raise RuntimeError(f"Fallback OSINT Varta layer has no features list: {file_path}")
+        for feature in features:
+            if isinstance(feature, dict):
+                rows.append(fallback_row_from_feature(feature, len(rows) + 1, file_path))
     if not rows:
-        raise RuntimeError(f"Fallback OSINT Varta layer had no usable features: {path}")
+        detail = ", ".join(str(item) for item in paths)
+        raise RuntimeError(f"Fallback OSINT Varta layer had no usable features: {detail}")
     return rows
 
 
@@ -258,7 +293,7 @@ def main() -> int:
         print(f"Archive timestamp: {timestamp}")
     except Exception as exc:
         print(f"WARNING: OSINT Varta archive refresh failed: {exc}", file=sys.stderr)
-        print(f"Using fallback rows from {FALLBACK_WEB_GEOJSON}", file=sys.stderr)
+        print(f"Using fallback rows from {FALLBACK_WEB_GEOJSON} or {FALLBACK_WEB_MANIFEST}", file=sys.stderr)
         rows = fallback_rows_from_web_geojson()
         write_csv(rows)
         print(f"Wrote {len(rows):,} fallback OSINT Varta map points to {CSV_PATH}")

@@ -507,6 +507,50 @@ class OsintVartaExtractorTests(unittest.TestCase):
         self.assertEqual(row["archive_timestamp"], "2026-05-27T13:16:14Z")
         self.assertEqual(row["is_sanctioned"], "true")
 
+    def test_fallback_rows_from_web_manifest_reads_split_military_industrial_layer(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            data_dir = root / "web" / "data"
+            data_dir.mkdir(parents=True)
+            manifest_path = data_dir / "manifest.json"
+            old_single_file = data_dir / "missing_single.geojson"
+            manifest_path.write_text(json.dumps({
+                "layers": [
+                    {
+                        "id": "military_industrial",
+                        "files": [
+                            "military_industrial_part001.geojson",
+                            "military_industrial_part002.geojson",
+                        ],
+                    }
+                ]
+            }), encoding="utf-8")
+            for index, name in enumerate([
+                "military_industrial_part001.geojson",
+                "military_industrial_part002.geojson",
+            ], 1):
+                (data_dir / name).write_text(json.dumps({
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "geometry": {"type": "Point", "coordinates": [30.0 + index, 50.0 + index]},
+                            "properties": {
+                                "uid": f"obj_{index}",
+                                "source_record_id": f"company_{index}",
+                                "name": f"Company {index}",
+                            },
+                        }
+                    ],
+                }), encoding="utf-8")
+
+            with patch.object(varta, "FALLBACK_WEB_GEOJSON", old_single_file), \
+                patch.object(varta, "FALLBACK_WEB_MANIFEST", manifest_path):
+                rows = varta.fallback_rows_from_web_geojson()
+
+        self.assertEqual([row["feature_id"] for row in rows], ["company_1", "company_2"])
+        self.assertEqual([row["feature_index"] for row in rows], [1, 2])
+
 
 class RussiaOilPowerExtractorTests(unittest.TestCase):
     def test_fallback_row_from_web_feature_preserves_geometry_and_tags(self):
