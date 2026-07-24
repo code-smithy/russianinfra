@@ -1,10 +1,10 @@
 {
   "dataset_name": "Russian Infrastructure Explorer Dataset",
-  "build_id": "2026-07-23T06:22:50Z",
+  "build_id": "2026-07-24T06:35:34Z",
   "pipeline_version": "0.8.0",
-  "record_count": 410456,
+  "record_count": 410477,
   "source_count": 7544,
-  "generated_at": "2026-07-23T06:22:50Z",
+  "generated_at": "2026-07-24T06:35:34Z",
   "files": {
     "objects_csv": "data/normalized_infrastructure.csv",
     "objects_geojson": "data/normalized_infrastructure.geojson",
