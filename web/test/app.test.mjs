@@ -448,6 +448,8 @@ test("campaign input masks have matching information explanations", () => {
   assert.match(html, /id="campaignPlayer"/);
   assert.match(html, /id="campaignDashboard"/);
   assert.match(html, /id="campaignDailyTable"/);
+  assert.match(js, /campaignSettings: \{[\s\S]*Substitution priority appears when substitution mode is set to priority/);
+  assert.match(js, /campaignSettings: \{[\s\S]*Higher-band priority appears when higher-range coverage is enabled/);
 });
 
 test("version metadata includes the higher-band coverage release", () => {
