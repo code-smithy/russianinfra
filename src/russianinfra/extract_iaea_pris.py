@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import re
 import sys
 import urllib.request
@@ -15,11 +16,12 @@ from russianinfra.power_enrichment_cache import cache_source_main
 
 
 CACHE_DIR = Path("data/raw/power_enrichment/iaea_pris")
-DEFAULT_RUSSIA_URL = "https://pris.iaea.org/PRIS/CountryStatistics/CountryDetails.aspx?current=RU"
+DEFAULT_RUSSIA_URL = "https://pris-stats.iaea.org/reactor/reactors-by-code/RU"
 DEFAULT_OUTPUT = "pris_russia_reactors.csv"
 DEFAULT_USER_AGENT = "russianinfra-power-enrichment/0.8"
 PRIS_FIELDS = [
     "reactor_name",
+    "reactor_id",
     "reactor_type",
     "status",
     "location",
@@ -28,6 +30,7 @@ PRIS_FIELDS = [
     "first_grid_connection",
     "station_name",
     "country",
+    "source_record_id",
     "source_url",
 ]
 
@@ -39,6 +42,10 @@ def fetch_text(url: str, timeout: int = 180) -> str:
 
 
 def reactor_rows_from_country_page(html: str, source_url: str) -> list[dict[str, str]]:
+    rows = reactor_rows_from_api_json(html, source_url)
+    if rows:
+        return rows
+
     text = html_table_text(html)
     marker = "Name Type Status Location Reference Unit Power [MW] Gross Electrical Capacity [MW] First Grid Connection"
     if marker not in text:
@@ -61,6 +68,7 @@ def reactor_rows_from_country_page(html: str, source_url: str) -> list[dict[str,
         rows.append(
             {
                 "reactor_name": reactor_name,
+                "reactor_id": "",
                 "reactor_type": match.group("type").upper(),
                 "status": normalize_pris_status(match.group("status")),
                 "location": " ".join(match.group("location").split()).title(),
@@ -69,10 +77,71 @@ def reactor_rows_from_country_page(html: str, source_url: str) -> list[dict[str,
                 "first_grid_connection": match.group("grid") or "",
                 "station_name": station_name_from_reactor(reactor_name),
                 "country": "Russian Federation",
+                "source_record_id": "",
                 "source_url": source_url,
             }
         )
     return rows
+
+
+def reactor_rows_from_api_json(payload: str, source_url: str) -> list[dict[str, str]]:
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError:
+        return []
+    if isinstance(data, dict):
+        items = data.get("items") or data.get("reactors") or data.get("data")
+    else:
+        items = data
+    if not isinstance(items, list):
+        return []
+
+    rows = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        reactor_name = clean_value(first_value(item, "unitName", "reactorName", "reactor_name", "name"))
+        if not reactor_name:
+            continue
+        reactor_id = clean_value(first_value(item, "id", "reactorId", "reactor_id"))
+        rows.append(
+            {
+                "reactor_name": reactor_name,
+                "reactor_id": reactor_id,
+                "reactor_type": clean_value(first_value(item, "typeCode", "reactorType", "reactor_type", "type")),
+                "status": normalize_pris_status(clean_value(first_value(item, "statusName", "statusCode", "status"))),
+                "location": clean_value(first_value(item, "siteName", "location")),
+                "reference_unit_power_mw": number_text(first_value(item, "netElectricalCapacity", "referenceUnitPowerMw")),
+                "gross_electrical_capacity_mw": number_text(first_value(item, "grossElectricalCapacity", "grossElectricalCapacityMw")),
+                "first_grid_connection": date_text(first_value(item, "gridDate", "firstGridConnection")),
+                "station_name": station_name_from_reactor(reactor_name),
+                "country": clean_value(first_value(item, "countryName", "country")) or "Russian Federation",
+                "source_record_id": reactor_id,
+                "source_url": source_url,
+            }
+        )
+    return rows
+
+
+def first_value(row: dict[str, object], *keys: str) -> object:
+    for key in keys:
+        if key in row and row[key] is not None:
+            return row[key]
+    return ""
+
+
+def clean_value(raw: object) -> str:
+    return " ".join(str(raw).split()) if raw is not None else ""
+
+
+def number_text(raw: object) -> str:
+    text = clean_value(raw)
+    return text[:-2] if text.endswith(".0") else text
+
+
+def date_text(raw: object) -> str:
+    text = clean_value(raw)
+    return text[:10] if re.match(r"\d{4}-\d{2}-\d{2}", text) else text
 
 
 def html_table_text(html: str) -> str:
@@ -94,6 +163,14 @@ def station_name_from_reactor(reactor_name: str) -> str:
 
 def normalize_pris_status(raw: str) -> str:
     text = raw.casefold()
+    if text in {"2c", "under construction"}:
+        return "under_construction"
+    if text in {"4s", "5xe", "permanent shutdown", "decommissioning completed"}:
+        return "shutdown"
+    if text in {"4l", "suspended operation"}:
+        return "suspended"
+    if text in {"1o", "operational"}:
+        return "operating"
     if "under construction" in text:
         return "under_construction"
     if "shutdown" in text:
@@ -117,7 +194,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", action="append", type=Path, default=[], help="Local CSV or JSON file to copy into the PRIS cache.")
     parser.add_argument("--refresh", action="store_true", help="Download and parse the Russian Federation PRIS country page.")
-    parser.add_argument("--url", default=DEFAULT_RUSSIA_URL, help="PRIS country details page URL.")
+    parser.add_argument("--url", default=DEFAULT_RUSSIA_URL, help="PRIS reactors API or legacy country details page URL.")
     parser.add_argument("--output-name", default=DEFAULT_OUTPUT, help="CSV filename for parsed PRIS reactor rows.")
     parser.add_argument("--timeout", type=int, default=180, help="Download timeout in seconds.")
     args = parser.parse_args(argv)

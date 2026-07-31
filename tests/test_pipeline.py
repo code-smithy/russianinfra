@@ -1293,6 +1293,46 @@ class PowerClassificationTests(unittest.TestCase):
         self.assertEqual(rows[1]["station_name"], "Kursk 2 Nuclear Power Plant")
         self.assertEqual(rows[1]["status"], "under_construction")
 
+    def test_pris_api_parser_emits_station_level_reactor_rows(self):
+        payload = json.dumps({
+            "items": [
+                {
+                    "id": 524,
+                    "unitName": "BALAKOVO-1",
+                    "typeCode": "PWR",
+                    "statusCode": "1O",
+                    "statusName": "Operational",
+                    "siteName": "BALAKOVO",
+                    "netElectricalCapacity": 950,
+                    "grossElectricalCapacity": 1000,
+                    "gridDate": "1985-12-24T00:00:00",
+                    "countryName": "Russian Federation",
+                },
+                {
+                    "id": 912,
+                    "unitName": "KURSK 2-3",
+                    "typeCode": "PWR",
+                    "statusCode": "2C",
+                    "siteName": "KURCHATOV",
+                    "netElectricalCapacity": 1200,
+                    "grossElectricalCapacity": 1255,
+                    "gridDate": None,
+                    "countryName": "Russian Federation",
+                },
+            ]
+        })
+
+        rows = pris.reactor_rows_from_country_page(payload, pris.DEFAULT_RUSSIA_URL)
+
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["reactor_id"], "524")
+        self.assertEqual(rows[0]["reactor_name"], "BALAKOVO-1")
+        self.assertEqual(rows[0]["station_name"], "Balakovo Nuclear Power Plant")
+        self.assertEqual(rows[0]["status"], "operating")
+        self.assertEqual(rows[0]["first_grid_connection"], "1985-12-24")
+        self.assertEqual(rows[1]["status"], "under_construction")
+        self.assertEqual(rows[1]["station_name"], "Kursk 2 Nuclear Power Plant")
+
     def test_osm_geofabrik_feature_is_normalized_for_power_cache(self):
         extract = osm_power.EXTRACTS["russia"]
         feature = {
