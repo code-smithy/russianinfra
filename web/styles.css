@@ -496,14 +496,12 @@ input {
   border-color: var(--accent-2);
 }
 
-.temporal-controls,
-.power-filter-controls {
+.temporal-controls {
   display: grid;
   gap: 8px;
 }
 
 .temporal-field-row,
-.power-filter-row,
 .temporal-date-grid label {
   display: grid;
   gap: 4px;
@@ -511,14 +509,12 @@ input {
 }
 
 .temporal-field-row span,
-.power-filter-row span,
 .temporal-date-grid span {
   color: var(--muted);
   font-size: 11px;
 }
 
 .temporal-field-row select,
-.power-filter-row select,
 .temporal-date-grid input {
   width: 100%;
   min-width: 0;
@@ -531,7 +527,6 @@ input {
 }
 
 .temporal-field-row select:focus,
-.power-filter-row select:focus,
 .temporal-date-grid input:focus {
   border-color: var(--accent-2);
   outline: none;
