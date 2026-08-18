@@ -27,6 +27,8 @@ globalThis.__api = {
   buildSequentialLayerQuotas,
   buildWeightedLayerQuotas,
   campaignLayerSummaries,
+  actionAreaCoverageSummary,
+  combinedActionAreaResults,
   campaignBandIds,
   campaignBandMetadata,
   campaignScopeEntries,
@@ -61,6 +63,7 @@ globalThis.__api = {
   resetEstimatorAssumptions,
   savePreferencesNow,
   setCampaignDay,
+  setCampaignScope,
   setSelectedTab,
   simulateCampaign,
   stepCampaign,
@@ -429,6 +432,7 @@ test("campaign input masks have matching information explanations", () => {
     ["campaignCapacity", "campaignCapacityInfoBtn"],
     ["campaignSupply", "campaignSupplyInfoBtn"],
     ["campaignCosts", "campaignCostsInfoBtn"],
+    ["campaignScope", "campaignScopeInfoBtn"],
     ["campaignPlayer", "campaignPlayerInfoBtn"],
     ["campaignDashboard", "campaignDashboardInfoBtn"],
     ["campaignDailyTimeline", "campaignDailyTimelineInfoBtn"],
@@ -445,21 +449,26 @@ test("campaign input masks have matching information explanations", () => {
   assert.match(html, /id="campaignCapacity"/);
   assert.match(html, /id="campaignSupply"/);
   assert.match(html, /id="campaignCosts"/);
+  assert.match(html, /id="campaignScopeTabs"/);
+  assert.match(html, /id="campaignCoverageSummary"/);
   assert.match(html, /id="campaignPlayer"/);
   assert.match(html, /id="campaignDashboard"/);
   assert.match(html, /id="campaignDailyTable"/);
   assert.match(js, /campaignSettings: \{[\s\S]*Substitution priority appears when substitution mode is set to priority/);
   assert.match(js, /campaignSettings: \{[\s\S]*Higher-band priority appears when higher-range coverage is enabled/);
+  assert.match(js, /campaignScope: \{[\s\S]*overlap memberships are delayed/);
 });
 
-test("version metadata includes the higher-band coverage release", () => {
+test("version metadata includes the multi-area campaign release", () => {
   const html = fs.readFileSync("web/index.html", "utf8");
   const js = fs.readFileSync("web/app.js", "utf8");
   const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
 
-  assert.equal(packageJson.version, "0.16.0");
-  assert.match(js, /const APP_VERSION = "0\.16\.0"/);
-  assert.match(html, /id="appVersion"[^>]*>v0\.16\.0</);
+  assert.equal(packageJson.version, "0.17.0");
+  assert.match(js, /const APP_VERSION = "0\.17\.0"/);
+  assert.match(js, /re-engagement-aware deconfliction/);
+  assert.match(html, /id="appVersion"[^>]*>v0\.17\.0</);
+  assert.match(js, /version: "0\.17\.0"[\s\S]*Action Areas/);
   assert.match(js, /version: "0\.16\.0"[\s\S]*higher-range bands/);
   assert.match(js, /version: "0\.15\.0"[\s\S]*Adds resource penetration and category hardness inputs/);
 });
@@ -980,6 +989,71 @@ test("radius overlay draws colored range-band circles", async () => {
 
   assert.equal(api.state.radiusBandCircles.length, 2);
   assert.deepEqual(JSON.parse(JSON.stringify(api.state.radiusBandCircles.map((circle) => circle.rangeBandSegment.upperKm))), [100, 150]);
+});
+
+test("campaign can use combined unique scope across overlapping action areas", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  const militaryControl = api.state.layerControls.get("military_sites");
+  militaryControl.checked = true;
+  await militaryControl.listeners.change[0]();
+
+  api.renderRadiusResults({ lat: 55.2, lng: 59.1 }, 30);
+  const firstAreaId = api.state.activeActionAreaId;
+  api.renderRadiusResults({ lat: 56.2, lng: 60.1 }, 200);
+  const secondAreaId = api.state.activeActionAreaId;
+
+  assert.equal(api.state.actionAreas.length, 2);
+  assert.notEqual(firstAreaId, secondAreaId);
+  assert.equal(api.state.radiusResults.length, 2);
+  assert.equal(api.combinedActionAreaResults().length, 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(api.actionAreaCoverageSummary())), {
+    rawCount: 3,
+    uniqueCount: 2,
+    overlapCount: 1,
+    duplicateCount: 1,
+  });
+  assert.equal(api.campaignScopeEntries().length, 2);
+  assert.match(api.els.campaignScopeSummary.textContent, /combined areas/);
+
+  api.setCampaignScope(firstAreaId);
+  assert.equal(api.campaignScopeEntries().length, 1);
+  assert.match(api.els.campaignScopeSummary.textContent, /Area A/);
+  assert.equal(api.currentPreferences().actionAreas.length, 2);
+});
+
+test("combined overlap memberships wait for category re-engagement timing", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+
+  const api = app.__api;
+  api.renderRadiusResults({ lat: 55.2, lng: 59.1 }, 30);
+  api.renderRadiusResults({ lat: 55.2, lng: 59.1 }, 30);
+  api.state.estimator.categoryReengagementDays.energy_facilities = 2;
+  api.state.campaign = api.normalizeCampaignSettings({
+    startDate: "2026-07-01",
+    maxSimulationDays: 3,
+    allocationMode: "sequential",
+    commandCapacityPerDay: 1,
+  });
+  api.state.campaign.layerPriorityOrder = ["energy_facilities"];
+  const bandId = api.campaignBandIds()[0];
+  for (const resource of api.state.estimator.resources) {
+    resource.completionRate = 100;
+    resource.penetration = 1;
+    api.state.campaign.initialStockByBand[bandId][resource.id] = 10;
+    api.state.campaign.fireCapacityPerDayByBand[bandId][resource.id] = 10;
+  }
+
+  const run = api.recalculateCampaign();
+
+  assert.equal(api.combinedActionAreaResults().length, 1);
+  assert.equal(run.summary.overlapReengagementMemberships, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(run.days.map((day) => day.executedTargetsByLayer.energy_facilities || 0))), [1, 0, 1]);
+  assert.deepEqual(JSON.parse(JSON.stringify(run.days.map((day) => day.overlapReengagementsExecuted || 0))), [0, 0, 1]);
+  assert.match(api.els.campaignCoverageSummary.innerHTML, /1 overlap memberships delayed by re-engagement/);
 });
 
 test("scenario estimator groups active radius results and calculates resource totals", async () => {

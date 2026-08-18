@@ -29,7 +29,7 @@
           <div>
             <div class="app-title-row">
               <h1>Infrastructure Explorer</h1>
-              <span id="appVersion" class="app-version" aria-label="Application version">v0.16.0</span>
+              <span id="appVersion" class="app-version" aria-label="Application version">v0.17.0</span>
               <button id="appInfoBtn" class="info-btn" type="button" data-info-topic="app" aria-label="Version history" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
               <span class="feedback-issue-note">Feedback: <a href="https://github.com/code-smithy/russianinfra/issues/new" target="_blank" rel="noopener noreferrer">open a GitHub issue</a></span>
             </div>
@@ -98,20 +98,20 @@
         <section id="radiusMenuPanel" class="panel">
           <div class="panel-title">
             <div class="heading-with-info">
-              <button id="radiusMenuPanelToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="radiusMenuPanelBody" aria-label="Collapse Radius">
+              <button id="radiusMenuPanelToggle" class="panel-collapse-btn" type="button" aria-expanded="true" aria-controls="radiusMenuPanelBody" aria-label="Collapse Action Areas">
                 <span aria-hidden="true"></span>
-                <h2>Radius</h2>
+                <h2>Action Areas</h2>
               </button>
-              <button id="radiusInfoBtn" class="info-btn" type="button" data-info-topic="radius" aria-label="Information about Radius" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+              <button id="radiusInfoBtn" class="info-btn" type="button" data-info-topic="radius" aria-label="Information about Action Areas" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
             </div>
-            <button id="radiusModeBtn" class="text-btn" type="button">Draw Radius</button>
+            <button id="radiusModeBtn" class="text-btn" type="button">Draw Area</button>
           </div>
           <div id="radiusMenuPanelBody">
             <div id="radiusPanel" class="radius-panel" hidden>
               <div class="panel-title">
                 <div class="heading-with-info">
-                  <h2>Radius Results</h2>
-                  <button id="radiusResultsInfoBtn" class="info-btn" type="button" data-info-topic="radiusResults" aria-label="Information about Radius Results" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
+                  <h2>Area Results</h2>
+                  <button id="radiusResultsInfoBtn" class="info-btn" type="button" data-info-topic="radiusResults" aria-label="Information about Area Results" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
                 </div>
                 <span id="radiusSummary" class="muted">0 objects</span>
               </div>
@@ -127,8 +127,9 @@
               </div>
               <div class="actions-row">
                 <button id="exportRadiusBtn" class="text-btn" type="button">Export CSV</button>
-                <button id="resetRadiusBtn" class="text-btn" type="button">Reset radius</button>
+                <button id="resetRadiusBtn" class="text-btn" type="button">Clear areas</button>
               </div>
+              <div id="actionAreasList" class="action-areas-list" aria-label="Action areas"></div>
               <div id="radiusResults" class="result-list"></div>
             </div>
           </div>
@@ -198,7 +199,7 @@
 
       <section id="campaignView" class="campaign-view" aria-label="Campaign Timeline Planner" hidden>
         <div class="campaign-shell">
-          <header class="campaign-header"><h2>Campaign Timeline Planner</h2><p id="campaignScopeSummary" class="muted">0 entries from current radius</p><p id="campaignStatus" class="muted">Draw a radius on the map to define the campaign scope.</p></header>
+          <header class="campaign-header"><div class="campaign-header-title heading-with-info"><h2>Campaign Timeline Planner</h2><button id="campaignScopeInfoBtn" class="info-btn" type="button" data-info-topic="campaignScope" aria-label="Information about Campaign scope" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button></div><p id="campaignScopeSummary" class="muted">0 entries from current scope</p><p id="campaignStatus" class="muted">Draw an action area on the map to define the campaign scope.</p><div id="campaignScopeTabs" class="campaign-scope-tabs" aria-label="Campaign scope"></div><div id="campaignCoverageSummary" class="campaign-coverage-summary"></div></header>
           <div class="campaign-grid">
             <div class="campaign-column">
               <section id="campaignSettingsBlock" class="panel">
@@ -321,7 +322,7 @@
               </button>
               <button id="estimatorInfoBtn" class="info-btn" type="button" data-info-topic="estimator" aria-label="Information about Scenario Estimator" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
             </div>
-            <span id="estimatorSummary" class="muted">Draw a radius</span>
+            <span id="estimatorSummary" class="muted">Draw an area</span>
           </div>
           <div id="estimatorPanelBody" class="estimator-panel-body">
             <div class="estimator-actions">

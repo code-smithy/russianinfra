@@ -1,9 +1,11 @@
 const DATA_DIR = "data/";
-const APP_VERSION = "0.16.0";
+const APP_VERSION = "0.17.0";
 const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
 const OUT_OF_RADIUS_LINE_OPACITY = 0.38;
+const COMBINED_CAMPAIGN_SCOPE_ID = "combined";
+const ACTION_AREA_COLORS = ["#f3d46b", "#58b7ff", "#ff8a5c", "#7bd88f", "#c28cff", "#f06fb2", "#36d1c4", "#ffbf69"];
 const MENU_WIDTH_LIMITS = {
   left: { defaultValue: 390, min: 280, max: 620 },
   right: { defaultValue: 420, min: 300, max: 680 },
@@ -151,10 +153,11 @@ const INFO_TOPICS = {
   app: {
     title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
     paragraphs: [
-      "Version 0.16.0 adds optional higher-range band coverage for lower-range targets. Version 0.15.0 adds target hardness and resource penetration assumptions to Scenario Estimator and Campaign execution.",
+      "Version 0.17.0 adds multi-area campaign scopes with overlap tracking and re-engagement-aware deconfliction. Version 0.16.0 adds optional higher-range band coverage for lower-range targets.",
       "Highlights include Nightwatch military map scraping, resilient OSINT Varta archive capture selection, automatic country-boundary bootstrapping, and a durable compressed comparison baseline for scheduled builds.",
     ],
     history: [
+      { version: "0.17.0", date: "2026-08-18", notes: ["Adds color-coded Action Areas so multiple radii can be drawn and managed on the map.", "Adds Campaign scope tabs for Combined and per-area runs, with Combined deconflicting overlapping targets.", "Schedules overlapping target memberships through category re-engagement timing instead of inflating immediate campaign demand."] },
       { version: "0.16.0", date: "2026-07-23", notes: ["Adds an independent Campaign setting allowing higher-range bands to cover lower-range targets.", "Adds configurable higher-band borrowing priority with strict downward-only allocation and atomic execution.", "Reports target/source band allocation details in the dashboard, daily timeline, CSV, JSON, saved settings, and campaign profiles."] },
       { version: "0.15.0", date: "2026-07-07", notes: ["Adds resource penetration and category hardness inputs to Scenario Estimator assumptions.", "Persists hardness and penetration in saved settings, estimator profiles, imports, and exports.", "Blocks Campaign target execution when native or substituted resources do not exceed a target layer hardness value."] },
       { version: "0.14.0", date: "2026-07-07", notes: ["Adds a Resource costs Campaign input mask with unit cost entries by range band and resource type.", "Calculates Campaign cost from actual expended resources after simulation, including substituted-in resources charged at their own unit cost.", "Adds cost totals to the Campaign dashboard, daily timeline, CSV export, JSON export, saved settings, and campaign profiles."] },
@@ -179,7 +182,7 @@ const INFO_TOPICS = {
     title: "Layers",
     paragraphs: [
       "Loads and shows the selected infrastructure and military data layers on the map.",
-      "Layer and subcategory selections define which records are active for Search Loaded, Radius Results, and the Scenario Estimator.",
+      "Layer and subcategory selections define which records are active for Search Loaded, Area Results, and the Scenario Estimator.",
     ],
   },
   countries: {
@@ -197,23 +200,24 @@ const INFO_TOPICS = {
     ],
   },
   radius: {
-    title: "Radius",
+    title: "Action Areas",
     paragraphs: [
-      "Draws a distance radius from a selected map point.",
-      "The radius collects active-layer objects inside the circle and sends those objects to Radius Results and the Scenario Estimator.",
+      "Draws one or more distance radii from selected map points.",
+      "Each action area collects active-layer objects inside its circle. Overlapping objects are tracked so combined campaign scopes can avoid duplicate target counting.",
+      "The selected action area feeds Area Results and the Scenario Estimator. Campaign can use either the selected area, another area, or the Combined scope.",
     ],
   },
   radiusResults: {
-    title: "Radius Results",
+    title: "Area Results",
     paragraphs: [
-      "Lists active-layer objects inside the drawn radius, ordered by distance from the radius origin.",
+      "Lists active-layer objects inside the selected action area, ordered by distance from that area origin.",
       "Export CSV writes the matching objects and their source fields.",
     ],
   },
   estimator: {
     title: "Scenario Estimator",
     paragraphs: [
-      "Uses Radius Results to estimate required effectors by target category, range band, and effector type.",
+      "Uses Area Results to estimate required effectors by target category, range band, and effector type.",
       "This is an assumption calculator. It does not edit the map data.",
     ],
   },
@@ -245,7 +249,7 @@ const INFO_TOPICS = {
   estimate: {
     title: "Estimate",
     paragraphs: [
-      "Shows the calculated effector demand from the current radius results and estimator assumptions.",
+      "Shows the calculated effector demand from the selected action area results and estimator assumptions.",
       "Per row, the calculation is: targets x effectors per target / survivability, rounded up to a whole effector count.",
     ],
   },
@@ -262,10 +266,19 @@ const INFO_TOPICS = {
       "Stock, fire capacity, and cost are charged to the actual source band and expended resource type, and each target still executes atomically.",
     ],
   },
+  campaignScope: {
+    title: "Campaign scope",
+    paragraphs: [
+      "Selects which action-area target set the Campaign simulation uses.",
+      "Combined starts from unique targets across all action areas so an overlapping target is not counted multiple times on day one.",
+      "When an overlapping target belongs to more than one action area, overlap memberships are delayed by that target layer's re-engagement days and enter the campaign only after a successful prior strike.",
+      "Per-area tabs run only the targets inside that area. The coverage chips show unique targets, overlapping targets, and overlap memberships delayed by re-engagement timing.",
+    ],
+  },
   campaignLayerAllocation: {
     title: "Layer priority and allocation",
     paragraphs: [
-      "Sets how campaign scope entries are selected from the current radius results when daily command capacity is limited.",
+      "Sets how campaign scope entries are selected from the current campaign scope when daily command capacity is limited.",
       "Priority is the strict layer order used for sequential allocation and for tie-breaking. Allocation is the layer weight used by weighted allocation.",
       "The entry, executed, and remaining counts show the current campaign scope or selected simulation day for each layer.",
     ],
@@ -347,6 +360,9 @@ const state = {
   radiusLine: null,
   radiusLabel: null,
   radiusHighlightGroup: null,
+  actionAreaLayerGroup: null,
+  actionAreas: [],
+  activeActionAreaId: null,
   radiusResults: [],
   menuWidths: {
     left: MENU_WIDTH_LIMITS.left.defaultValue,
@@ -356,6 +372,7 @@ const state = {
   activeMenuResize: null,
   estimator: normalizeEstimatorAssumptions(loadSavedPreferences()?.estimator),
   selectedTab: loadSavedPreferences()?.selectedTab === "campaign" ? "campaign" : "map",
+  campaignScopeId: loadSavedPreferences()?.campaignScopeId || COMBINED_CAMPAIGN_SCOPE_ID,
   campaign: null,
   campaignRun: { stale: true, currentDayIndex: -1, playing: false, playbackTimer: null, days: [], summary: null },
   campaignStatusGroup: null,
@@ -382,6 +399,7 @@ let activeBaseLayer = state.savedPreferences?.baseLayer === "dark" ? "dark" : "l
 (activeBaseLayer === "dark" ? darkTiles : lightTiles).addTo(map);
 L.control.layers({ Light: lightTiles, Dark: darkTiles }, {}, { collapsed: true }).addTo(map);
 state.radiusHighlightGroup = L.layerGroup().addTo(map);
+state.actionAreaLayerGroup = L.layerGroup().addTo(map);
 state.campaignStatusGroup = L.layerGroup().addTo(map);
 
 const els = {
@@ -439,6 +457,7 @@ const els = {
   radiusSummary: document.getElementById("radiusSummary"),
   radiusCenterLabel: document.getElementById("radiusCenterLabel"),
   radiusKmInput: document.getElementById("radiusKmInput"),
+  actionAreasList: document.getElementById("actionAreasList"),
   radiusResults: document.getElementById("radiusResults"),
   exportRadiusBtn: document.getElementById("exportRadiusBtn"),
   resetRadiusBtn: document.getElementById("resetRadiusBtn"),
@@ -482,6 +501,8 @@ const els = {
   tabCampaignBtn: document.getElementById("tabCampaignBtn"),
   campaignScopeSummary: document.getElementById("campaignScopeSummary"),
   campaignStatus: document.getElementById("campaignStatus"),
+  campaignScopeTabs: document.getElementById("campaignScopeTabs"),
+  campaignCoverageSummary: document.getElementById("campaignCoverageSummary"),
   campaignSettingsBlock: document.getElementById("campaignSettingsBlock"),
   campaignSettingsBody: document.getElementById("campaignSettingsBody"),
   campaignSettingsToggle: document.getElementById("campaignSettingsToggle"),
@@ -605,6 +626,7 @@ function setupInfoButtons() {
     "campaignCapacityInfoBtn",
     "campaignSupplyInfoBtn",
     "campaignCostsInfoBtn",
+    "campaignScopeInfoBtn",
     "campaignPlayerInfoBtn",
     "campaignDashboardInfoBtn",
     "campaignDailyTimelineInfoBtn",
@@ -1061,13 +1083,55 @@ function savedCampaignBlockSet() {
   return new Set(Array.isArray(saved) ? saved.filter((key) => validKeys.has(key)) : []);
 }
 
+function actionAreaColor(index) {
+  return ACTION_AREA_COLORS[Math.max(0, index) % ACTION_AREA_COLORS.length];
+}
+
+function actionAreaFallbackName(index) {
+  return `Area ${resourceLetter(index)}`;
+}
+
+function normalizeActionArea(saved, index = 0) {
+  const origin = storedPoint(saved?.origin);
+  const radiusKm = positiveFiniteNumber(saved?.radiusKm, NaN, 0.1);
+  if (!origin || !Number.isFinite(radiusKm)) return null;
+  const edge = storedPoint(saved?.edge);
+  const id = slugId(saved?.id) || `area_${Date.now()}_${index}`;
+  return {
+    id,
+    name: String(saved?.name || actionAreaFallbackName(index)).trim().slice(0, 48) || actionAreaFallbackName(index),
+    color: /^#[0-9a-f]{6}$/i.test(saved?.color || "") ? saved.color : actionAreaColor(index),
+    origin,
+    edge: edge ? radiusEdgeFor(origin, radiusKm, edge) : radiusEdgeFor(origin, radiusKm, null),
+    radiusKm,
+    results: [],
+  };
+}
+
+function serializeActionArea(area) {
+  return {
+    id: area.id,
+    name: area.name,
+    color: area.color,
+    origin: { lat: area.origin.lat, lng: area.origin.lng },
+    edge: area.edge ? { lat: area.edge.lat, lng: area.edge.lng } : null,
+    radiusKm: area.radiusKm,
+  };
+}
+
 function serializeRadius() {
+  const area = activeActionArea();
+  if (area) return serializeActionArea(area);
   if (!state.radiusOrigin || !Number.isFinite(state.radiusKm)) return null;
   return {
     origin: { lat: state.radiusOrigin.lat, lng: state.radiusOrigin.lng },
     edge: state.radiusEdge ? { lat: state.radiusEdge.lat, lng: state.radiusEdge.lng } : null,
     radiusKm: state.radiusKm,
   };
+}
+
+function serializeActionAreas() {
+  return state.actionAreas.map(serializeActionArea);
 }
 
 function currentPreferences() {
@@ -1106,8 +1170,11 @@ function currentPreferences() {
     temporalFilters: { ...state.temporalFilters },
     search: els.searchInput.value,
     radius: serializeRadius(),
+    actionAreas: serializeActionAreas(),
+    activeActionAreaId: state.activeActionAreaId,
     estimator: serializeEstimatorAssumptions(),
     selectedTab: state.selectedTab,
+    campaignScopeId: state.campaignScopeId,
     campaign: serializeCampaignSettings(),
   };
 }
@@ -3113,9 +3180,14 @@ function loadedVisibleFeatures() {
 }
 
 function syncOverlaysWithVisibleLayers() {
-  if (state.radiusOrigin && Number.isFinite(state.radiusKm)) {
-    renderRadiusResults(state.radiusOrigin, state.radiusKm);
-  }
+  if (!state.actionAreas.length) return;
+  recalculateActionAreas();
+  renderActionAreaOverlays();
+  renderActionAreasList();
+  renderRadiusResultList();
+  applyRadiusDimming(loadedVisibleFeatures(), state.radiusResults);
+  renderEstimatorResults();
+  syncCampaignLayersFromScope();
 }
 
 function renderLoadedCount() {
@@ -3270,6 +3342,228 @@ function setCampaignBlockCollapsed(key, collapsed, persist = true) {
   if (persist) queueSavePreferences();
 }
 
+function activeActionArea() {
+  return state.actionAreas.find((area) => area.id === state.activeActionAreaId) || state.actionAreas[0] || null;
+}
+
+function actionAreaById(id) {
+  return state.actionAreas.find((area) => area.id === id) || null;
+}
+
+function featureMembershipId(item) {
+  return item?.stored?.id || item?.stored?.feature?.id || "";
+}
+
+function calculateActionAreaResults(area, activeFeatures = loadedVisibleFeatures()) {
+  if (!area?.origin || !Number.isFinite(area.radiusKm)) return [];
+  return activeFeatures
+    .map((stored) => ({
+      stored,
+      distance: featureDistanceToPointKm(stored.feature, area.origin),
+      actionAreaIds: [area.id],
+      actionAreaNames: [area.name],
+      distanceByActionArea: { [area.id]: featureDistanceToPointKm(stored.feature, area.origin) },
+      nearestActionAreaId: area.id,
+    }))
+    .filter((item) => item.distance <= area.radiusKm)
+    .sort((a, b) => a.distance - b.distance);
+}
+
+function combinedActionAreaResults() {
+  const byFeature = new Map();
+  for (const area of state.actionAreas) {
+    for (const item of area.results || []) {
+      const id = featureMembershipId(item);
+      if (!id) continue;
+      const existing = byFeature.get(id);
+      if (!existing) {
+        byFeature.set(id, {
+          ...item,
+          actionAreaIds: [area.id],
+          actionAreaNames: [area.name],
+          distanceByActionArea: { [area.id]: item.distance },
+          nearestActionAreaId: area.id,
+        });
+        continue;
+      }
+      existing.actionAreaIds.push(area.id);
+      existing.actionAreaNames.push(area.name);
+      existing.distanceByActionArea[area.id] = item.distance;
+      if (item.distance < existing.distance) {
+        existing.distance = item.distance;
+        existing.nearestActionAreaId = area.id;
+      }
+    }
+  }
+  return [...byFeature.values()].sort((a, b) => a.distance - b.distance);
+}
+
+function areaNameById(id) {
+  return actionAreaById(id)?.name || id;
+}
+
+function orderedMembershipAreaIds(item) {
+  return (item.actionAreaIds || []).slice().sort((a, b) => (
+    (item.distanceByActionArea?.[a] ?? item.distance) - (item.distanceByActionArea?.[b] ?? item.distance)
+  ));
+}
+
+function actionAreaMembershipEntry(item, areaId, membershipIndex = 0) {
+  const distance = item.distanceByActionArea?.[areaId] ?? item.distance;
+  return {
+    ...item,
+    distance,
+    actionAreaIds: [areaId],
+    actionAreaNames: [areaNameById(areaId)],
+    nearestActionAreaId: areaId,
+    overlapGroupId: featureMembershipId(item),
+    overlapMembershipIndex: membershipIndex,
+    overlapMembershipCount: item.actionAreaIds?.length || 1,
+    isOverlapMembership: membershipIndex > 0,
+  };
+}
+
+function combinedActionAreaBaseEntries() {
+  return combinedActionAreaResults().map((item) => {
+    const [firstAreaId] = orderedMembershipAreaIds(item);
+    return actionAreaMembershipEntry(item, firstAreaId || item.nearestActionAreaId, 0);
+  });
+}
+
+function pendingOverlapMembershipsForCombinedScope() {
+  const pending = new Map();
+  if (state.campaignScopeId !== COMBINED_CAMPAIGN_SCOPE_ID || state.actionAreas.length < 2) return pending;
+  for (const item of combinedActionAreaResults()) {
+    const areaIds = orderedMembershipAreaIds(item);
+    if (areaIds.length < 2) continue;
+    const layerId = item.stored?.feature?.properties?.map_layer;
+    if (categoryReengagementDays(layerId) <= 0) continue;
+    pending.set(featureMembershipId(item), areaIds.slice(1).map((areaId, index) => actionAreaMembershipEntry(item, areaId, index + 1)));
+  }
+  return pending;
+}
+
+function actionAreaCoverageSummary() {
+  const counts = new Map();
+  let rawCount = 0;
+  for (const area of state.actionAreas) {
+    for (const item of area.results || []) {
+      rawCount += 1;
+      const id = featureMembershipId(item);
+      if (id) counts.set(id, (counts.get(id) || 0) + 1);
+    }
+  }
+  const overlapCount = [...counts.values()].filter((count) => count > 1).length;
+  return {
+    rawCount,
+    uniqueCount: counts.size,
+    overlapCount,
+    duplicateCount: Math.max(0, rawCount - counts.size),
+  };
+}
+
+function clearActiveRadiusOverlay() {
+  if (state.radiusCircle) {
+    map.removeLayer(state.radiusCircle);
+    state.radiusCircle = null;
+  }
+  if (state.radiusLine) {
+    map.removeLayer(state.radiusLine);
+    state.radiusLine = null;
+  }
+  if (state.radiusLabel) {
+    map.removeLayer(state.radiusLabel);
+    state.radiusLabel = null;
+  }
+  clearRadiusBandCircles();
+}
+
+function drawActionAreaLabel(area) {
+  return L.marker(area.origin, {
+    interactive: false,
+    icon: L.divIcon({
+      className: "action-area-map-label",
+      html: `<span style="border-color:${area.color};background:${area.color}">${escapeHtml(area.name.replace(/^Area\s+/i, "").slice(0, 3) || "A")}</span>`,
+      iconSize: [34, 26],
+      iconAnchor: [17, 13],
+    }),
+  });
+}
+
+function renderActionAreaOverlays() {
+  state.actionAreaLayerGroup.clearLayers();
+  clearActiveRadiusOverlay();
+  const active = activeActionArea();
+  for (const area of state.actionAreas) {
+    if (active && area.id === active.id) {
+      drawStoredRadius(area.origin, area.radiusKm, area.edge, area.color);
+      continue;
+    }
+    L.circle(area.origin, {
+      radius: area.radiusKm * 1000,
+      color: area.color,
+      weight: 2,
+      opacity: 0.92,
+      fillColor: area.color,
+      fillOpacity: 0.08,
+      interactive: false,
+    }).addTo(state.actionAreaLayerGroup);
+    drawActionAreaLabel(area).addTo(state.actionAreaLayerGroup);
+  }
+}
+
+function syncSelectedRadiusFromActionArea() {
+  const area = activeActionArea();
+  if (!area) {
+    state.radiusOrigin = null;
+    state.radiusEdge = null;
+    state.radiusKm = null;
+    state.radiusResults = [];
+    updateRadiusPanelDetails(null, null);
+    return;
+  }
+  state.radiusOrigin = area.origin;
+  state.radiusEdge = area.edge;
+  state.radiusKm = area.radiusKm;
+  state.radiusResults = (area.results || []).slice();
+  updateRadiusPanelDetails(area.origin, area.radiusKm);
+}
+
+function recalculateActionAreas() {
+  const activeFeatures = loadedVisibleFeatures();
+  for (const area of state.actionAreas) {
+    area.results = calculateActionAreaResults(area, activeFeatures);
+  }
+  syncSelectedRadiusFromActionArea();
+}
+
+function ensureValidCampaignScope() {
+  if (state.campaignScopeId === COMBINED_CAMPAIGN_SCOPE_ID) return;
+  if (actionAreaById(state.campaignScopeId)) return;
+  state.campaignScopeId = state.actionAreas.length ? COMBINED_CAMPAIGN_SCOPE_ID : "";
+}
+
+function setActiveActionArea(id, options = {}) {
+  const area = actionAreaById(id);
+  if (!area) return;
+  state.activeActionAreaId = area.id;
+  syncSelectedRadiusFromActionArea();
+  renderActionAreaOverlays();
+  renderActionAreasList();
+  renderRadiusResultList();
+  applyRadiusDimming(loadedVisibleFeatures(), state.radiusResults);
+  renderEstimatorResults();
+  if (options.syncCampaign !== false) syncCampaignLayersFromScope();
+  if (options.persist !== false) queueSavePreferences();
+}
+
+function setCampaignScope(id) {
+  state.campaignScopeId = id === COMBINED_CAMPAIGN_SCOPE_ID ? COMBINED_CAMPAIGN_SCOPE_ID : id;
+  ensureValidCampaignScope();
+  syncCampaignLayersFromScope();
+  queueSavePreferences();
+}
+
 function clearRadiusBandCircles() {
   for (const circle of state.radiusBandCircles) {
     map.removeLayer(circle);
@@ -3330,18 +3624,13 @@ function setRadiusMeasurementOverlay(origin, edge, radiusKm) {
   }
 }
 
-function drawStoredRadius(origin, radiusKm, edge = null) {
-  if (state.radiusCircle) map.removeLayer(state.radiusCircle);
-  if (state.radiusLine) map.removeLayer(state.radiusLine);
-  if (state.radiusLabel) map.removeLayer(state.radiusLabel);
-  clearRadiusBandCircles();
-  state.radiusLine = null;
-  state.radiusLabel = null;
+function drawStoredRadius(origin, radiusKm, edge = null, color = "#f3d46b") {
+  clearActiveRadiusOverlay();
   state.radiusEdge = edge || radiusEdgeFor(origin, radiusKm, null);
   drawRadiusBandCircles(origin, radiusKm);
   state.radiusCircle = L.circle(origin, {
     radius: radiusKm * 1000,
-    color: "#f3d46b",
+    color,
     weight: 3,
     opacity: 0.98,
     fillOpacity: 0,
@@ -3373,25 +3662,45 @@ function updateRadiusPanelDetails(origin, radiusKm) {
 }
 
 function applyRadiusInputValue() {
-  if (!state.radiusOrigin || !Number.isFinite(state.radiusKm)) return;
+  const area = activeActionArea();
+  if (!area || !Number.isFinite(area.radiusKm)) return;
   const radiusKm = positiveFiniteNumber(els.radiusKmInput.value, state.radiusKm, 0.1);
   els.radiusKmInput.value = String(Number(radiusKm.toFixed(1)));
-  renderRadiusResults(state.radiusOrigin, radiusKm);
+  area.radiusKm = radiusKm;
+  area.edge = radiusEdgeFor(area.origin, radiusKm, area.edge);
+  recalculateActionAreas();
+  renderActionAreaOverlays();
+  renderActionAreasList();
+  renderRadiusResultList();
+  applyRadiusDimming(loadedVisibleFeatures(), state.radiusResults);
+  renderEstimatorResults();
+  syncCampaignLayersFromScope();
+  queueSavePreferences();
 }
 
 function refreshRadiusRangeOverlay() {
-  if (!state.radiusOrigin || !Number.isFinite(state.radiusKm)) return;
-  updateRadiusOverlay(state.radiusKm);
+  renderActionAreaOverlays();
 }
 
 function restoreSavedRadius() {
-  const saved = state.savedPreferences?.radius;
-  const origin = storedPoint(saved?.origin);
-  const edge = storedPoint(saved?.edge);
-  const radiusKm = Number(saved?.radiusKm);
-  if (!origin || !Number.isFinite(radiusKm) || radiusKm <= 0) return;
-  drawStoredRadius(origin, radiusKm, edge ? radiusEdgeFor(origin, radiusKm, edge) : null);
-  renderRadiusResults(origin, radiusKm);
+  const saved = state.savedPreferences;
+  const savedAreas = Array.isArray(saved?.actionAreas) ? saved.actionAreas : [];
+  const areas = savedAreas
+    .map((area, index) => normalizeActionArea(area, index))
+    .filter(Boolean);
+  if (!areas.length) {
+    const legacyArea = normalizeActionArea(saved?.radius, 0);
+    if (legacyArea) areas.push(legacyArea);
+  }
+  state.actionAreas = areas;
+  state.activeActionAreaId = actionAreaById(saved?.activeActionAreaId)?.id || areas[0]?.id || null;
+  state.campaignScopeId = saved?.campaignScopeId || COMBINED_CAMPAIGN_SCOPE_ID;
+  ensureValidCampaignScope();
+  recalculateActionAreas();
+  renderActionAreaOverlays();
+  renderActionAreasList();
+  renderRadiusResultList();
+  applyRadiusDimming(loadedVisibleFeatures(), state.radiusResults);
 }
 
 function setRadiusMode(enabled) {
@@ -3855,11 +4164,12 @@ function renderDetailedEstimatorCards(detailRows) {
 function renderEstimatorResults() {
   enforceSummaryDisplaySelection();
   const total = state.radiusResults.length;
+  const area = activeActionArea();
   els.estimatorSummary.textContent = total
     ? `${total.toLocaleString()} items`
-    : "Draw a radius";
-  els.estimatorRadiusLabel.textContent = state.radiusOrigin && Number.isFinite(state.radiusKm)
-    ? `${numberFmt(state.radiusKm, 1)} km radius`
+    : "Draw an area";
+  els.estimatorRadiusLabel.textContent = area
+    ? `${area.name} / ${numberFmt(area.radiusKm, 1)} km`
     : "Active layers only";
   els.estimatorSummaryResults.innerHTML = "";
   els.estimatorResults.innerHTML = "";
@@ -3868,7 +4178,7 @@ function renderEstimatorResults() {
   if (!total) {
     els.estimatorSummaryResults.hidden = true;
     els.estimatorResults.hidden = false;
-    els.estimatorResults.innerHTML = `<div class="muted">No active-layer items inside the current radius.</div>`;
+    els.estimatorResults.innerHTML = `<div class="muted">No active-layer items inside the selected action area.</div>`;
     return;
   }
 
@@ -3894,20 +4204,120 @@ function renderEstimator() {
   renderEstimatorResults();
 }
 
+function renderActionAreasList() {
+  if (!els.actionAreasList) return;
+  els.actionAreasList.innerHTML = "";
+  if (!state.actionAreas.length) {
+    const empty = document.createElement("div");
+    empty.className = "muted";
+    empty.textContent = "No action areas yet.";
+    els.actionAreasList.appendChild(empty);
+    return;
+  }
+  const coverage = actionAreaCoverageSummary();
+  const summary = document.createElement("div");
+  summary.className = "action-area-overlap-summary";
+  summary.textContent = `${coverage.uniqueCount.toLocaleString()} unique / ${coverage.overlapCount.toLocaleString()} overlapping / ${coverage.duplicateCount.toLocaleString()} duplicate memberships`;
+  els.actionAreasList.appendChild(summary);
+  for (const area of state.actionAreas) {
+    const row = document.createElement("div");
+    row.className = "action-area-row";
+    row.classList.toggle("active", area.id === state.activeActionAreaId);
+    row.dataset.areaId = area.id;
+
+    const selectButton = document.createElement("button");
+    selectButton.type = "button";
+    selectButton.className = "action-area-select";
+    selectButton.innerHTML = `
+      <i class="action-area-swatch" style="background:${area.color}" aria-hidden="true"></i>
+      <span><strong>${escapeHtml(area.name)}</strong><small>${numberFmt(area.radiusKm, 1)} km / ${(area.results || []).length.toLocaleString()} targets</small></span>
+    `;
+    selectButton.addEventListener("click", () => setActiveActionArea(area.id));
+
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.value = area.name;
+    nameInput.setAttribute("aria-label", `${area.name} name`);
+    nameInput.addEventListener("change", () => {
+      area.name = String(nameInput.value || area.name).trim().slice(0, 48) || area.name;
+      recalculateActionAreas();
+      renderActionAreasList();
+      renderActionAreaOverlays();
+      renderCampaign();
+      queueSavePreferences();
+    });
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "icon-btn";
+    removeButton.innerHTML = `<span aria-hidden="true">&times;</span>`;
+    removeButton.setAttribute("aria-label", `Remove ${area.name}`);
+    removeButton.addEventListener("click", () => removeActionArea(area.id));
+
+    row.append(selectButton, nameInput, removeButton);
+    els.actionAreasList.appendChild(row);
+  }
+}
+
+function renderRadiusResultList() {
+  els.radiusPanel.hidden = !state.actionAreas.length;
+  els.radiusResults.innerHTML = "";
+  const area = activeActionArea();
+  if (!area) {
+    els.radiusSummary.textContent = "0 objects";
+    return;
+  }
+  els.radiusSummary.textContent = `${state.radiusResults.length.toLocaleString()} objects - ${numberFmt(area.radiusKm, 1)} km - ${area.name}`;
+  state.radiusHighlightGroup.clearLayers();
+  for (const item of state.radiusResults) {
+    if (item.stored.point) {
+      L.circleMarker(item.stored.point, {
+        radius: 5,
+        color: "#ffffff",
+        weight: 1,
+        fillColor: area.color,
+        fillOpacity: 0.9,
+        interactive: false,
+      }).addTo(state.radiusHighlightGroup);
+    }
+  }
+  const renderLimit = 500;
+  for (const item of state.radiusResults.slice(0, renderLimit)) {
+    els.radiusResults.appendChild(resultButton(item.stored, true, item.distance));
+  }
+  if (state.radiusResults.length > renderLimit) {
+    const note = document.createElement("div");
+    note.className = "muted";
+    note.textContent = `Showing first ${renderLimit.toLocaleString()} here. CSV export includes all ${state.radiusResults.length.toLocaleString()}.`;
+    els.radiusResults.appendChild(note);
+  }
+}
+
+function removeActionArea(id) {
+  const index = state.actionAreas.findIndex((area) => area.id === id);
+  if (index < 0) return;
+  state.actionAreas.splice(index, 1);
+  if (state.activeActionAreaId === id) {
+    state.activeActionAreaId = state.actionAreas[Math.max(0, index - 1)]?.id || state.actionAreas[0]?.id || null;
+  }
+  ensureValidCampaignScope();
+  recalculateActionAreas();
+  renderActionAreaOverlays();
+  renderActionAreasList();
+  renderRadiusResultList();
+  if (state.radiusResults.length) applyRadiusDimming(loadedVisibleFeatures(), state.radiusResults);
+  else clearRadiusDimming();
+  renderEstimatorResults();
+  syncCampaignLayersFromScope();
+  queueSavePreferences();
+}
+
 function resetRadius() {
-  if (state.radiusCircle) {
-    map.removeLayer(state.radiusCircle);
-    state.radiusCircle = null;
-  }
-  if (state.radiusLine) {
-    map.removeLayer(state.radiusLine);
-    state.radiusLine = null;
-  }
-  if (state.radiusLabel) {
-    map.removeLayer(state.radiusLabel);
-    state.radiusLabel = null;
-  }
-  clearRadiusBandCircles();
+  clearActiveRadiusOverlay();
+  state.actionAreaLayerGroup.clearLayers();
+  state.actionAreas = [];
+  state.activeActionAreaId = null;
+  state.campaignScopeId = COMBINED_CAMPAIGN_SCOPE_ID;
   state.radiusStart = null;
   state.radiusOrigin = null;
   state.radiusEdge = null;
@@ -3918,63 +4328,44 @@ function resetRadius() {
   els.radiusPanel.hidden = true;
   els.radiusResults.innerHTML = "";
   els.radiusSummary.textContent = "0 objects";
+  renderActionAreasList();
   updateRadiusPanelDetails(null, null);
   renderEstimatorResults();
   syncCampaignLayersFromScope();
   queueSavePreferences();
 }
 
-function renderRadiusResults(origin, radiusKm) {
+function renderRadiusResults(origin, radiusKm, options = {}) {
   const normalizedRadiusKm = positiveFiniteNumber(radiusKm, 0, 0.1);
   if (!Number.isFinite(normalizedRadiusKm) || normalizedRadiusKm <= 0) return;
-  state.radiusHighlightGroup.clearLayers();
-  state.radiusOrigin = origin;
-  state.radiusKm = normalizedRadiusKm;
-  updateRadiusOverlay(normalizedRadiusKm);
-  updateRadiusPanelDetails(origin, normalizedRadiusKm);
-  const activeFeatures = loadedVisibleFeatures();
-  const results = activeFeatures
-    .map((stored) => ({ stored, distance: featureDistanceToPointKm(stored.feature, origin) }))
-    .filter((item) => item.distance <= normalizedRadiusKm)
-    .sort((a, b) => a.distance - b.distance);
-  state.radiusResults = results;
-  applyRadiusDimming(activeFeatures, results);
-  els.radiusPanel.hidden = false;
-  els.radiusSummary.textContent = `${results.length.toLocaleString()} objects • ${numberFmt(normalizedRadiusKm, 1)} km • active layers only`;
-  els.radiusResults.innerHTML = "";
-
-  for (const item of results) {
-    if (item.stored.point) {
-      L.circleMarker(item.stored.point, {
-        radius: 5,
-        color: "#ffffff",
-        weight: 1,
-        fillColor: "#d4472f",
-        fillOpacity: 0.9,
-        interactive: false,
-      }).addTo(state.radiusHighlightGroup);
-    }
-  }
-
-  const renderLimit = 500;
-  for (const item of results.slice(0, renderLimit)) {
-    els.radiusResults.appendChild(resultButton(item.stored, true, item.distance));
-  }
-  if (results.length > renderLimit) {
-    const note = document.createElement("div");
-    note.className = "muted";
-    note.textContent = `Showing first ${renderLimit.toLocaleString()} here. CSV export includes all ${results.length.toLocaleString()}.`;
-    els.radiusResults.appendChild(note);
-  }
+  const index = state.actionAreas.length;
+  const existing = options.areaId ? actionAreaById(options.areaId) : null;
+  const area = existing || {
+    id: `area_${Date.now()}_${index}`,
+    name: actionAreaFallbackName(index),
+    color: actionAreaColor(index),
+    results: [],
+  };
+  area.origin = { lat: origin.lat, lng: origin.lng };
+  area.radiusKm = normalizedRadiusKm;
+  area.edge = radiusEdgeFor(area.origin, normalizedRadiusKm, state.radiusEdge);
+  if (!existing) state.actionAreas.push(area);
+  state.activeActionAreaId = area.id;
+  ensureValidCampaignScope();
+  recalculateActionAreas();
+  renderActionAreaOverlays();
+  renderActionAreasList();
+  renderRadiusResultList();
+  applyRadiusDimming(loadedVisibleFeatures(), state.radiusResults);
   renderEstimatorResults();
-  syncCampaignLayersFromScope();
+  if (options.syncCampaign !== false) syncCampaignLayersFromScope();
   queueSavePreferences();
 }
 
 function onRadiusMouseDown(event) {
   if (!state.radiusMode) return;
   event.originalEvent?.preventDefault();
-  resetRadius();
+  clearActiveRadiusOverlay();
   state.radiusStart = event.latlng;
   state.radiusEdge = event.latlng;
   map.dragging.disable();
@@ -4261,7 +4652,7 @@ function addDays(dateString, dayOffset) {
 function campaignRangeBands() { return sortedRangeBands(); }
 function campaignBandIds() { return campaignRangeBands().map((band) => band.id); }
 function campaignResourceIds() { return state.estimator.resources.map((resource) => resource.id); }
-function campaignLayerIdsFromScope() { return [...new Set(state.radiusResults.map((item) => item.stored?.feature?.properties?.map_layer).filter(Boolean))]; }
+function campaignLayerIdsFromScope() { return [...new Set(campaignScopeEntries().map((item) => item.stored?.feature?.properties?.map_layer).filter(Boolean))]; }
 function emptyBandResourceMap(defaultValue = 0) {
   return Object.fromEntries(campaignBandIds().map((bandId) => [
     bandId,
@@ -4440,7 +4831,19 @@ function normalizeCampaignSettings(saved = {}) {
   };
 }
 function serializeCampaignSettings() { return { ...state.campaign, profiles: state.campaign?.profiles || [] }; }
-function campaignScopeEntries() { return state.radiusResults.slice(); }
+function campaignScopeEntries() {
+  ensureValidCampaignScope();
+  if (state.actionAreas.length) {
+    if (state.campaignScopeId === COMBINED_CAMPAIGN_SCOPE_ID) return combinedActionAreaBaseEntries();
+    return (actionAreaById(state.campaignScopeId)?.results || []).slice();
+  }
+  return state.radiusResults.slice();
+}
+function campaignScopeLabel() {
+  if (!state.actionAreas.length) return "current radius";
+  if (state.campaignScopeId === COMBINED_CAMPAIGN_SCOPE_ID) return "combined areas";
+  return actionAreaById(state.campaignScopeId)?.name || "selected area";
+}
 function layerInfoById(id) { return (state.manifest?.layers || []).find((layer) => layer.id === id) || { id, label: id }; }
 function campaignLayerSummaries() {
   const counts = {};
@@ -4755,6 +5158,8 @@ function campaignLayerDepletedDays() {
 }
 function simulateCampaign(settings = state.campaign) {
   settings = normalizeCampaignSettings(settings);
+  const pendingOverlapMemberships = pendingOverlapMembershipsForCombinedScope();
+  const overlapReengagementMemberships = [...pendingOverlapMemberships.values()].reduce((total, rows) => total + rows.length, 0);
   const entriesByLayer = {};
   for (const item of campaignScopeEntries()) {
     const layerId = item.stored.feature.properties.map_layer;
@@ -4799,6 +5204,21 @@ function simulateCampaign(settings = state.campaign) {
     if (nextDayIndex >= settings.maxSimulationDays) return;
     scheduledReengagements.push({ dayIndex: nextDayIndex, entry });
   };
+  const scheduleOverlapMembership = (entry, dayIndex) => {
+    const featureId = featureEntryId(entry.item);
+    const pending = pendingOverlapMemberships.get(featureId);
+    if (!pending?.length) return false;
+    const delay = categoryReengagementDays(entry.layerId);
+    if (delay <= 0) return false;
+    const nextDayIndex = dayIndex + delay;
+    if (nextDayIndex >= settings.maxSimulationDays) return false;
+    const nextItem = pending.shift();
+    scheduledReengagements.push({
+      dayIndex: nextDayIndex,
+      entry: { item: nextItem, layerId: entry.layerId, bandId: targetBandId(nextItem), overlapMembership: true },
+    });
+    return true;
+  };
   const incrementRemainingLayerBandCounts = (map, layerId, rows) => {
     for (const entry of rows) incrementLayerBandCount(map, layerId, entry.bandId);
   };
@@ -4840,6 +5260,7 @@ function simulateCampaign(settings = state.campaign) {
     const deferred = {};
     const executedIds = [];
     const deferredIds = [];
+    const overlapReengagementFeatureIds = [];
     const notes = [];
     for (const [layerId, requested] of Object.entries(quotas)) {
       const requestedEntries = (remainingQueues[layerId] || []).slice(0, requested);
@@ -4872,8 +5293,9 @@ function simulateCampaign(settings = state.campaign) {
           incrementBandCount(executedByBand, entry.bandId);
           cumLayer[layerId] = (cumLayer[layerId] || 0) + 1;
           executedIds.push(featureEntryId(entry.item));
+          if (entry.overlapMembership || entry.item?.isOverlapMembership) overlapReengagementFeatureIds.push(featureEntryId(entry.item));
           applyConsumptionPlan(plan, entry.bandId, layerId, stock, fireRem, { exp, expByLayerBand, substitutionIn, substitutionOut, substitutionInByLayerBand, substitutionOutByLayerBand, resourceAllocations, unitCosts: settings.resourceUnitCostByBand });
-          scheduleReengagement(entry, dayIndex);
+          if (!scheduleOverlapMembership(entry, dayIndex)) scheduleReengagement(entry, dayIndex);
           notes.push(...plan.notes);
         } else {
           deferred[layerId] = (deferred[layerId] || 0) + 1;
@@ -4949,6 +5371,8 @@ function simulateCampaign(settings = state.campaign) {
       cumulativeExpendedByResource: sumBandResourceMap(cumResByBand),
       executedFeatureIds: executedIds,
       deferredFeatureIds: deferredIds,
+      overlapReengagementFeatureIds,
+      overlapReengagementsExecuted: overlapReengagementFeatureIds.length,
       cumulativeExecutedFeatureIds: cumulativeIds.slice(),
       cumulativeExecutedByLayer: { ...cumLayer },
       blocked: executedIds.length === 0 && Object.values(queuedCounts()).some((value) => value > 0),
@@ -4957,7 +5381,7 @@ function simulateCampaign(settings = state.campaign) {
   }
   const finalRemainingByLayer = remainingCounts();
   if (Object.values(finalRemainingByLayer).some((value) => value > 0)) warning = "Maximum simulation days reached before completion.";
-  return { days, summary: { totalEntries, elapsedDays: days.length, completionDate: Object.values(finalRemainingByLayer).every((value) => value === 0) ? days.at(-1)?.date : null, warning, remainingByLayer: finalRemainingByLayer } };
+  return { days, summary: { totalEntries, overlapReengagementMemberships, elapsedDays: days.length, completionDate: Object.values(finalRemainingByLayer).every((value) => value === 0) ? days.at(-1)?.date : null, warning, remainingByLayer: finalRemainingByLayer } };
 }
 function recalculateCampaign(){ pauseCampaign(); state.campaign = normalizeCampaignSettings(state.campaign); const run=simulateCampaign(state.campaign); state.campaignRun={...state.campaignRun,...run,stale:false,currentDayIndex:run.days.length?0:-1,playing:false,playbackTimer:null}; renderCampaign(); renderCampaignMapStatus(); return run; }
 function setCampaignDay(dayIndex){ if(!state.campaignRun.days.length){state.campaignRun.currentDayIndex=-1;} else state.campaignRun.currentDayIndex=Math.min(state.campaignRun.days.length-1,Math.max(0,Number(dayIndex)||0)); renderCampaign(); renderCampaignMapStatus(); }
@@ -5075,7 +5499,7 @@ function renderCampaignLayerAllocation(){
   const day=state.campaignRun.days[state.campaignRun.currentDayIndex];
   const layers=campaignLayerSummaries();
   if(!layers.length){
-    els.campaignLayerAllocation.innerHTML='<div class="empty-state">Draw a radius on the map to define the campaign scope.</div>';
+    els.campaignLayerAllocation.innerHTML='<div class="empty-state">Draw an action area on the map to define the campaign scope.</div>';
     return;
   }
   layers.forEach((layer,idx)=>{
@@ -5163,7 +5587,7 @@ function renderCampaignDashboard(){
   const higherBandAmount=campaignAllocationAmount(day,(allocation)=>allocation.rangeBandSubstitution);
   const higherBandRows=campaignHigherBandRows(day);
   const higherBandTable=higherBandRows?`<h4>Higher-band coverage</h4><div class="campaign-table"><table><thead><tr><th>Target band</th><th>Source band</th><th>Resource</th><th>Amount</th></tr></thead><tbody>${higherBandRows}</tbody></table></div>`:"";
-  els.campaignDashboard.innerHTML=`<div class="campaign-cards"><div><strong>${total}</strong><span>Total entries</span></div><div><strong>${executed}</strong><span>Executed</span></div><div><strong>${remaining}</strong><span>Remaining</span></div><div><strong>${campaignDayLabel(day)}</strong><span>Current day</span></div><div><strong>${state.campaignRun.summary?.elapsedDays||0}</strong><span>Elapsed days</span></div><div><strong>${escapeHtml(completion)}</strong><span>Completion date</span></div><div><strong>${wholeNumberFmt(costSummary.cumulativeTotalCost)}</strong><span>Total cost</span></div><div><strong>${wholeNumberFmt(higherBandAmount)}</strong><span>Higher-band resources expended</span></div></div>${state.campaignRun.summary?.warning?`<p class="warning">${escapeHtml(state.campaignRun.summary.warning)}</p>`:''}${higherBandTable}<h4>Resources</h4><div class="campaign-table"><table><thead><tr><th>Range band</th><th>Resource</th><th>Initial</th><th>Production</th><th>Expended</th><th>Unit cost</th><th>Cost</th><th>Ending stock</th><th>Requested delta</th><th>Sub in</th><th>Sub out</th><th>Fire used</th></tr></thead><tbody>${resourceRows}</tbody></table></div><h4>Layers</h4><div class="campaign-table"><table><thead><tr><th>Layer</th><th>Total</th><th>Executed</th><th>Remaining</th><th>Weight</th><th>Priority</th><th>Depleted day</th></tr></thead><tbody>${layerRows}</tbody></table></div>`;
+  els.campaignDashboard.innerHTML=`<div class="campaign-cards"><div><strong>${total}</strong><span>Total entries</span></div><div><strong>${executed}</strong><span>Executed</span></div><div><strong>${remaining}</strong><span>Remaining</span></div><div><strong>${state.campaignRun.summary?.overlapReengagementMemberships||0}</strong><span>Overlap re-engagements</span></div><div><strong>${campaignDayLabel(day)}</strong><span>Current day</span></div><div><strong>${state.campaignRun.summary?.elapsedDays||0}</strong><span>Elapsed days</span></div><div><strong>${escapeHtml(completion)}</strong><span>Completion date</span></div><div><strong>${wholeNumberFmt(costSummary.cumulativeTotalCost)}</strong><span>Total cost</span></div><div><strong>${wholeNumberFmt(higherBandAmount)}</strong><span>Higher-band resources expended</span></div></div>${state.campaignRun.summary?.warning?`<p class="warning">${escapeHtml(state.campaignRun.summary.warning)}</p>`:''}${higherBandTable}<h4>Resources</h4><div class="campaign-table"><table><thead><tr><th>Range band</th><th>Resource</th><th>Initial</th><th>Production</th><th>Expended</th><th>Unit cost</th><th>Cost</th><th>Ending stock</th><th>Requested delta</th><th>Sub in</th><th>Sub out</th><th>Fire used</th></tr></thead><tbody>${resourceRows}</tbody></table></div><h4>Layers</h4><div class="campaign-table"><table><thead><tr><th>Layer</th><th>Total</th><th>Executed</th><th>Remaining</th><th>Weight</th><th>Priority</th><th>Depleted day</th></tr></thead><tbody>${layerRows}</tbody></table></div>`;
 }
 function campaignBandResourceLines(day, field) {
   return campaignBandMetadata().flatMap((band)=>state.estimator.resources.map((resource)=>`${escapeHtml(band.label)} / ${escapeHtml(resource.label)}: ${numberFmt(day?.[field]?.[band.id]?.[resource.id]||0,2)}`)).join("<br>");
@@ -5218,14 +5642,14 @@ function renderCampaignDailyTable(){
   els.campaignDailyTable.querySelectorAll('[data-day]').forEach(r=>r.onclick=e=>setCampaignDay(Number(e.currentTarget.dataset.day)));
 }
 function buildCampaignTimelineCsv(){
-  const fields=['day_index','date','range_band_id','range_band_label','layer_id','layer_label','requested_targets','executed_targets','deferred_targets','remaining_targets','resource_id','resource_label','requested_demand','expended','substituted_in','substituted_out','unit_cost','cost','daily_production','starting_stock','available_supply','ending_stock','fire_capacity','fire_capacity_remaining','requested_supply_delta','executed_supply_delta','cumulative_expended','cumulative_cost','row_type','day','layer','target_band','source_band','required_resource','expended_resource','amount','resource_type_substitution','range_band_substitution','allocation_unit_cost','allocation_total_cost'];
+  const fields=['day_index','date','range_band_id','range_band_label','layer_id','layer_label','requested_targets','executed_targets','deferred_targets','remaining_targets','resource_id','resource_label','requested_demand','expended','substituted_in','substituted_out','unit_cost','cost','daily_production','starting_stock','available_supply','ending_stock','fire_capacity','fire_capacity_remaining','requested_supply_delta','executed_supply_delta','cumulative_expended','cumulative_cost','row_type','campaign_scope_id','campaign_scope_label','day','layer','target_band','source_band','required_resource','expended_resource','amount','resource_type_substitution','range_band_substitution','allocation_unit_cost','allocation_total_cost'];
   const lines=[fields.join(',')];
   for(const d of state.campaignRun.days){
     for(const l of campaignLayerSummaries()) for(const band of campaignBandMetadata()) for(const r of state.estimator.resources){
       const unitCost=state.campaign.resourceUnitCostByBand?.[band.id]?.[r.id]||0;
       const expended=d.expendedByLayerBandResource?.[l.id]?.[band.id]?.[r.id]||0;
       const cumulativeExpended=d.cumulativeExpendedByBandResource?.[band.id]?.[r.id]||0;
-      const row={day_index:d.dayIndex,date:d.date,range_band_id:band.id,range_band_label:band.label,layer_id:l.id,layer_label:l.label,requested_targets:d.requestedTargetsByLayerBand?.[l.id]?.[band.id]||0,executed_targets:d.executedTargetsByLayerBand?.[l.id]?.[band.id]||0,deferred_targets:d.deferredTargetsByLayerBand?.[l.id]?.[band.id]||0,remaining_targets:d.remainingTargetsByLayerBand?.[l.id]?.[band.id]||0,resource_id:r.id,resource_label:r.label,requested_demand:d.requestedDemandByLayerBandResource?.[l.id]?.[band.id]?.[r.id]||0,expended,substituted_in:d.substitutionByLayerBandResource?.[l.id]?.[band.id]?.[r.id]?.substitutedIn||0,substituted_out:d.substitutionByLayerBandResource?.[l.id]?.[band.id]?.[r.id]?.substitutedOut||0,unit_cost:unitCost,cost:expended*unitCost,daily_production:d.productionByBandResource?.[band.id]?.[r.id]||0,starting_stock:d.startingStockByBandResource?.[band.id]?.[r.id]||0,available_supply:d.availableSupplyByBandResource?.[band.id]?.[r.id]||0,ending_stock:d.endingStockByBandResource?.[band.id]?.[r.id]||0,fire_capacity:d.fireCapacityByBandResource?.[band.id]?.[r.id]||0,fire_capacity_remaining:d.fireCapacityRemainingByBandResource?.[band.id]?.[r.id]||0,requested_supply_delta:d.requestedSupplyDeltaByBandResource?.[band.id]?.[r.id]||0,executed_supply_delta:d.executedSupplyDeltaByBandResource?.[band.id]?.[r.id]||0,cumulative_expended:cumulativeExpended,cumulative_cost:cumulativeExpended*unitCost,row_type:"aggregate"};
+      const row={day_index:d.dayIndex,date:d.date,range_band_id:band.id,range_band_label:band.label,layer_id:l.id,layer_label:l.label,requested_targets:d.requestedTargetsByLayerBand?.[l.id]?.[band.id]||0,executed_targets:d.executedTargetsByLayerBand?.[l.id]?.[band.id]||0,deferred_targets:d.deferredTargetsByLayerBand?.[l.id]?.[band.id]||0,remaining_targets:d.remainingTargetsByLayerBand?.[l.id]?.[band.id]||0,resource_id:r.id,resource_label:r.label,requested_demand:d.requestedDemandByLayerBandResource?.[l.id]?.[band.id]?.[r.id]||0,expended,substituted_in:d.substitutionByLayerBandResource?.[l.id]?.[band.id]?.[r.id]?.substitutedIn||0,substituted_out:d.substitutionByLayerBandResource?.[l.id]?.[band.id]?.[r.id]?.substitutedOut||0,unit_cost:unitCost,cost:expended*unitCost,daily_production:d.productionByBandResource?.[band.id]?.[r.id]||0,starting_stock:d.startingStockByBandResource?.[band.id]?.[r.id]||0,available_supply:d.availableSupplyByBandResource?.[band.id]?.[r.id]||0,ending_stock:d.endingStockByBandResource?.[band.id]?.[r.id]||0,fire_capacity:d.fireCapacityByBandResource?.[band.id]?.[r.id]||0,fire_capacity_remaining:d.fireCapacityRemainingByBandResource?.[band.id]?.[r.id]||0,requested_supply_delta:d.requestedSupplyDeltaByBandResource?.[band.id]?.[r.id]||0,executed_supply_delta:d.executedSupplyDeltaByBandResource?.[band.id]?.[r.id]||0,cumulative_expended:cumulativeExpended,cumulative_cost:cumulativeExpended*unitCost,row_type:"aggregate",campaign_scope_id:state.campaignScopeId,campaign_scope_label:campaignScopeLabel()};
       lines.push(fields.map(f=>csvEscape(row[f])).join(','));
     }
     for (const allocation of d.resourceAllocations || []) {
@@ -5235,6 +5659,8 @@ function buildCampaignTimelineCsv(){
         layer_id: allocation.layerId,
         layer_label: layerInfoById(allocation.layerId).label || allocation.layerId,
         row_type: "allocation",
+        campaign_scope_id: state.campaignScopeId,
+        campaign_scope_label: campaignScopeLabel(),
         day: d.dayIndex + 1,
         layer: layerInfoById(allocation.layerId).label || allocation.layerId,
         target_band: rangeBandLabelById(allocation.targetBandId),
@@ -5252,7 +5678,7 @@ function buildCampaignTimelineCsv(){
   }
   return lines.join('\r\n');
 }
-function buildCampaignTimelineJson(){ const dailySnapshots=state.campaignRun.days.map((day)=>campaignDayWithCost(day)); const lastDay=dailySnapshots.at(-1); return {exportedAt:new Date().toISOString(),settings:serializeCampaignSettings(),summary:{...state.campaignRun.summary,totalCost:lastDay?.cumulativeTotalCost||0},dailySnapshots,rangeBandMetadata:campaignBandMetadata(),layerMetadata:campaignLayerSummaries(),resourceMetadata:state.estimator.resources}; }
+function buildCampaignTimelineJson(){ const dailySnapshots=state.campaignRun.days.map((day)=>campaignDayWithCost(day)); const lastDay=dailySnapshots.at(-1); return {exportedAt:new Date().toISOString(),settings:serializeCampaignSettings(),campaignScope:{id:state.campaignScopeId,label:campaignScopeLabel(),coverage:actionAreaCoverageSummary(),actionAreas:serializeActionAreas()},summary:{...state.campaignRun.summary,totalCost:lastDay?.cumulativeTotalCost||0},dailySnapshots,rangeBandMetadata:campaignBandMetadata(),layerMetadata:campaignLayerSummaries(),resourceMetadata:state.estimator.resources}; }
 function exportCampaignTimelineCsv(){ if(!state.campaignRun.days.length) return alert('Run simulation before exporting timeline CSV.'); downloadTextFile(`campaign_timeline_${new Date().toISOString().replace(/[:.]/g,'-')}.csv`,buildCampaignTimelineCsv(),'text/csv;charset=utf-8'); }
 function exportCampaignTimelineJson(){ if(!state.campaignRun.days.length) return alert('Run simulation before exporting timeline JSON.'); downloadTextFile(`campaign_timeline_${new Date().toISOString().replace(/[:.]/g,'-')}.json`,JSON.stringify(buildCampaignTimelineJson(),null,2),'application/json;charset=utf-8'); }
 function campaignProfileSnapshot(name){ return {version:APP_VERSION,name,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),...serializeCampaignSettings(),profiles:undefined}; }
@@ -5270,16 +5696,41 @@ function saveCampaignProfile(){ const name=prompt('Profile name?','Campaign prof
 function renderCampaignProfiles(){ if(!els.campaignProfileSelect) return; els.campaignProfileSelect.innerHTML=(state.campaign.profiles||[]).map((p,i)=>`<option value="${i}">${escapeHtml(p.name)}</option>`).join(''); }
 function loadCampaignProfile(){ const p=state.campaign.profiles[Number(els.campaignProfileSelect?.value)]; if(p){ state.campaign=normalizeCampaignSettings({...p,profiles:state.campaign.profiles}); state.campaignRun.stale=true; renderCampaign(); savePreferencesNow(); }}
 function deleteCampaignProfile(){ const i=Number(els.campaignProfileSelect?.value); if(Number.isInteger(i)){ state.campaign.profiles.splice(i,1); renderCampaignProfiles(); savePreferencesNow(); }}
+function renderCampaignScopeTabs() {
+  if (!els.campaignScopeTabs || !els.campaignCoverageSummary) return;
+  ensureValidCampaignScope();
+  els.campaignScopeTabs.innerHTML = "";
+  const scopes = state.actionAreas.length
+    ? [{ id: COMBINED_CAMPAIGN_SCOPE_ID, name: "Combined", color: "#ded9ce", count: combinedActionAreaResults().length }, ...state.actionAreas.map((area) => ({ id: area.id, name: area.name, color: area.color, count: (area.results || []).length }))]
+    : [];
+  for (const scope of scopes) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "campaign-scope-tab";
+    button.classList.toggle("active", scope.id === state.campaignScopeId);
+    button.innerHTML = `<i style="background:${scope.color}" aria-hidden="true"></i><span>${escapeHtml(scope.name)}</span><b>${scope.count.toLocaleString()}</b>`;
+    button.addEventListener("click", () => setCampaignScope(scope.id));
+    els.campaignScopeTabs.appendChild(button);
+  }
+  const coverage = actionAreaCoverageSummary();
+  const delayedOverlapCount = [...pendingOverlapMembershipsForCombinedScope().values()].reduce((total, rows) => total + rows.length, 0);
+  els.campaignCoverageSummary.innerHTML = state.actionAreas.length
+    ? `<span>${coverage.uniqueCount.toLocaleString()} unique targets</span><span>${coverage.overlapCount.toLocaleString()} overlapping targets</span><span>${delayedOverlapCount.toLocaleString()} overlap memberships delayed by re-engagement</span>`
+    : "";
+}
 function renderCampaignPlayer(){ if(!els.campaignPlayer) return; const noScope=!campaignScopeEntries().length, noRun=!state.campaignRun.days.length; const day=campaignSelectedDay(); els.campaignPlayer.innerHTML=`<div class="actions-row"><button id="campaignRunBtn" ${noScope?'disabled':''}>Recalculate / Run simulation</button><button id="campaignResetBtn" ${noRun?'disabled':''}>Reset run</button><button id="campaignPrevBtn" ${noRun?'disabled':''}>Previous</button><button id="campaignPlayBtn" ${state.campaignRun.stale||noRun?'disabled':''}>${state.campaignRun.playing?'Pause':'Play'}</button><button id="campaignNextBtn" ${noRun?'disabled':''}>Next</button></div><input id="campaignDaySlider" type="range" min="0" max="${Math.max(0,state.campaignRun.days.length-1)}" value="${Math.max(0,state.campaignRun.currentDayIndex)}" ${noRun?'disabled':''}><div>${campaignDayLabel(day)} ${state.campaignRun.stale?'<span class="warning">Stale: recalculate required.</span>':''}</div>`; document.getElementById('campaignRunBtn').onclick=recalculateCampaign; document.getElementById('campaignResetBtn').onclick=resetCampaignPlayback; document.getElementById('campaignPrevBtn').onclick=()=>stepCampaign(-1); document.getElementById('campaignNextBtn').onclick=()=>stepCampaign(1); document.getElementById('campaignPlayBtn').onclick=()=>state.campaignRun.playing?pauseCampaign({ render: true }):playCampaign(); document.getElementById('campaignDaySlider').oninput=e=>setCampaignDay(Number(e.target.value)); }
 function updateCampaignExportButtons(){ const disabled=!state.campaignRun.days.length; if(els.exportCampaignTimelineCsvBtn) els.exportCampaignTimelineCsvBtn.disabled=disabled; if(els.exportCampaignTimelineJsonBtn) els.exportCampaignTimelineJsonBtn.disabled=disabled; }
-function renderCampaign(){ state.campaign=normalizeCampaignSettings(state.campaign || state.savedPreferences?.campaign); if(els.campaignScopeSummary) els.campaignScopeSummary.textContent=`${campaignScopeEntries().length.toLocaleString()} entries from current radius`; if(els.campaignStatus) els.campaignStatus.textContent=campaignScopeEntries().length?'Campaign scope ready.':'Draw a radius on the map to define the campaign scope.'; renderCampaignProfiles(); renderCampaignSettings(); renderCampaignLayerAllocation(); renderCampaignCapacity(); renderCampaignSupply(); renderCampaignCosts(); renderCampaignPlayer(); renderCampaignDashboard(); renderCampaignDailyTable(); updateCampaignExportButtons(); }
+function renderCampaign(){ state.campaign=normalizeCampaignSettings(state.campaign || state.savedPreferences?.campaign); const scopeEntries=campaignScopeEntries(); if(els.campaignScopeSummary) els.campaignScopeSummary.textContent=`${scopeEntries.length.toLocaleString()} entries from ${campaignScopeLabel()}`; if(els.campaignStatus) els.campaignStatus.textContent=scopeEntries.length?'Campaign scope ready.':'Draw an action area on the map to define the campaign scope.'; renderCampaignScopeTabs(); renderCampaignProfiles(); renderCampaignSettings(); renderCampaignLayerAllocation(); renderCampaignCapacity(); renderCampaignSupply(); renderCampaignCosts(); renderCampaignPlayer(); renderCampaignDashboard(); renderCampaignDailyTable(); updateCampaignExportButtons(); }
 
 function exportEstimatorAssumptions() {
   const payload = {
     version: 1,
     exportedAt: new Date().toISOString(),
     estimator: serializeEstimatorAssumptions(),
+    actionAreas: serializeActionAreas(),
+    activeActionAreaId: state.activeActionAreaId,
     selectedTab: state.selectedTab,
+    campaignScopeId: state.campaignScopeId,
     campaign: serializeCampaignSettings(),
   };
   downloadTextFile(
@@ -5296,6 +5747,17 @@ function importEstimatorAssumptionsFromText(text) {
     ...assumptions,
     profiles: Array.isArray(assumptions?.profiles) ? assumptions.profiles : state.estimator.profiles,
   });
+  if (Array.isArray(parsed?.actionAreas)) {
+    state.actionAreas = parsed.actionAreas.map((area, index) => normalizeActionArea(area, index)).filter(Boolean);
+    state.activeActionAreaId = actionAreaById(parsed?.activeActionAreaId)?.id || state.actionAreas[0]?.id || null;
+    state.campaignScopeId = parsed?.campaignScopeId || state.campaignScopeId || COMBINED_CAMPAIGN_SCOPE_ID;
+    ensureValidCampaignScope();
+    recalculateActionAreas();
+    renderActionAreaOverlays();
+    renderActionAreasList();
+    renderRadiusResultList();
+    applyRadiusDimming(loadedVisibleFeatures(), state.radiusResults);
+  }
   renderEstimator();
   state.campaign = normalizeCampaignSettings(state.campaign);
   state.campaignRun.stale = true;
@@ -5337,7 +5799,7 @@ function buildEstimatorCsv() {
 
 function exportEstimatorCsv() {
   if (!state.radiusResults.length) {
-    alert("No estimate to export. Draw a radius first.");
+    alert("No estimate to export. Draw an action area first.");
     return;
   }
   downloadTextFile(
