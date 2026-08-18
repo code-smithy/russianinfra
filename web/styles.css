@@ -156,6 +156,17 @@ input {
   font-size: 12px;
 }
 
+.header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.tutorial-launch-btn {
+  min-width: 76px;
+}
+
 .panel {
   padding: 12px;
   background: var(--panel-2);
@@ -1418,6 +1429,90 @@ input {
   margin: 0;
 }
 
+.tutorial-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1290;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.46);
+}
+
+.tutorial-card {
+  position: fixed;
+  z-index: 1600;
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid #6f5a25;
+  border-radius: 8px;
+  background: #1b1b1b;
+  box-shadow: var(--shadow);
+}
+
+.tutorial-card-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  gap: 8px;
+  align-items: start;
+}
+
+.tutorial-kicker {
+  margin: 0 0 3px;
+  color: var(--accent-2);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.tutorial-card h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+}
+
+.tutorial-card p {
+  margin: 0;
+  color: #ded9ce;
+  font-size: 13px;
+}
+
+.tutorial-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.tutorial-actions .text-btn {
+  min-width: 0;
+}
+
+.tutorial-highlight {
+  position: relative;
+  z-index: 1500 !important;
+  outline: 2px solid var(--accent-2);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.52), 0 0 0 6px rgba(224, 167, 47, 0.28), var(--shadow);
+}
+
+.tutorial-highlight#mapView,
+.tutorial-highlight.campaign-view {
+  isolation: isolate;
+}
+
+.tutorial-highlight .leaflet-control-container {
+  position: relative;
+  z-index: 1501;
+}
+
+.tutorial-card .icon-btn {
+  width: 30px;
+  height: 30px;
+  font-size: 16px;
+}
+
 .version-history {
   display: grid;
   gap: 8px;
@@ -1657,6 +1752,14 @@ input {
   .estimator-sidebar {
     order: 3;
     border-top: 1px solid var(--border);
+  }
+
+  .tutorial-card {
+    right: 12px !important;
+    bottom: 12px !important;
+    left: 12px !important;
+    top: auto !important;
+    width: auto;
   }
 }
 

@@ -1,5 +1,5 @@
 const DATA_DIR = "data/";
-const APP_VERSION = "0.17.0";
+const APP_VERSION = "0.18.0";
 const APP_VERSION_LABEL = `v${APP_VERSION}`;
 const STORAGE_KEY = "infrastructureExplorer.preferences.v1";
 const OUT_OF_RADIUS_POINT_OPACITY = 0.5;
@@ -135,6 +135,212 @@ const CAMPAIGN_BLOCKS = [
   { key: "campaignCosts", label: "Resource costs" },
   { key: "campaignProfiles", label: "Profiles" },
 ];
+const TUTORIAL_STEPS = [
+  {
+    id: "overview",
+    title: "Start with the workspace",
+    body: "This explorer is driven from the side panels. Your layer choices, filters, action areas, estimator assumptions, campaign settings, and tutorial progress are saved in this browser.",
+    targetId: "appVersion",
+    tab: "map",
+  },
+  {
+    id: "tabs",
+    title: "Switch between workflows",
+    body: "Use Map for loading and filtering infrastructure, drawing action areas, and reviewing estimates. Use Campaign after an action area exists and you want to simulate execution over time.",
+    targetId: "tabMapBtn",
+    tab: "map",
+  },
+  {
+    id: "layers",
+    title: "Choose active data layers",
+    body: "Load the records you want to inspect. Layer and subcategory choices decide what appears on the map and what downstream tools can use.",
+    targetId: "layersPanel",
+    tab: "map",
+    expandPanelKey: "layers",
+  },
+  {
+    id: "countries",
+    title: "Constrain by country",
+    body: "Use country filters to reduce loaded records before searching, drawing an action area, or estimating a scenario.",
+    targetId: "countriesPanel",
+    tab: "map",
+    expandPanelKey: "countries",
+  },
+  {
+    id: "search",
+    title: "Search what is loaded",
+    body: "Search Loaded only scans records that are currently active after layer, subcategory, country, and timeline filters. Pick a result to open it on the map.",
+    targetId: "searchPanel",
+    tab: "map",
+    expandPanelKey: "search",
+  },
+  {
+    id: "actionAreas",
+    title: "Draw action areas",
+    body: "Use Draw Area, then drag on the map to define a radius. Multiple action areas can be kept, compared, exported, and reused in campaign scopes.",
+    targetId: "radiusMenuPanel",
+    tab: "map",
+    expandPanelKey: "radiusMenu",
+  },
+  {
+    id: "areaResults",
+    title: "Review area results",
+    body: "After an area is drawn, Area Results lists matching active records by distance. These results can be exported, estimated, or used as Campaign scope.",
+    targetId: "radiusMenuPanel",
+    tab: "map",
+    expandPanelKey: "radiusMenu",
+  },
+  {
+    id: "timeline",
+    title: "Filter by build timing",
+    body: "Timeline filters narrow active records by source dates, first seen, last seen, new-in-latest status, or changed-since-previous-build status.",
+    targetId: "temporalPanel",
+    tab: "map",
+    expandPanelKey: "temporal",
+  },
+  {
+    id: "map",
+    title: "Inspect the map result",
+    body: "The map highlights records inside the selected action area and dims out-of-area records. Popups preserve source fields and references for review.",
+    targetId: "mapView",
+    tab: "map",
+  },
+  {
+    id: "fitLoaded",
+    title: "Fit loaded layers",
+    body: "Use this control to return the map to the bounds of currently loaded visible records after panning, zooming, or switching layers.",
+    targetId: "fitLoadedBtn",
+    tab: "map",
+  },
+  {
+    id: "estimator",
+    title: "Use the right-side estimator",
+    body: "Scenario Estimator converts the selected action-area results into resource demand. Its settings, profiles, imports, exports, and calculated estimate all live on the right side.",
+    targetId: "estimatorPanel",
+    tab: "map",
+    expandPanelKey: "estimator",
+  },
+  {
+    id: "rangeBands",
+    title: "Define range bands",
+    body: "Range bands divide area results by distance from the selected action-area origin. The estimate and campaign planner use these bands for resource demand and stock separation.",
+    targetId: "rangeBandsBlock",
+    tab: "map",
+    expandPanelKey: "estimator",
+    expandEstimatorBlockKey: "rangeBands",
+  },
+  {
+    id: "resourceTypes",
+    title: "Define resource types",
+    body: "Resource types set labels, completion rates, and penetration values. Completion affects estimated demand, while penetration is checked against category hardness in Campaign.",
+    targetId: "resourceTypesBlock",
+    tab: "map",
+    expandPanelKey: "estimator",
+    expandEstimatorBlockKey: "resourceTypes",
+  },
+  {
+    id: "categoryAssumptions",
+    title: "Set category assumptions",
+    body: "Category assumptions control units per target, hardness, and re-engagement days for each layer. These values drive both the estimate and the Campaign simulation.",
+    targetId: "categoryAssumptionsBlock",
+    tab: "map",
+    expandPanelKey: "estimator",
+    expandEstimatorBlockKey: "categoryAssumptions",
+  },
+  {
+    id: "estimate",
+    title: "Read the estimate",
+    body: "The Estimate section summarizes required resources by layer, range band, and resource type. Export estimate writes the calculated demand to CSV.",
+    targetId: "estimateBlock",
+    tab: "map",
+    expandPanelKey: "estimator",
+    expandEstimatorBlockKey: "estimate",
+  },
+  {
+    id: "changeReport",
+    title: "Check build comparison",
+    body: "Build comparison shows new, removed, changed, moved, and suspiciously shifted records from the latest local data build comparison.",
+    targetId: "changeReportPanel",
+    tab: "map",
+    expandPanelKey: "changeReport",
+  },
+  {
+    id: "campaignScope",
+    title: "Move to campaign planning",
+    body: "The Campaign tab can use the selected action area, any other action area, or the Combined scope. Combined removes duplicate day-one target counting across overlaps.",
+    targetId: "campaignScopeTabs",
+    tab: "campaign",
+  },
+  {
+    id: "campaignSettings",
+    title: "Set campaign constraints",
+    body: "Settings, allocation, capacity, supply, production, substitution, and costs control how the simulation spends resources over time.",
+    targetId: "campaignSettingsBlock",
+    tab: "campaign",
+    expandCampaignBlockKey: "campaignSettings",
+  },
+  {
+    id: "campaignLayerAllocation",
+    title: "Prioritize campaign layers",
+    body: "Layer priority and allocation decides which scoped targets are attempted first when command capacity is limited. Priority orders sequential allocation and breaks weighted ties.",
+    targetId: "campaignLayerAllocationBlock",
+    tab: "campaign",
+    expandCampaignBlockKey: "campaignLayerAllocation",
+  },
+  {
+    id: "campaignCapacity",
+    title: "Set campaign capacity",
+    body: "Capacity limits how many targets can be commanded each day and how many resources of each type and range band can be fired per day.",
+    targetId: "campaignCapacityBlock",
+    tab: "campaign",
+    expandCampaignBlockKey: "campaignCapacity",
+  },
+  {
+    id: "campaignSupply",
+    title: "Set supply and production",
+    body: "Supply and production define initial stock and monthly replenishment by range band and resource type. The simulator spends from these pools over time.",
+    targetId: "campaignSupplyBlock",
+    tab: "campaign",
+    expandCampaignBlockKey: "campaignSupply",
+  },
+  {
+    id: "campaignCosts",
+    title: "Assign resource costs",
+    body: "Resource costs let the campaign dashboard and exports calculate daily and cumulative cost from the actual resource type and source range band expended.",
+    targetId: "campaignCostsBlock",
+    tab: "campaign",
+    expandCampaignBlockKey: "campaignCosts",
+  },
+  {
+    id: "campaignProfiles",
+    title: "Save campaign profiles",
+    body: "Profiles store reusable campaign settings locally. You can save, load, delete, export, or import profiles without changing the source map data.",
+    targetId: "campaignProfilesBlock",
+    tab: "campaign",
+    expandCampaignBlockKey: "campaignProfiles",
+  },
+  {
+    id: "campaignPlayer",
+    title: "Run and review the timeline",
+    body: "Run the simulation, step day by day, or play it back. The dashboard, daily table, exports, and map status overlay all follow the selected day.",
+    targetId: "campaignPlayer",
+    tab: "campaign",
+  },
+  {
+    id: "campaignDashboard",
+    title: "Read the campaign dashboard",
+    body: "Dashboard cards and tables summarize executed, deferred, remaining, stock, production, substitution, higher-band coverage, and cost metrics for the selected day.",
+    targetId: "campaignDashboard",
+    tab: "campaign",
+  },
+  {
+    id: "campaignDailyTimeline",
+    title: "Audit the daily timeline",
+    body: "Daily timeline lists the simulated days and detailed allocations. Use it to audit what executed, what was deferred, and what resources were consumed.",
+    targetId: "campaignDailyTable",
+    tab: "campaign",
+  },
+];
 const CAMPAIGN_ALLOCATION_MODES = ["weighted", "sequential"];
 const CAMPAIGN_SUBSTITUTION_MODES = ["off", "priority", "weighted", "split_evenly"];
 const DEFAULT_RESOURCE_SUBSTITUTION_SETTINGS = { enabled: false, mode: "off", preserveRangeBand: true, substitutePriorityOrder: [], substituteWeights: {}, higherBandPriorityOrder: [] };
@@ -153,10 +359,12 @@ const INFO_TOPICS = {
   app: {
     title: `Infrastructure Explorer ${APP_VERSION_LABEL}`,
     paragraphs: [
+      "Version 0.18.0 adds a comprehensive, locally persisted tutorial overlay across the map, estimator, build comparison, and campaign workflows.",
       "Version 0.17.0 adds multi-area campaign scopes with overlap tracking and re-engagement-aware deconfliction. Version 0.16.0 adds optional higher-range band coverage for lower-range targets.",
       "Highlights include Nightwatch military map scraping, resilient OSINT Varta archive capture selection, automatic country-boundary bootstrapping, and a durable compressed comparison baseline for scheduled builds.",
     ],
     history: [
+      { version: "0.18.0", date: "2026-08-18", notes: ["Adds a Tutorial button that opens a step-by-step overlay without forcing onboarding on launch.", "Highlights each relevant application area while walking through map controls, action areas, timeline filters, estimator sections, build comparison, and Campaign planning.", "Persists tutorial progress and disabled state locally with the rest of the browser preferences."] },
       { version: "0.17.0", date: "2026-08-18", notes: ["Adds color-coded Action Areas so multiple radii can be drawn and managed on the map.", "Adds Campaign scope tabs for Combined and per-area runs, with Combined deconflicting overlapping targets.", "Schedules overlapping target memberships through category re-engagement timing instead of inflating immediate campaign demand."] },
       { version: "0.16.0", date: "2026-07-23", notes: ["Adds an independent Campaign setting allowing higher-range bands to cover lower-range targets.", "Adds configurable higher-band borrowing priority with strict downward-only allocation and atomic execution.", "Reports target/source band allocation details in the dashboard, daily timeline, CSV, JSON, saved settings, and campaign profiles."] },
       { version: "0.15.0", date: "2026-07-07", notes: ["Adds resource penetration and category hardness inputs to Scenario Estimator assumptions.", "Persists hardness and penetration in saved settings, estimator profiles, imports, and exports.", "Blocks Campaign target execution when native or substituted resources do not exceed a target layer hardness value."] },
@@ -334,6 +542,18 @@ const INFO_TOPICS = {
   },
 };
 
+function normalizeTutorialState(value) {
+  const stepIndex = Number(value?.stepIndex);
+  const disabled = value?.disabled === true;
+  return {
+    active: value?.active === true && !disabled,
+    disabled,
+    stepIndex: Number.isInteger(stepIndex)
+      ? Math.max(0, Math.min(stepIndex, TUTORIAL_STEPS.length - 1))
+      : 0,
+  };
+}
+
 const state = {
   manifest: null,
   changeReport: null,
@@ -372,6 +592,8 @@ const state = {
   activeMenuResize: null,
   estimator: normalizeEstimatorAssumptions(loadSavedPreferences()?.estimator),
   selectedTab: loadSavedPreferences()?.selectedTab === "campaign" ? "campaign" : "map",
+  tutorial: normalizeTutorialState(loadSavedPreferences()?.tutorial),
+  tutorialHighlightedElement: null,
   campaignScopeId: loadSavedPreferences()?.campaignScopeId || COMBINED_CAMPAIGN_SCOPE_ID,
   campaign: null,
   campaignRun: { stale: true, currentDayIndex: -1, playing: false, playbackTimer: null, days: [], summary: null },
@@ -451,6 +673,7 @@ const els = {
   changeReportBuilds: document.getElementById("changeReportBuilds"),
   changeReportSummary: document.getElementById("changeReportSummary"),
   changeReportDetails: document.getElementById("changeReportDetails"),
+  tutorialBtn: document.getElementById("tutorialBtn"),
   fitLoadedBtn: document.getElementById("fitLoadedBtn"),
   radiusModeBtn: document.getElementById("radiusModeBtn"),
   radiusPanel: document.getElementById("radiusPanel"),
@@ -538,6 +761,16 @@ const els = {
   importCampaignProfileBtn: document.getElementById("importCampaignProfileBtn"),
   exportCampaignTimelineCsvBtn: document.getElementById("exportCampaignTimelineCsvBtn"),
   exportCampaignTimelineJsonBtn: document.getElementById("exportCampaignTimelineJsonBtn"),
+  tutorialBackdrop: null,
+  tutorialCard: null,
+  tutorialCounter: null,
+  tutorialTitle: null,
+  tutorialBody: null,
+  tutorialBackBtn: null,
+  tutorialNextBtn: null,
+  tutorialFinishBtn: null,
+  tutorialDisableBtn: null,
+  tutorialCloseBtn: null,
 };
 
 let activeInfoButton = null;
@@ -652,6 +885,210 @@ function setupInfoButtons() {
     if (event.key === "Escape") closeInfoPopover();
   });
   window.addEventListener("resize", closeInfoPopover);
+}
+
+function setupTutorial() {
+  if (!els.tutorialBtn || !document.body?.appendChild) return;
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "tutorial-backdrop";
+  backdrop.hidden = true;
+
+  const card = document.createElement("aside");
+  card.className = "tutorial-card";
+  card.hidden = true;
+  card.setAttribute("role", "dialog");
+  card.setAttribute("aria-modal", "false");
+  card.setAttribute("aria-labelledby", "tutorialTitle");
+
+  const header = document.createElement("div");
+  header.className = "tutorial-card-header";
+  const titleWrap = document.createElement("div");
+  const counter = document.createElement("p");
+  counter.className = "tutorial-kicker";
+  const title = document.createElement("h2");
+  title.id = "tutorialTitle";
+  titleWrap.append(counter, title);
+  const closeButton = document.createElement("button");
+  closeButton.type = "button";
+  closeButton.className = "icon-btn";
+  closeButton.setAttribute("aria-label", "Close tutorial");
+  closeButton.textContent = "x";
+  header.append(titleWrap, closeButton);
+
+  const body = document.createElement("p");
+  const actions = document.createElement("div");
+  actions.className = "tutorial-actions";
+  const backButton = document.createElement("button");
+  backButton.type = "button";
+  backButton.className = "text-btn";
+  backButton.textContent = "Back";
+  const nextButton = document.createElement("button");
+  nextButton.type = "button";
+  nextButton.className = "text-btn";
+  nextButton.textContent = "Next";
+  const finishButton = document.createElement("button");
+  finishButton.type = "button";
+  finishButton.className = "text-btn";
+  finishButton.textContent = "Finish";
+  const disableButton = document.createElement("button");
+  disableButton.type = "button";
+  disableButton.className = "text-btn";
+  disableButton.textContent = "Disable";
+  actions.append(backButton, nextButton, finishButton, disableButton);
+
+  card.append(header, body, actions);
+  document.body.appendChild(backdrop);
+  document.body.appendChild(card);
+
+  Object.assign(els, {
+    tutorialBackdrop: backdrop,
+    tutorialCard: card,
+    tutorialCounter: counter,
+    tutorialTitle: title,
+    tutorialBody: body,
+    tutorialBackBtn: backButton,
+    tutorialNextBtn: nextButton,
+    tutorialFinishBtn: finishButton,
+    tutorialDisableBtn: disableButton,
+    tutorialCloseBtn: closeButton,
+  });
+
+  els.tutorialBtn.addEventListener("click", () => {
+    if (state.tutorial.active) closeTutorial();
+    else startTutorial();
+  });
+  closeButton.addEventListener("click", closeTutorial);
+  backButton.addEventListener("click", () => setTutorialStep(state.tutorial.stepIndex - 1));
+  nextButton.addEventListener("click", () => setTutorialStep(state.tutorial.stepIndex + 1));
+  finishButton.addEventListener("click", finishTutorial);
+  disableButton.addEventListener("click", disableTutorial);
+  window.addEventListener("resize", renderTutorial);
+}
+
+function tutorialTargetForStep(step) {
+  return step?.targetId ? document.getElementById(step.targetId) : null;
+}
+
+function clearTutorialHighlight() {
+  state.tutorialHighlightedElement?.classList?.remove("tutorial-highlight");
+  state.tutorialHighlightedElement?.removeAttribute?.("data-tutorial-highlight");
+  state.tutorialHighlightedElement = null;
+}
+
+function prepareTutorialStep(step) {
+  if (!step) return;
+  if (step.tab) setSelectedTab(step.tab);
+  if (step.expandPanelKey) setCollapsiblePanelCollapsed(step.expandPanelKey, false);
+  if (step.expandEstimatorBlockKey) setEstimatorBlockCollapsed(step.expandEstimatorBlockKey, false);
+  if (step.expandCampaignBlockKey) setCampaignBlockCollapsed(step.expandCampaignBlockKey, false);
+}
+
+function highlightTutorialTarget(target) {
+  clearTutorialHighlight();
+  if (!target) return;
+  target.classList?.add("tutorial-highlight");
+  target.setAttribute?.("data-tutorial-highlight", "true");
+  target.scrollIntoView?.({ block: "center", inline: "nearest" });
+  state.tutorialHighlightedElement = target;
+}
+
+function positionTutorialCard(target) {
+  if (!els.tutorialCard) return;
+  const viewportW = Number(window.innerWidth) || 1280;
+  const viewportH = Number(window.innerHeight) || 720;
+  const gutter = 12;
+  const targetRect = target?.getBoundingClientRect?.();
+  const cardRect = els.tutorialCard.getBoundingClientRect?.();
+  const cardW = Math.min(cardRect?.width || 360, viewportW - gutter * 2);
+  const cardH = Math.min(cardRect?.height || 260, viewportH - gutter * 2);
+
+  let left = viewportW - cardW - gutter;
+  let top = gutter;
+  if (targetRect) {
+    const rightSpace = viewportW - targetRect.right;
+    const leftSpace = targetRect.left;
+    left = rightSpace >= cardW + gutter || rightSpace >= leftSpace
+      ? targetRect.right + gutter
+      : targetRect.left - cardW - gutter;
+    top = targetRect.top;
+  }
+
+  left = Math.max(gutter, Math.min(left, viewportW - cardW - gutter));
+  top = Math.max(gutter, Math.min(top, viewportH - cardH - gutter));
+  els.tutorialCard.style.left = `${left}px`;
+  els.tutorialCard.style.top = `${top}px`;
+  els.tutorialCard.style.right = "auto";
+  els.tutorialCard.style.bottom = "auto";
+}
+
+function renderTutorial() {
+  if (!els.tutorialCard || !els.tutorialBackdrop) return;
+  const active = state.tutorial.active && !state.tutorial.disabled;
+  els.tutorialBtn?.setAttribute("aria-expanded", active ? "true" : "false");
+  els.tutorialBtn?.classList.toggle("active", active);
+  if (!active) {
+    els.tutorialCard.hidden = true;
+    els.tutorialBackdrop.hidden = true;
+    clearTutorialHighlight();
+    return;
+  }
+
+  state.tutorial.stepIndex = Math.max(0, Math.min(state.tutorial.stepIndex, TUTORIAL_STEPS.length - 1));
+  const step = TUTORIAL_STEPS[state.tutorial.stepIndex];
+  prepareTutorialStep(step);
+  const target = tutorialTargetForStep(step);
+  els.tutorialCounter.textContent = `Step ${state.tutorial.stepIndex + 1} of ${TUTORIAL_STEPS.length}`;
+  els.tutorialTitle.textContent = step.title;
+  els.tutorialBody.textContent = step.body;
+  els.tutorialBackBtn.disabled = state.tutorial.stepIndex === 0;
+  els.tutorialNextBtn.disabled = state.tutorial.stepIndex === TUTORIAL_STEPS.length - 1;
+  els.tutorialNextBtn.textContent = state.tutorial.stepIndex === TUTORIAL_STEPS.length - 1 ? "Done" : "Next";
+  els.tutorialCard.hidden = false;
+  els.tutorialBackdrop.hidden = false;
+  highlightTutorialTarget(target);
+  positionTutorialCard(target);
+}
+
+function persistTutorialState() {
+  if (state.persistenceReady) savePreferencesNow();
+}
+
+function startTutorial(options = {}) {
+  state.tutorial.disabled = false;
+  state.tutorial.active = true;
+  if (options.restart) state.tutorial.stepIndex = 0;
+  renderTutorial();
+  persistTutorialState();
+}
+
+function closeTutorial() {
+  state.tutorial.active = false;
+  renderTutorial();
+  persistTutorialState();
+}
+
+function finishTutorial() {
+  state.tutorial.active = false;
+  state.tutorial.stepIndex = TUTORIAL_STEPS.length - 1;
+  renderTutorial();
+  persistTutorialState();
+}
+
+function disableTutorial() {
+  state.tutorial.active = false;
+  state.tutorial.disabled = true;
+  renderTutorial();
+  persistTutorialState();
+}
+
+function setTutorialStep(index) {
+  const nextIndex = Math.max(0, Math.min(Number(index) || 0, TUTORIAL_STEPS.length - 1));
+  state.tutorial.stepIndex = nextIndex;
+  state.tutorial.active = true;
+  state.tutorial.disabled = false;
+  renderTutorial();
+  persistTutorialState();
 }
 
 function viewportWidth() {
@@ -1174,6 +1611,7 @@ function currentPreferences() {
     activeActionAreaId: state.activeActionAreaId,
     estimator: serializeEstimatorAssumptions(),
     selectedTab: state.selectedTab,
+    tutorial: { ...state.tutorial },
     campaignScopeId: state.campaignScopeId,
     campaign: serializeCampaignSettings(),
   };
@@ -5826,11 +6264,13 @@ async function init() {
   renderSearch();
   syncCampaignLayersFromScope();
   setSelectedTab(state.selectedTab);
+  renderTutorial();
   state.persistenceReady = true;
   savePreferencesNow();
 }
 
 setupInfoButtons();
+setupTutorial();
 setupResizableMenus();
 els.tabMapBtn?.addEventListener("click", () => setSelectedTab("map"));
 els.tabCampaignBtn?.addEventListener("click", () => setSelectedTab("campaign"));

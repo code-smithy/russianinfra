@@ -17,6 +17,7 @@ const appSource = fs.readFileSync("web/app.js", "utf8").replace(
 globalThis.__api = {
   attackArrowBearing,
   colorForLayer,
+  TUTORIAL_STEPS,
   state,
   els,
   clearAllCountries,
@@ -65,6 +66,11 @@ globalThis.__api = {
   setCampaignDay,
   setCampaignScope,
   setSelectedTab,
+  startTutorial,
+  closeTutorial,
+  disableTutorial,
+  setTutorialStep,
+  renderTutorial,
   simulateCampaign,
   stepCampaign,
   playCampaign,
@@ -423,6 +429,125 @@ test("feedback prompt links to GitHub issues instead of a local form", () => {
   assert.doesNotMatch(html, /mailto:/i);
 });
 
+test("tutorial launches from the header, steps with buttons, and persists locally", async () => {
+  const html = fs.readFileSync("web/index.html", "utf8");
+  const css = fs.readFileSync("web/styles.css", "utf8");
+  assert.match(html, /id="tutorialBtn"[^>]*>Tutorial<\/button>/);
+  assert.match(css, /\.tutorial-highlight/);
+  assert.match(css, /\.tutorial-card/);
+  assert.doesNotMatch(css, /\.tutorial-command/);
+
+  const first = createAppContext();
+  await first.__initPromise;
+  const api = first.__api;
+
+  api.startTutorial({ restart: true });
+  assert.equal(api.state.tutorial.active, true);
+  assert.equal(api.state.tutorial.disabled, false);
+  assert.equal(api.state.tutorial.stepIndex, 0);
+  assert.equal(api.els.tutorialCard.hidden, false);
+  assert.equal(api.els.tutorialCounter.textContent, `Step 1 of ${api.TUTORIAL_STEPS.length}`);
+  assert.equal(first.document.getElementById("appVersion").classList.contains("tutorial-highlight"), true);
+
+  api.els.tutorialNextBtn.listeners.click[0]();
+  assert.equal(api.state.tutorial.stepIndex, 1);
+  assert.equal(first.document.getElementById("tabMapBtn").classList.contains("tutorial-highlight"), true);
+
+  let saved = JSON.parse(first.localStorage.getItem(STORAGE_KEY));
+  assert.deepEqual(saved.tutorial, { active: true, disabled: false, stepIndex: 1 });
+
+  api.els.tutorialDisableBtn.listeners.click[0]();
+  assert.equal(api.state.tutorial.active, false);
+  assert.equal(api.state.tutorial.disabled, true);
+  assert.equal(api.els.tutorialCard.hidden, true);
+
+  saved = JSON.parse(first.localStorage.getItem(STORAGE_KEY));
+  assert.deepEqual(saved.tutorial, { active: false, disabled: true, stepIndex: 1 });
+
+  const second = createAppContext({ [STORAGE_KEY]: JSON.stringify(saved) });
+  await second.__initPromise;
+  assert.equal(second.__api.state.tutorial.active, false);
+  assert.equal(second.__api.state.tutorial.disabled, true);
+  assert.equal(second.__api.els.tutorialCard.hidden, true);
+});
+
+test("tutorial covers all major map, estimator, and campaign surfaces", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const stepTargets = app.__api.TUTORIAL_STEPS.map((step) => step.targetId);
+  const requiredTargets = [
+    "appVersion",
+    "tabMapBtn",
+    "layersPanel",
+    "countriesPanel",
+    "searchPanel",
+    "radiusMenuPanel",
+    "temporalPanel",
+    "mapView",
+    "fitLoadedBtn",
+    "estimatorPanel",
+    "rangeBandsBlock",
+    "resourceTypesBlock",
+    "categoryAssumptionsBlock",
+    "estimateBlock",
+    "changeReportPanel",
+    "campaignScopeTabs",
+    "campaignSettingsBlock",
+    "campaignLayerAllocationBlock",
+    "campaignCapacityBlock",
+    "campaignSupplyBlock",
+    "campaignCostsBlock",
+    "campaignProfilesBlock",
+    "campaignPlayer",
+    "campaignDashboard",
+    "campaignDailyTable",
+  ];
+
+  for (const targetId of requiredTargets) {
+    assert.ok(stepTargets.includes(targetId), `missing tutorial target ${targetId}`);
+  }
+});
+
+test("tutorial steps switch views and expand the highlighted workflow panel", async () => {
+  const app = createAppContext();
+  await app.__initPromise;
+  const api = app.__api;
+  const stepIndex = (id) => {
+    const index = api.TUTORIAL_STEPS.findIndex((step) => step.id === id);
+    assert.notEqual(index, -1, `missing tutorial step ${id}`);
+    return index;
+  };
+
+  api.setLayersPanelCollapsed(true);
+  api.setTutorialStep(stepIndex("layers"));
+  assert.equal(api.els.layersPanelBody.hidden, false);
+  assert.equal(app.document.getElementById("layersPanel").classList.contains("tutorial-highlight"), true);
+
+  api.setTutorialStep(stepIndex("campaignScope"));
+  assert.equal(api.state.selectedTab, "campaign");
+  assert.equal(api.els.mapView.hidden, true);
+  assert.equal(api.els.campaignView.hidden, false);
+  assert.equal(app.document.getElementById("campaignScopeTabs").classList.contains("tutorial-highlight"), true);
+
+  api.setChangeReportPanelCollapsed(true);
+  api.setTutorialStep(stepIndex("changeReport"));
+  assert.equal(api.state.selectedTab, "map");
+  assert.equal(api.els.changeReportPanelBody.hidden, false);
+  assert.equal(app.document.getElementById("changeReportPanel").classList.contains("tutorial-highlight"), true);
+
+  api.setEstimatorBlockCollapsed("resourceTypes", true);
+  api.setTutorialStep(stepIndex("resourceTypes"));
+  assert.equal(api.els.estimatorPanelBody.hidden, false);
+  assert.equal(api.els.resourceTypesBody.hidden, false);
+  assert.equal(app.document.getElementById("resourceTypesBlock").classList.contains("tutorial-highlight"), true);
+
+  api.setCampaignBlockCollapsed("campaignSupply", true);
+  api.setTutorialStep(stepIndex("campaignSupply"));
+  assert.equal(api.state.selectedTab, "campaign");
+  assert.equal(api.els.campaignSupplyBody.hidden, false);
+  assert.equal(app.document.getElementById("campaignSupplyBlock").classList.contains("tutorial-highlight"), true);
+});
+
 test("campaign input masks have matching information explanations", () => {
   const html = fs.readFileSync("web/index.html", "utf8");
   const js = fs.readFileSync("web/app.js", "utf8");
@@ -459,15 +584,17 @@ test("campaign input masks have matching information explanations", () => {
   assert.match(js, /campaignScope: \{[\s\S]*overlap memberships are delayed/);
 });
 
-test("version metadata includes the multi-area campaign release", () => {
+test("version metadata includes the tutorial release", () => {
   const html = fs.readFileSync("web/index.html", "utf8");
   const js = fs.readFileSync("web/app.js", "utf8");
   const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
 
-  assert.equal(packageJson.version, "0.17.0");
-  assert.match(js, /const APP_VERSION = "0\.17\.0"/);
+  assert.equal(packageJson.version, "0.18.0");
+  assert.match(js, /const APP_VERSION = "0\.18\.0"/);
+  assert.match(js, /comprehensive, locally persisted tutorial overlay/);
   assert.match(js, /re-engagement-aware deconfliction/);
-  assert.match(html, /id="appVersion"[^>]*>v0\.17\.0</);
+  assert.match(html, /id="appVersion"[^>]*>v0\.18\.0</);
+  assert.match(js, /version: "0\.18\.0"[\s\S]*Tutorial button/);
   assert.match(js, /version: "0\.17\.0"[\s\S]*Action Areas/);
   assert.match(js, /version: "0\.16\.0"[\s\S]*higher-range bands/);
   assert.match(js, /version: "0\.15\.0"[\s\S]*Adds resource penetration and category hardness inputs/);

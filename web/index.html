@@ -29,15 +29,18 @@
           <div>
             <div class="app-title-row">
               <h1>Infrastructure Explorer</h1>
-              <span id="appVersion" class="app-version" aria-label="Application version">v0.17.0</span>
+              <span id="appVersion" class="app-version" aria-label="Application version">v0.18.0</span>
               <button id="appInfoBtn" class="info-btn" type="button" data-info-topic="app" aria-label="Version history" aria-controls="infoPopover" aria-expanded="false"><span aria-hidden="true">i</span></button>
               <span class="feedback-issue-note">Feedback: <a href="https://github.com/code-smithy/russianinfra/issues/new" target="_blank" rel="noopener noreferrer">open a GitHub issue</a></span>
             </div>
             <p id="datasetSummary">Loading manifest...</p>
           </div>
-          <button id="fitLoadedBtn" class="icon-btn" type="button" title="Fit loaded layers" aria-label="Fit loaded layers">
-            <span aria-hidden="true">&#8982;</span>
-          </button>
+          <div class="header-actions">
+            <button id="tutorialBtn" class="text-btn tutorial-launch-btn" type="button" aria-expanded="false">Tutorial</button>
+            <button id="fitLoadedBtn" class="icon-btn" type="button" title="Fit loaded layers" aria-label="Fit loaded layers">
+              <span aria-hidden="true">&#8982;</span>
+            </button>
+          </div>
         </header>
 
         <section id="layersPanel" class="panel">
