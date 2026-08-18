@@ -80,6 +80,7 @@ test("estimatorExportRows appends range, resource, and grand totals", () => {
     item_count: "",
     units_per_item: "",
     category_hardness: "",
+    category_reengagement_days: "",
     resource_id: "",
     resource_label: "",
     completion_rate_percent: "",

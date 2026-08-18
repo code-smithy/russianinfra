@@ -102,6 +102,7 @@ const DEFAULT_ESTIMATOR_ASSUMPTIONS = {
   ],
   categoryRequirements: {},
   categoryHardness: {},
+  categoryReengagementDays: {},
   profiles: [],
   summaryDisplay: {
     compactTotals: false,
@@ -238,6 +239,7 @@ const INFO_TOPICS = {
       "Defines the assumption for how many effectors are needed per target in each layer/category.",
       "This factor is multiplied by the number of targets in the radius before the survivability correction is applied.",
       "Hardness is compared against resource penetration in Campaign simulation. Targets whose layer hardness is greater than or equal to the available resource penetration are deferred.",
+      "Re-engagement days controls how many days after a successful attack a target in that category is queued again to prevent repair during the campaign. A value of 0 keeps a target complete after one successful attack.",
     ],
   },
   estimate: {
@@ -1239,6 +1241,7 @@ function estimatorProfileSnapshot(name) {
     })),
     categoryRequirements: { ...state.estimator.categoryRequirements },
     categoryHardness: { ...state.estimator.categoryHardness },
+    categoryReengagementDays: { ...state.estimator.categoryReengagementDays },
   };
 }
 
@@ -1255,6 +1258,7 @@ function normalizeEstimatorProfiles(savedProfiles) {
       resources: item?.resources,
       categoryRequirements: item?.categoryRequirements,
       categoryHardness: item?.categoryHardness,
+      categoryReengagementDays: item?.categoryReengagementDays,
     });
     profiles.push({
       id,
@@ -1268,6 +1272,7 @@ function normalizeEstimatorProfiles(savedProfiles) {
       })),
       categoryRequirements: { ...normalized.categoryRequirements },
       categoryHardness: { ...normalized.categoryHardness },
+      categoryReengagementDays: { ...normalized.categoryReengagementDays },
     });
     seen.add(id);
   }
@@ -1307,6 +1312,7 @@ function normalizeEstimatorAssumptions(saved) {
 
   const categoryRequirements = {};
   const categoryHardness = {};
+  const categoryReengagementDays = {};
   const savedRequirements = saved?.categoryRequirements && typeof saved.categoryRequirements === "object"
     ? saved.categoryRequirements
     : {};
@@ -1318,6 +1324,12 @@ function normalizeEstimatorAssumptions(saved) {
     : {};
   for (const [layerId, value] of Object.entries(savedHardness)) {
     categoryHardness[layerId] = boundedNumber(value, 0, 0, 1000000);
+  }
+  const savedReengagementDays = saved?.categoryReengagementDays && typeof saved.categoryReengagementDays === "object"
+    ? saved.categoryReengagementDays
+    : {};
+  for (const [layerId, value] of Object.entries(savedReengagementDays)) {
+    categoryReengagementDays[layerId] = Math.round(boundedNumber(value, 0, 0, 1000000));
   }
 
   const savedSummaryDisplay = saved?.summaryDisplay && typeof saved.summaryDisplay === "object"
@@ -1344,6 +1356,7 @@ function normalizeEstimatorAssumptions(saved) {
     resources,
     categoryRequirements,
     categoryHardness,
+    categoryReengagementDays,
     profiles: normalizeEstimatorProfiles(saved?.profiles),
     summaryDisplay,
   };
@@ -1361,6 +1374,7 @@ function serializeEstimatorAssumptions() {
     })),
     categoryRequirements: { ...state.estimator.categoryRequirements },
     categoryHardness: { ...state.estimator.categoryHardness },
+    categoryReengagementDays: { ...state.estimator.categoryReengagementDays },
     profiles: state.estimator.profiles.map((profile) => ({
       id: profile.id,
       name: profile.name,
@@ -1373,6 +1387,7 @@ function serializeEstimatorAssumptions() {
       })),
       categoryRequirements: { ...profile.categoryRequirements },
       categoryHardness: { ...profile.categoryHardness },
+      categoryReengagementDays: { ...profile.categoryReengagementDays },
     })),
     summaryDisplay: { ...state.estimator.summaryDisplay },
   };
@@ -1477,6 +1492,16 @@ function setCategoryHardness(layerId, value) {
   markCampaignAssumptionsChanged();
 }
 
+function categoryReengagementDays(layerId) {
+  return Math.round(boundedNumber(state.estimator.categoryReengagementDays?.[layerId], 0, 0, 1000000));
+}
+
+function setCategoryReengagementDays(layerId, value) {
+  if (!state.estimator.categoryReengagementDays) state.estimator.categoryReengagementDays = {};
+  state.estimator.categoryReengagementDays[layerId] = Math.round(boundedNumber(value, 0, 0, 1000000));
+  markCampaignAssumptionsChanged();
+}
+
 function adjustCategoryRequirement(layerId, delta) {
   setCategoryRequirement(layerId, categoryRequirement(layerId) + delta);
 }
@@ -1544,6 +1569,7 @@ function estimatorDetailRows() {
   for (const group of groups) {
     const unitsPerItem = categoryRequirement(group.layerId);
     const hardness = categoryHardness(group.layerId);
+    const reengagementDays = categoryReengagementDays(group.layerId);
     for (let bandIndex = 0; bandIndex < bands.length; bandIndex += 1) {
       const band = bands[bandIndex];
       const bandSummary = group.bands.get(band.id);
@@ -1558,6 +1584,7 @@ function estimatorDetailRows() {
           item_count: bandSummary.count,
           units_per_item: unitsPerItem,
           category_hardness: hardness,
+          category_reengagement_days: reengagementDays,
           resource_id: resource.id,
           resource_label: resource.label,
           completion_rate_percent: resource.completionRate,
@@ -1663,6 +1690,7 @@ function estimatorExportRows() {
         item_count: "",
         units_per_item: "",
         category_hardness: "",
+        category_reengagement_days: "",
         resource_id: resource.id,
         resource_label: resource.label,
         completion_rate_percent: "",
@@ -1681,6 +1709,7 @@ function estimatorExportRows() {
       item_count: "",
       units_per_item: "",
       category_hardness: "",
+      category_reengagement_days: "",
       resource_id: resource.id,
       resource_label: resource.label,
       completion_rate_percent: "",
@@ -1697,6 +1726,7 @@ function estimatorExportRows() {
     item_count: "",
     units_per_item: "",
     category_hardness: "",
+    category_reengagement_days: "",
     resource_id: "",
     resource_label: "",
     completion_rate_percent: "",
@@ -3522,11 +3552,14 @@ function renderCategoryAssumptions() {
     if (!Object.prototype.hasOwnProperty.call(state.estimator.categoryHardness, layerInfo.id)) {
       state.estimator.categoryHardness[layerInfo.id] = 0;
     }
+    if (!Object.prototype.hasOwnProperty.call(state.estimator.categoryReengagementDays, layerInfo.id)) {
+      state.estimator.categoryReengagementDays[layerInfo.id] = 0;
+    }
     const row = document.createElement("div");
     row.className = "estimator-row category-assumption-row";
     const label = document.createElement("span");
     label.className = "estimator-label";
-    label.innerHTML = `<strong>${escapeHtml(layerInfo.label)}</strong><span>Units / hardness</span>`;
+    label.innerHTML = `<strong>${escapeHtml(layerInfo.label)}</strong><span>Units / hardness / days</span>`;
     const input = document.createElement("input");
     input.type = "number";
     input.min = "0";
@@ -3543,7 +3576,15 @@ function renderCategoryAssumptions() {
     hardnessInput.inputMode = "numeric";
     hardnessInput.value = String(categoryHardness(layerInfo.id));
     hardnessInput.setAttribute("aria-label", `${layerInfo.label} hardness value`);
-    row.append(label, input, hardnessInput);
+    const reengagementInput = document.createElement("input");
+    reengagementInput.type = "number";
+    reengagementInput.min = "0";
+    reengagementInput.max = "1000000";
+    reengagementInput.step = "1";
+    reengagementInput.inputMode = "numeric";
+    reengagementInput.value = String(categoryReengagementDays(layerInfo.id));
+    reengagementInput.setAttribute("aria-label", `${layerInfo.label} re-engagement days`);
+    row.append(label, input, hardnessInput, reengagementInput);
     els.categoryAssumptionsList.appendChild(row);
 
     input.addEventListener("input", () => {
@@ -3553,6 +3594,10 @@ function renderCategoryAssumptions() {
     });
     hardnessInput.addEventListener("input", () => {
       setCategoryHardness(layerInfo.id, hardnessInput.value);
+      queueSavePreferences();
+    });
+    reengagementInput.addEventListener("input", () => {
+      setCategoryReengagementDays(layerInfo.id, reengagementInput.value);
       queueSavePreferences();
     });
   }
@@ -3614,11 +3659,13 @@ function loadEstimatorProfile() {
     resources: profile.resources,
     categoryRequirements: profile.categoryRequirements,
     categoryHardness: profile.categoryHardness,
+    categoryReengagementDays: profile.categoryReengagementDays,
   });
   state.estimator.rangeBands = normalized.rangeBands;
   state.estimator.resources = normalized.resources;
   state.estimator.categoryRequirements = normalized.categoryRequirements;
   state.estimator.categoryHardness = normalized.categoryHardness;
+  state.estimator.categoryReengagementDays = normalized.categoryReengagementDays;
   renderRangeBands();
   refreshRadiusRangeOverlay();
   renderResourceTypes();
@@ -4714,6 +4761,7 @@ function simulateCampaign(settings = state.campaign) {
     (entriesByLayer[layerId] ||= []).push({ item, layerId, bandId: targetBandId(item) });
   }
   const remainingQueues = Object.fromEntries(Object.entries(entriesByLayer).map(([id, rows]) => [id, rows.slice()]));
+  let scheduledReengagements = [];
   const totalEntries = campaignScopeEntries().length;
   let stock = cloneBandResourceMap(settings.initialStockByBand);
   const cumLayer = {};
@@ -4721,8 +4769,44 @@ function simulateCampaign(settings = state.campaign) {
   let cumulativeIds = [];
   const days = [];
   let warning = "";
-  const remainingCounts = () => Object.fromEntries(Object.entries(remainingQueues).map(([id, rows]) => [id, rows.length]));
-  for (let dayIndex = 0; dayIndex < settings.maxSimulationDays && Object.values(remainingCounts()).some((value) => value > 0); dayIndex += 1) {
+  const queuedCounts = () => Object.fromEntries(Object.entries(remainingQueues).map(([id, rows]) => [id, rows.length]));
+  const scheduledCounts = () => {
+    const counts = {};
+    for (const item of scheduledReengagements) counts[item.entry.layerId] = (counts[item.entry.layerId] || 0) + 1;
+    return counts;
+  };
+  const remainingCounts = () => {
+    const counts = queuedCounts();
+    for (const [layerId, count] of Object.entries(scheduledCounts())) counts[layerId] = (counts[layerId] || 0) + count;
+    return counts;
+  };
+  const hasRemaining = () => Object.values(remainingCounts()).some((value) => value > 0);
+  const releaseReengagements = (dayIndex) => {
+    const future = [];
+    for (const item of scheduledReengagements) {
+      if (item.dayIndex <= dayIndex) {
+        (remainingQueues[item.entry.layerId] ||= []).push(item.entry);
+      } else {
+        future.push(item);
+      }
+    }
+    scheduledReengagements = future;
+  };
+  const scheduleReengagement = (entry, dayIndex) => {
+    const delay = categoryReengagementDays(entry.layerId);
+    if (delay <= 0) return;
+    const nextDayIndex = dayIndex + delay;
+    if (nextDayIndex >= settings.maxSimulationDays) return;
+    scheduledReengagements.push({ dayIndex: nextDayIndex, entry });
+  };
+  const incrementRemainingLayerBandCounts = (map, layerId, rows) => {
+    for (const entry of rows) incrementLayerBandCount(map, layerId, entry.bandId);
+  };
+  const incrementRemainingBandCounts = (map, rows) => {
+    for (const entry of rows) incrementBandCount(map, entry.bandId);
+  };
+  for (let dayIndex = 0; dayIndex < settings.maxSimulationDays && hasRemaining(); dayIndex += 1) {
+    releaseReengagements(dayIndex);
     const date = addDays(settings.startDate, dayIndex);
     const starting = cloneBandResourceMap(stock);
     const prod = emptyBandResourceMap(0);
@@ -4736,7 +4820,7 @@ function simulateCampaign(settings = state.campaign) {
     stock = cloneBandResourceMap(available);
     const fire = cloneBandResourceMap(settings.fireCapacityPerDayByBand);
     const fireRem = cloneBandResourceMap(fire);
-    const quotas = settings.allocationMode === "sequential" ? buildSequentialLayerQuotas(remainingCounts(), settings) : buildWeightedLayerQuotas(remainingCounts(), settings);
+    const quotas = settings.allocationMode === "sequential" ? buildSequentialLayerQuotas(queuedCounts(), settings) : buildWeightedLayerQuotas(queuedCounts(), settings);
     const reqDemand = emptyBandResourceMap(0);
     const exp = emptyBandResourceMap(0);
     const substitutionIn = emptyBandResourceMap(0);
@@ -4789,6 +4873,7 @@ function simulateCampaign(settings = state.campaign) {
           cumLayer[layerId] = (cumLayer[layerId] || 0) + 1;
           executedIds.push(featureEntryId(entry.item));
           applyConsumptionPlan(plan, entry.bandId, layerId, stock, fireRem, { exp, expByLayerBand, substitutionIn, substitutionOut, substitutionInByLayerBand, substitutionOutByLayerBand, resourceAllocations, unitCosts: settings.resourceUnitCostByBand });
+          scheduleReengagement(entry, dayIndex);
           notes.push(...plan.notes);
         } else {
           deferred[layerId] = (deferred[layerId] || 0) + 1;
@@ -4805,10 +4890,12 @@ function simulateCampaign(settings = state.campaign) {
     const remainingByLayerBand = {};
     const remainingByBand = {};
     for (const [layerId, rows] of Object.entries(remainingQueues)) {
-      for (const entry of rows) {
-        incrementLayerBandCount(remainingByLayerBand, layerId, entry.bandId);
-        incrementBandCount(remainingByBand, entry.bandId);
-      }
+      incrementRemainingLayerBandCounts(remainingByLayerBand, layerId, rows);
+      incrementRemainingBandCounts(remainingByBand, rows);
+    }
+    for (const item of scheduledReengagements) {
+      incrementRemainingLayerBandCounts(remainingByLayerBand, item.entry.layerId, [item.entry]);
+      incrementRemainingBandCounts(remainingByBand, [item.entry]);
     }
     cumulativeIds = cumulativeIds.concat(executedIds);
     for (const bandId of campaignBandIds()) {
@@ -4864,7 +4951,7 @@ function simulateCampaign(settings = state.campaign) {
       deferredFeatureIds: deferredIds,
       cumulativeExecutedFeatureIds: cumulativeIds.slice(),
       cumulativeExecutedByLayer: { ...cumLayer },
-      blocked: executedIds.length === 0,
+      blocked: executedIds.length === 0 && Object.values(queuedCounts()).some((value) => value > 0),
       notes,
     });
   }
@@ -5234,6 +5321,7 @@ function buildEstimatorCsv() {
     "item_count",
     "units_per_item",
     "category_hardness",
+    "category_reengagement_days",
     "resource_id",
     "resource_label",
     "completion_rate_percent",

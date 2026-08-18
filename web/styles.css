@@ -983,7 +983,7 @@ input {
 }
 
 .estimator-row.category-assumption-row {
-  grid-template-columns: minmax(0, 1fr) 70px 70px;
+  grid-template-columns: minmax(0, 1fr) 64px 64px 64px;
 }
 
 .estimator-row:hover {
