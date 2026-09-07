@@ -1639,7 +1639,7 @@ function queueSavePreferences() {
 function numberFmt(value, digits = 1) {
   const n = Number(value);
   if (!Number.isFinite(n)) return "";
-  return n.toLocaleString(undefined, { maximumFractionDigits: digits });
+  return n.toLocaleString("de-DE", { maximumFractionDigits: digits });
 }
 function wholeNumberFmt(value) {
   return numberFmt(value, 0);
