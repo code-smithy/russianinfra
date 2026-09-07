@@ -2187,7 +2187,7 @@ test("campaign layer allocation uses numeric priority and allocation inputs", as
   assert.deepEqual(JSON.parse(JSON.stringify(api.campaignLayerSummaries().map((layer) => layer.id))), ["energy_facilities", "military_sites"]);
 
   priorityInput.value = "2";
-  priorityInput.listeners.change[0]({ target: priorityInput });
+  priorityInput.onchange({ target: priorityInput });
 
   assert.deepEqual(JSON.parse(JSON.stringify(api.state.campaign.layerPriorityOrder)), ["military_sites", "energy_facilities"]);
   assert.deepEqual(JSON.parse(JSON.stringify(api.campaignLayerSummaries().map((layer) => layer.id))), ["military_sites", "energy_facilities"]);
@@ -2195,7 +2195,7 @@ test("campaign layer allocation uses numeric priority and allocation inputs", as
   const updatedRows = api.els.campaignLayerAllocation.children;
   const updatedAllocationInput = updatedRows[1].children[2].children[0];
   updatedAllocationInput.value = "7";
-  updatedAllocationInput.listeners.change[0]({ target: updatedAllocationInput });
+  updatedAllocationInput.onchange({ target: updatedAllocationInput });
   assert.equal(api.state.campaign.layerWeights.energy_facilities, 7);
 });
 

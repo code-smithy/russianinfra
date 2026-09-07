@@ -5900,6 +5900,46 @@ function updateCampaignHigherBandPriority(bandId, value) {
   renderCampaign();
   queueSavePreferences();
 }
+// Dots group thousands; commas separate fractional values in campaign inputs.
+function formatCampaignInputNumber(value) {
+  const [whole, fraction] = String(value).split(".");
+  return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + (fraction === undefined ? "" : `,${fraction}`);
+}
+
+function parseCampaignInputNumber(value) {
+  const text = String(value).trim();
+  if (!/^-?(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d+)?$/.test(text)) return NaN;
+  const number = Number(text.replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(number) ? number : NaN;
+}
+
+function formatCampaignNumberInputs(container) {
+  container.querySelectorAll('input[type="number"]').forEach((input) => {
+    const onChange = input.onchange;
+    input.type = "text";
+    input.inputMode = "decimal";
+    input.title = "Use dots for thousands and a comma for decimals (1.000,50).";
+    input.value = formatCampaignInputNumber(input.value);
+    input.oninput = () => input.setCustomValidity("");
+    input.onchange = (event) => {
+      const value = parseCampaignInputNumber(input.value);
+      if (!Number.isFinite(value)) {
+        input.setCustomValidity("Enter a number such as 1.000 or 1.000,50.");
+        input.reportValidity();
+        return;
+      }
+      input.setCustomValidity("");
+      // Existing handlers receive a canonical value and retain their bounds.
+      input.value = String(value);
+      try {
+        onChange?.call(input, event);
+      } finally {
+        input.value = formatCampaignInputNumber(input.value);
+      }
+    };
+  });
+}
+
 function renderCampaignSettings(){
   if(!els.campaignSettings) return;
   const s=state.campaign;
@@ -5930,6 +5970,7 @@ function renderCampaignSettings(){
     const bandPriorityInput = document.getElementById(`higherBandPriority_${band.id}`);
     if (bandPriorityInput) bandPriorityInput.onchange = e => updateCampaignHigherBandPriority(band.id, e.target.value);
   }
+  formatCampaignNumberInputs(els.campaignSettings);
 }
 function renderCampaignLayerAllocation(){
   if(!els.campaignLayerAllocation) return;
@@ -5955,7 +5996,7 @@ function renderCampaignLayerAllocation(){
     priorityInput.step="1";
     priorityInput.value=String(idx+1);
     priorityInput.setAttribute("aria-label", `${layer.label} priority`);
-    priorityInput.addEventListener("change",(event)=>updateCampaignLayerPriority(layer.id,event.target.value));
+    priorityInput.onchange=(event)=>updateCampaignLayerPriority(layer.id,event.target.value);
     priorityLabel.appendChild(priorityInput);
     const weightLabel=document.createElement("label");
     weightLabel.textContent="Allocation";
@@ -5965,11 +6006,12 @@ function renderCampaignLayerAllocation(){
     weightInput.step="1";
     weightInput.value=String(state.campaign.layerWeights[layer.id] ?? 0);
     weightInput.setAttribute("aria-label", `${layer.label} allocation weight`);
-    weightInput.addEventListener("change",(event)=>updateCampaignSetting(`layerWeights.${layer.id}`,event.target.value));
+    weightInput.onchange=(event)=>updateCampaignSetting(`layerWeights.${layer.id}`,event.target.value);
     weightLabel.appendChild(weightInput);
     row.append(meta,priorityLabel,weightLabel);
     els.campaignLayerAllocation.appendChild(row);
   });
+  formatCampaignNumberInputs(els.campaignLayerAllocation);
 }
 function renderCampaignCapacity(){
   if(!els.campaignCapacity) return;
@@ -5982,6 +6024,7 @@ function renderCampaignCapacity(){
   els.campaignCapacity.innerHTML=`<label>Command capacity per day <input id="campaignCommandCapacity" type="number" min="0" step="1" value="${state.campaign.commandCapacityPerDay}"></label>${bandGroups || '<div class="empty-state">No range bands configured.</div>'}`;
   document.getElementById('campaignCommandCapacity').onchange=e=>updateCampaignSetting('commandCapacityPerDay',e.target.value);
   els.campaignCapacity.querySelectorAll('[data-fire-band]').forEach((input)=>input.onchange=(event)=>updateCampaignSetting(`fireCapacityPerDayByBand.${event.target.dataset.fireBand}.${event.target.dataset.fireResource}`,event.target.value));
+  formatCampaignNumberInputs(els.campaignCapacity);
 }
 function renderCampaignSupply(){
   if(!els.campaignSupply) return;
@@ -5995,6 +6038,7 @@ function renderCampaignSupply(){
   els.campaignSupply.innerHTML=groups || '<div class="empty-state">No range bands configured.</div>';
   els.campaignSupply.querySelectorAll('[data-stock-band]').forEach((input)=>input.onchange=(event)=>updateCampaignSetting(`initialStockByBand.${event.target.dataset.stockBand}.${event.target.dataset.stockResource}`,event.target.value));
   els.campaignSupply.querySelectorAll('[data-prod-band]').forEach((input)=>input.onchange=(event)=>updateCampaignSetting(`productionMonthlyByBand.${event.target.dataset.prodBand}.${event.target.dataset.prodResource}`,event.target.value));
+  formatCampaignNumberInputs(els.campaignSupply);
 }
 function renderCampaignCosts(){
   if(!els.campaignCosts) return;
@@ -6008,6 +6052,7 @@ function renderCampaignCosts(){
   `).join("");
   els.campaignCosts.innerHTML=groups || '<div class="empty-state">No range bands configured.</div>';
   els.campaignCosts.querySelectorAll('[data-cost-band]').forEach((input)=>input.onchange=(event)=>updateCampaignUnitCost(event.target.dataset.costBand,event.target.dataset.costResource,event.target.value));
+  formatCampaignNumberInputs(els.campaignCosts);
 }
 function renderCampaignDashboard(){
   if(!els.campaignDashboard) return;
