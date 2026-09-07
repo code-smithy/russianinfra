@@ -1448,7 +1448,7 @@ async function loadDataJson(file) {
 function changeStat(label, value, className = "") {
   return `
     <div class="change-stat ${className}">
-      <strong>${Number(value || 0).toLocaleString()}</strong>
+      <strong>${Number(value || 0).toLocaleString("de-DE")}</strong>
       <span>${escapeHtml(label)}</span>
     </div>
   `;
@@ -2054,7 +2054,7 @@ function estimateUnits(count, unitsPerItem, completionRate) {
 }
 
 function formatEstimatedUnits(value) {
-  return Number.isFinite(value) ? value.toLocaleString() : "n/a";
+  return Number.isFinite(value) ? value.toLocaleString("de-DE") : "n/a";
 }
 
 function addEstimatedUnits(current, value) {
@@ -2940,7 +2940,7 @@ function externalLayerMeta(layerInfo) {
   const dateLabel = formattedExternalDate(metadata);
   const parts = [dateLabel ? `Date: ${dateLabel}` : "Date unavailable"];
   if (Number.isFinite(Number(layerInfo.count)) && Number(layerInfo.count) > 0) {
-    parts.push(`${Number(layerInfo.count).toLocaleString()} records`);
+    parts.push(`${Number(layerInfo.count).toLocaleString("de-DE")} records`);
   }
   return parts.join(" | ");
 }
@@ -3336,10 +3336,10 @@ function renderSelectionCounts() {
     const checkbox = state.layerControls.get(layerInfo.id);
     return checkbox?.checked || checkbox?.indeterminate;
   }).length;
-  els.layersCount.textContent = `${selectedLayers.toLocaleString()} of ${layers.length.toLocaleString()} selected`;
+  els.layersCount.textContent = `${selectedLayers.toLocaleString("de-DE")} of ${layers.length.toLocaleString("de-DE")} selected`;
 
   const countries = Array.isArray(state.manifest?.countries) ? state.manifest.countries : [];
-  els.countriesCount.textContent = `${state.countryFilters.size.toLocaleString()} of ${countries.length.toLocaleString()} selected`;
+  els.countriesCount.textContent = `${state.countryFilters.size.toLocaleString("de-DE")} of ${countries.length.toLocaleString("de-DE")} selected`;
 }
 
 function updateLayerCheckboxState(layerInfo) {
@@ -3444,7 +3444,7 @@ async function renderLayers() {
     name.className = "layer-name";
     const layerMeta = isExternalLayerInfo(layerInfo)
       ? externalLayerMeta(layerInfo)
-      : `${layerInfo.count.toLocaleString()} records`;
+      : `${layerInfo.count.toLocaleString("de-DE")} records`;
     name.innerHTML = `<strong>${escapeHtml(layerInfo.label)}</strong><span>${escapeHtml(layerMeta)}</span>`;
     row.append(toggleButton, checkbox, name, swatch);
     els.layersList.appendChild(row);
@@ -3465,7 +3465,7 @@ async function renderLayers() {
         subCheckbox.dataset.subcategoryId = subcategory.id;
         subcategoryControls.push(subCheckbox);
         const subName = document.createElement("span");
-        subName.textContent = `${subcategory.label} (${subcategory.count.toLocaleString()})`;
+        subName.textContent = `${subcategory.label} (${subcategory.count.toLocaleString("de-DE")})`;
         subRow.append(subCheckbox, subName);
         subcategoryList.appendChild(subRow);
         subCheckbox.addEventListener("change", () => handleSubcategoryChange(layerInfo, row));
@@ -3544,7 +3544,7 @@ function renderCountries() {
     checkbox.checked = state.countryFilters.has(country.id);
     const name = document.createElement("span");
     name.className = "country-name";
-    name.innerHTML = `<strong>${escapeHtml(country.label)}</strong><span>${country.count.toLocaleString()} records &bull; ${Number(country.point_count || 0).toLocaleString()} points</span>`;
+    name.innerHTML = `<strong>${escapeHtml(country.label)}</strong><span>${country.count.toLocaleString("de-DE")} records &bull; ${Number(country.point_count || 0).toLocaleString("de-DE")} points</span>`;
     row.append(checkbox, name);
     els.countriesList.appendChild(row);
     state.countryControls.set(country.id, checkbox);
@@ -3631,7 +3631,7 @@ function syncOverlaysWithVisibleLayers() {
 function renderLoadedCount() {
   const loaded = [...state.features.values()].filter((stored) => stored.point).length;
   const visible = loadedVisibleFeatures().length;
-  els.loadedCount.textContent = `${visible.toLocaleString()} visible / ${loaded.toLocaleString()} loaded`;
+  els.loadedCount.textContent = `${visible.toLocaleString("de-DE")} visible / ${loaded.toLocaleString("de-DE")} loaded`;
 }
 
 function renderSearch() {
@@ -4568,7 +4568,7 @@ function renderDetailedEstimatorCards(detailRows) {
     const subcategories = [...group.subcategories.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
-      .map(([label, count]) => `${label}: ${count.toLocaleString()}`)
+      .map(([label, count]) => `${label}: ${count.toLocaleString("de-DE")}`)
       .join(" / ");
     const resourceLines = state.estimator.resources.map((resource) => `
       <div class="estimate-line">
@@ -4580,14 +4580,14 @@ function renderDetailedEstimatorCards(detailRows) {
       .map((band, index) => {
         const summary = group.bands.get(band.id);
         if (!summary) return "";
-        return `${escapeHtml(rangeBandLabel(band, index, bands))}: ${summary.count.toLocaleString()}`;
+        return `${escapeHtml(rangeBandLabel(band, index, bands))}: ${summary.count.toLocaleString("de-DE")}`;
       })
       .filter(Boolean)
       .join(" / ");
     card.innerHTML = `
       <div class="estimate-card-header">
         <strong>${escapeHtml(group.label)}</strong>
-        <span class="estimate-count">${group.count.toLocaleString()}</span>
+        <span class="estimate-count">${group.count.toLocaleString("de-DE")}</span>
       </div>
       <span>Category factor: ${numberFmt(unitsPerItem, 2)} per item</span>
       <span>Hardness: ${numberFmt(categoryHardness(group.layerId), 2)}</span>
@@ -4604,7 +4604,7 @@ function renderEstimatorResults() {
   const total = state.radiusResults.length;
   const area = activeActionArea();
   els.estimatorSummary.textContent = total
-    ? `${total.toLocaleString()} items`
+    ? `${total.toLocaleString("de-DE")} items`
     : "Draw an area";
   els.estimatorRadiusLabel.textContent = area
     ? `${area.name} / ${numberFmt(area.radiusKm, 1)} km`
@@ -4655,7 +4655,7 @@ function renderActionAreasList() {
   const coverage = actionAreaCoverageSummary();
   const summary = document.createElement("div");
   summary.className = "action-area-overlap-summary";
-  summary.textContent = `${coverage.uniqueCount.toLocaleString()} unique / ${coverage.overlapCount.toLocaleString()} overlapping / ${coverage.duplicateCount.toLocaleString()} duplicate memberships`;
+  summary.textContent = `${coverage.uniqueCount.toLocaleString("de-DE")} unique / ${coverage.overlapCount.toLocaleString("de-DE")} overlapping / ${coverage.duplicateCount.toLocaleString("de-DE")} duplicate memberships`;
   els.actionAreasList.appendChild(summary);
   for (const area of state.actionAreas) {
     const row = document.createElement("div");
@@ -4668,7 +4668,7 @@ function renderActionAreasList() {
     selectButton.className = "action-area-select";
     selectButton.innerHTML = `
       <i class="action-area-swatch" style="background:${area.color}" aria-hidden="true"></i>
-      <span><strong>${escapeHtml(area.name)}</strong><small>${numberFmt(area.radiusKm, 1)} km / ${(area.results || []).length.toLocaleString()} targets</small></span>
+      <span><strong>${escapeHtml(area.name)}</strong><small>${numberFmt(area.radiusKm, 1)} km / ${(area.results || []).length.toLocaleString("de-DE")} targets</small></span>
     `;
     selectButton.addEventListener("click", () => setActiveActionArea(area.id));
 
@@ -4705,7 +4705,7 @@ function renderRadiusResultList() {
     els.radiusSummary.textContent = "0 objects";
     return;
   }
-  els.radiusSummary.textContent = `${state.radiusResults.length.toLocaleString()} objects - ${numberFmt(area.radiusKm, 1)} km - ${area.name}`;
+  els.radiusSummary.textContent = `${state.radiusResults.length.toLocaleString("de-DE")} objects - ${numberFmt(area.radiusKm, 1)} km - ${area.name}`;
   state.radiusHighlightGroup.clearLayers();
   for (const item of state.radiusResults) {
     if (item.stored.point) {
@@ -4726,7 +4726,7 @@ function renderRadiusResultList() {
   if (state.radiusResults.length > renderLimit) {
     const note = document.createElement("div");
     note.className = "muted";
-    note.textContent = `Showing first ${renderLimit.toLocaleString()} here. CSV export includes all ${state.radiusResults.length.toLocaleString()}.`;
+    note.textContent = `Showing first ${renderLimit.toLocaleString("de-DE")} here. CSV export includes all ${state.radiusResults.length.toLocaleString("de-DE")}.`;
     els.radiusResults.appendChild(note);
   }
 }
@@ -6191,19 +6191,19 @@ function renderCampaignScopeTabs() {
     button.type = "button";
     button.className = "campaign-scope-tab";
     button.classList.toggle("active", scope.id === state.campaignScopeId);
-    button.innerHTML = `<i style="background:${scope.color}" aria-hidden="true"></i><span>${escapeHtml(scope.name)}</span><b>${scope.count.toLocaleString()}</b>`;
+    button.innerHTML = `<i style="background:${scope.color}" aria-hidden="true"></i><span>${escapeHtml(scope.name)}</span><b>${scope.count.toLocaleString("de-DE")}</b>`;
     button.addEventListener("click", () => setCampaignScope(scope.id));
     els.campaignScopeTabs.appendChild(button);
   }
   const coverage = actionAreaCoverageSummary();
   const delayedOverlapCount = [...pendingOverlapMembershipsForCombinedScope().values()].reduce((total, rows) => total + rows.length, 0);
   els.campaignCoverageSummary.innerHTML = state.actionAreas.length
-    ? `<span>${coverage.uniqueCount.toLocaleString()} unique targets</span><span>${coverage.overlapCount.toLocaleString()} overlapping targets</span><span>${delayedOverlapCount.toLocaleString()} overlap memberships delayed by re-engagement</span>`
+    ? `<span>${coverage.uniqueCount.toLocaleString("de-DE")} unique targets</span><span>${coverage.overlapCount.toLocaleString("de-DE")} overlapping targets</span><span>${delayedOverlapCount.toLocaleString("de-DE")} overlap memberships delayed by re-engagement</span>`
     : "";
 }
 function renderCampaignPlayer(){ if(!els.campaignPlayer) return; const noScope=!campaignScopeEntries().length, noRun=!state.campaignRun.days.length; const day=campaignSelectedDay(); els.campaignPlayer.innerHTML=`<div class="actions-row"><button id="campaignRunBtn" ${noScope?'disabled':''}>Recalculate / Run simulation</button><button id="campaignResetBtn" ${noRun?'disabled':''}>Reset run</button><button id="campaignPrevBtn" ${noRun?'disabled':''}>Previous</button><button id="campaignPlayBtn" ${state.campaignRun.stale||noRun?'disabled':''}>${state.campaignRun.playing?'Pause':'Play'}</button><button id="campaignNextBtn" ${noRun?'disabled':''}>Next</button></div><input id="campaignDaySlider" type="range" min="0" max="${Math.max(0,state.campaignRun.days.length-1)}" value="${Math.max(0,state.campaignRun.currentDayIndex)}" ${noRun?'disabled':''}><div>${campaignDayLabel(day)} ${state.campaignRun.stale?'<span class="warning">Stale: recalculate required.</span>':''}</div>`; document.getElementById('campaignRunBtn').onclick=recalculateCampaign; document.getElementById('campaignResetBtn').onclick=resetCampaignPlayback; document.getElementById('campaignPrevBtn').onclick=()=>stepCampaign(-1); document.getElementById('campaignNextBtn').onclick=()=>stepCampaign(1); document.getElementById('campaignPlayBtn').onclick=()=>state.campaignRun.playing?pauseCampaign({ render: true }):playCampaign(); document.getElementById('campaignDaySlider').oninput=e=>setCampaignDay(Number(e.target.value)); }
 function updateCampaignExportButtons(){ const disabled=!state.campaignRun.days.length; if(els.exportCampaignTimelineCsvBtn) els.exportCampaignTimelineCsvBtn.disabled=disabled; if(els.exportCampaignTimelineJsonBtn) els.exportCampaignTimelineJsonBtn.disabled=disabled; }
-function renderCampaign(){ state.campaign=normalizeCampaignSettings(state.campaign || state.savedPreferences?.campaign); const scopeEntries=campaignScopeEntries(); if(els.campaignScopeSummary) els.campaignScopeSummary.textContent=`${scopeEntries.length.toLocaleString()} entries from ${campaignScopeLabel()}`; if(els.campaignStatus) els.campaignStatus.textContent=scopeEntries.length?'Campaign scope ready.':'Draw an action area on the map to define the campaign scope.'; renderCampaignScopeTabs(); renderCampaignProfiles(); renderCampaignSettings(); renderCampaignLayerAllocation(); renderCampaignCapacity(); renderCampaignSupply(); renderCampaignCosts(); renderCampaignPlayer(); renderCampaignDashboard(); renderCampaignDailyTable(); updateCampaignExportButtons(); }
+function renderCampaign(){ state.campaign=normalizeCampaignSettings(state.campaign || state.savedPreferences?.campaign); const scopeEntries=campaignScopeEntries(); if(els.campaignScopeSummary) els.campaignScopeSummary.textContent=`${scopeEntries.length.toLocaleString("de-DE")} entries from ${campaignScopeLabel()}`; if(els.campaignStatus) els.campaignStatus.textContent=scopeEntries.length?'Campaign scope ready.':'Draw an action area on the map to define the campaign scope.'; renderCampaignScopeTabs(); renderCampaignProfiles(); renderCampaignSettings(); renderCampaignLayerAllocation(); renderCampaignCapacity(); renderCampaignSupply(); renderCampaignCosts(); renderCampaignPlayer(); renderCampaignDashboard(); renderCampaignDailyTable(); updateCampaignExportButtons(); }
 
 function exportEstimatorAssumptions() {
   const payload = {
@@ -6298,7 +6298,7 @@ async function init() {
   state.manifest = mergeExternalLayerDefinitions(await manifestResponse.json());
   state.changeReport = await loadChangeReport(state.manifest);
   await prepareExternalLayers(state.manifest);
-  els.datasetSummary.textContent = `${state.manifest.total_features.toLocaleString()} normalized records across ${state.manifest.layers.length} layers`;
+  els.datasetSummary.textContent = `${state.manifest.total_features.toLocaleString("de-DE")} normalized records across ${state.manifest.layers.length} layers`;
   applySavedInterfaceState();
   syncTemporalControlsFromState();
   renderChangeReport();
