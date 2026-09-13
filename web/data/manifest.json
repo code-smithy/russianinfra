@@ -1,10 +1,10 @@
 {
   "generated_from": "data/normalized_infrastructure.geojson",
   "change_report_file": "diff_report.json",
-  "total_features": 411772,
+  "total_features": 411803,
   "missing_geometry_count": 340,
   "geometry_counts": {
-    "LineString": 391037,
+    "LineString": 391068,
     "MultiLineString": 145,
     "Point": 20250,
     "missing": 340
@@ -15,10 +15,10 @@
     "military_industrial": 6419,
     "other_infrastructure": 2,
     "power": 44619,
-    "transport": 346342
+    "transport": 346373
   },
   "source_counts": {
-    "geofabrik_osm_roads": 278875,
+    "geofabrik_osm_roads": 278906,
     "nightwatch_map": 5220,
     "osint_varta_archive": 6419,
     "russia_oil_power_map": 113718,
@@ -7564,12 +7564,12 @@
     "un_locode:UAZZO": 1
   },
   "confidence_counts": {
-    "A": 392593,
+    "A": 392624,
     "B": 18839,
     "C": 340
   },
   "coordinate_precision_counts": {
-    "centroid": 391182,
+    "centroid": 391213,
     "exact": 12710,
     "location_centroid": 7540,
     "missing": 340
@@ -7578,19 +7578,19 @@
     {
       "id": "Russia",
       "label": "Russia",
-      "count": 305985,
+      "count": 306008,
       "point_count": 10759
     },
     {
       "id": "Ukraine",
       "label": "Ukraine",
-      "count": 53751,
+      "count": 53758,
       "point_count": 425
     },
     {
       "id": "Belarus",
       "label": "Belarus",
-      "count": 39497,
+      "count": 39498,
       "point_count": 271
     },
     {
@@ -8377,173 +8377,173 @@
       "file_details": [
         {
           "file": "transport_roads_part001.geojson",
-          "size_bytes": 47998390,
+          "size_bytes": 47998501,
           "feature_count": 8839
         },
         {
           "file": "transport_roads_part002.geojson",
-          "size_bytes": 47999923,
-          "feature_count": 8980
+          "size_bytes": 47994963,
+          "feature_count": 8979
         },
         {
           "file": "transport_roads_part003.geojson",
-          "size_bytes": 47999937,
-          "feature_count": 8988
+          "size_bytes": 47995217,
+          "feature_count": 8987
         },
         {
           "file": "transport_roads_part004.geojson",
-          "size_bytes": 47998574,
-          "feature_count": 8959
+          "size_bytes": 47998240,
+          "feature_count": 8958
         },
         {
           "file": "transport_roads_part005.geojson",
-          "size_bytes": 47998949,
+          "size_bytes": 47998617,
           "feature_count": 8944
         },
         {
           "file": "transport_roads_part006.geojson",
-          "size_bytes": 47999555,
-          "feature_count": 8931
+          "size_bytes": 47997893,
+          "feature_count": 8930
         },
         {
           "file": "transport_roads_part007.geojson",
-          "size_bytes": 47997793,
+          "size_bytes": 47995992,
           "feature_count": 8923
         },
         {
           "file": "transport_roads_part008.geojson",
-          "size_bytes": 47995470,
+          "size_bytes": 47996400,
           "feature_count": 8962
         },
         {
           "file": "transport_roads_part009.geojson",
-          "size_bytes": 47999227,
+          "size_bytes": 47999535,
           "feature_count": 8918
         },
         {
           "file": "transport_roads_part010.geojson",
-          "size_bytes": 47997933,
+          "size_bytes": 47997655,
           "feature_count": 8983
         },
         {
           "file": "transport_roads_part011.geojson",
-          "size_bytes": 47996754,
+          "size_bytes": 47997440,
           "feature_count": 9021
         },
         {
           "file": "transport_roads_part012.geojson",
-          "size_bytes": 47994943,
+          "size_bytes": 47996662,
           "feature_count": 9010
         },
         {
           "file": "transport_roads_part013.geojson",
-          "size_bytes": 47996660,
+          "size_bytes": 47996249,
           "feature_count": 9048
         },
         {
           "file": "transport_roads_part014.geojson",
-          "size_bytes": 47995802,
-          "feature_count": 9029
+          "size_bytes": 47998051,
+          "feature_count": 9031
         },
         {
           "file": "transport_roads_part015.geojson",
-          "size_bytes": 47995022,
-          "feature_count": 9003
+          "size_bytes": 47996833,
+          "feature_count": 9002
         },
         {
           "file": "transport_roads_part016.geojson",
-          "size_bytes": 47998719,
-          "feature_count": 9108
+          "size_bytes": 47995089,
+          "feature_count": 9107
         },
         {
           "file": "transport_roads_part017.geojson",
-          "size_bytes": 47997406,
+          "size_bytes": 47997864,
           "feature_count": 9148
         },
         {
           "file": "transport_roads_part018.geojson",
-          "size_bytes": 47998433,
+          "size_bytes": 47996195,
           "feature_count": 9138
         },
         {
           "file": "transport_roads_part019.geojson",
-          "size_bytes": 47997915,
+          "size_bytes": 47998560,
           "feature_count": 9082
         },
         {
           "file": "transport_roads_part020.geojson",
-          "size_bytes": 47997586,
+          "size_bytes": 47997685,
           "feature_count": 9134
         },
         {
           "file": "transport_roads_part021.geojson",
-          "size_bytes": 47999846,
-          "feature_count": 9188
+          "size_bytes": 47997065,
+          "feature_count": 9187
         },
         {
           "file": "transport_roads_part022.geojson",
-          "size_bytes": 47999293,
-          "feature_count": 8850
+          "size_bytes": 47998915,
+          "feature_count": 8852
         },
         {
           "file": "transport_roads_part023.geojson",
-          "size_bytes": 47996450,
-          "feature_count": 8884
+          "size_bytes": 47995852,
+          "feature_count": 8887
         },
         {
           "file": "transport_roads_part024.geojson",
-          "size_bytes": 47998030,
-          "feature_count": 8952
+          "size_bytes": 47997278,
+          "feature_count": 8955
         },
         {
           "file": "transport_roads_part025.geojson",
-          "size_bytes": 47994705,
-          "feature_count": 9063
+          "size_bytes": 47996497,
+          "feature_count": 9067
         },
         {
           "file": "transport_roads_part026.geojson",
-          "size_bytes": 47998195,
-          "feature_count": 9045
+          "size_bytes": 47998085,
+          "feature_count": 9048
         },
         {
           "file": "transport_roads_part027.geojson",
-          "size_bytes": 47999641,
-          "feature_count": 8975
+          "size_bytes": 47999398,
+          "feature_count": 8979
         },
         {
           "file": "transport_roads_part028.geojson",
-          "size_bytes": 47997642,
-          "feature_count": 8988
+          "size_bytes": 47997998,
+          "feature_count": 8991
         },
         {
           "file": "transport_roads_part029.geojson",
-          "size_bytes": 47998910,
-          "feature_count": 9047
+          "size_bytes": 47996889,
+          "feature_count": 9048
         },
         {
           "file": "transport_roads_part030.geojson",
-          "size_bytes": 47996713,
+          "size_bytes": 47997950,
           "feature_count": 9137
         },
         {
           "file": "transport_roads_part031.geojson",
-          "size_bytes": 45273397,
-          "feature_count": 8598
+          "size_bytes": 45340677,
+          "feature_count": 8611
         }
       ],
-      "count": 278875,
+      "count": 278906,
       "point_count": 0,
-      "line_count": 278875,
+      "line_count": 278906,
       "subcategories": [
         {
           "id": "primary",
           "label": "Primary road",
-          "count": 149540
+          "count": 149566
         },
         {
           "id": "trunk",
           "label": "Trunk road",
-          "count": 93917
+          "count": 93921
         },
         {
           "id": "trunk_link",
@@ -8553,7 +8553,7 @@
         {
           "id": "primary_link",
           "label": "Primary road link",
-          "count": 13956
+          "count": 13957
         },
         {
           "id": "motorway",
