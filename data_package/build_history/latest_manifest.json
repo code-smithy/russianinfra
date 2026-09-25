@@ -1,7 +1,7 @@
 {
-  "build_id": "2026-09-24T08:40:02Z",
+  "build_id": "2026-09-25T08:56:03Z",
   "snapshot": "data_package/build_history/latest_change_baseline.geojson.gz",
   "snapshot_type": "compact_change_baseline",
-  "object_count": 412579,
-  "updated_at": "2026-09-24T10:39:19Z"
+  "object_count": 412609,
+  "updated_at": "2026-09-25T10:46:20Z"
 }
